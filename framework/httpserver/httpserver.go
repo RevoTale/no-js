@@ -1,10 +1,12 @@
 package httpserver
 
 import (
+	"compress/gzip"
 	"fmt"
 	"log"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 
 	"blog/framework"
@@ -107,7 +109,7 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 	}
 
 	mux.HandleFunc("/", srv.handleRoute)
-	return mux, nil
+	return withGzipCompression(mux), nil
 }
 
 func (s *server[C]) handleRoute(w http.ResponseWriter, r *http.Request) {
@@ -298,4 +300,129 @@ func setVaryHeader(w http.ResponseWriter, header string) {
 		return value == ""
 	})
 	w.Header().Set("Vary", strings.Join(parts, ", "))
+}
+
+func withGzipCompression(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if next == nil {
+			return
+		}
+		setVaryHeader(w, "Accept-Encoding")
+		if r == nil || r.Method == http.MethodHead || !acceptsGzip(r.Header.Get("Accept-Encoding")) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		gzipWriter := &gzipResponseWriter{
+			ResponseWriter: w,
+			compress:       true,
+		}
+		defer gzipWriter.Close()
+
+		next.ServeHTTP(gzipWriter, r)
+	})
+}
+
+type gzipResponseWriter struct {
+	http.ResponseWriter
+	writer      *gzip.Writer
+	compress    bool
+	wroteHeader bool
+}
+
+func (w *gzipResponseWriter) WriteHeader(statusCode int) {
+	if w.wroteHeader {
+		return
+	}
+	w.wroteHeader = true
+
+	if !w.compress || !isBodyAllowedForStatus(statusCode) {
+		w.compress = false
+		w.ResponseWriter.WriteHeader(statusCode)
+		return
+	}
+
+	header := w.Header()
+	if strings.TrimSpace(header.Get("Content-Encoding")) != "" {
+		w.compress = false
+		w.ResponseWriter.WriteHeader(statusCode)
+		return
+	}
+
+	header.Del("Content-Length")
+	header.Set("Content-Encoding", "gzip")
+	w.ResponseWriter.WriteHeader(statusCode)
+	w.writer = gzip.NewWriter(w.ResponseWriter)
+}
+
+func (w *gzipResponseWriter) Write(content []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	if !w.compress {
+		return w.ResponseWriter.Write(content)
+	}
+	return w.writer.Write(content)
+}
+
+func (w *gzipResponseWriter) Flush() {
+	if !w.compress {
+		if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+			flusher.Flush()
+		}
+		return
+	}
+
+	if w.writer != nil {
+		_ = w.writer.Flush()
+	}
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (w *gzipResponseWriter) Close() error {
+	if !w.compress || w.writer == nil {
+		return nil
+	}
+	return w.writer.Close()
+}
+
+func isBodyAllowedForStatus(statusCode int) bool {
+	if statusCode >= 100 && statusCode < 200 {
+		return false
+	}
+	return statusCode != http.StatusNoContent && statusCode != http.StatusNotModified
+}
+
+func acceptsGzip(headerValue string) bool {
+	for _, part := range strings.Split(headerValue, ",") {
+		token := strings.TrimSpace(part)
+		if token == "" {
+			continue
+		}
+
+		encodingToken := token
+		quality := 1.0
+		if semicolon := strings.Index(token, ";"); semicolon >= 0 {
+			encodingToken = strings.TrimSpace(token[:semicolon])
+			params := strings.Split(token[semicolon+1:], ";")
+			for _, param := range params {
+				param = strings.TrimSpace(param)
+				if !strings.HasPrefix(strings.ToLower(param), "q=") {
+					continue
+				}
+				value := strings.TrimSpace(param[2:])
+				if parsed, err := strconv.ParseFloat(value, 64); err == nil {
+					quality = parsed
+				}
+			}
+		}
+
+		if strings.EqualFold(encodingToken, "gzip") && quality > 0 {
+			return true
+		}
+	}
+
+	return false
 }

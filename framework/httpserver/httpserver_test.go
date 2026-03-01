@@ -1,6 +1,8 @@
 package httpserver
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
 	"io"
@@ -26,6 +28,23 @@ func textComponent(value string) templ.Component {
 		_, err := io.WriteString(w, value)
 		return err
 	})
+}
+
+func ungzipBody(t *testing.T, data []byte) string {
+	t.Helper()
+
+	reader, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("new gzip reader: %v", err)
+	}
+	defer reader.Close()
+
+	decoded, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("read gzip body: %v", err)
+	}
+
+	return string(decoded)
 }
 
 func wrapComponent(tag string, child templ.Component) templ.Component {
@@ -149,6 +168,116 @@ func TestHTTPServerCachePoliciesAndHTMX(t *testing.T) {
 	}
 	if body := strings.TrimSpace(recHealth.Body.String()); body != "ok" {
 		t.Fatalf("health body: expected %q, got %q", "ok", body)
+	}
+}
+
+func TestHTTPServerGzipCompression(t *testing.T) {
+	t.Parallel()
+
+	staticDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(staticDir, "file.txt"), []byte("asset payload"), 0o644); err != nil {
+		t.Fatalf("write static asset: %v", err)
+	}
+
+	handler, err := New(Config[*struct{}]{
+		AppContext: &struct{}{},
+		Handlers: []framework.RouteHandler[*struct{}]{
+			framework.PageOnlyRouteHandler[*struct{}, framework.EmptyParams, string]{
+				Page: framework.PageModule[*struct{}, framework.EmptyParams, string]{
+					Pattern: "/notes",
+					ParseParams: func(path string) (framework.EmptyParams, bool) {
+						return framework.EmptyParams{}, path == "/notes"
+					},
+					Load: func(context.Context, *struct{}, *http.Request, framework.EmptyParams) (string, error) {
+						return "page", nil
+					},
+					Render: func(view string) templ.Component { return textComponent(view) },
+					Layouts: []framework.LayoutRenderer[string]{
+						func(_ string, child templ.Component) templ.Component {
+							return wrapComponent("layout", child)
+						},
+					},
+				},
+			},
+		},
+		Static: StaticMount{
+			URLPrefix: "/.revotale/",
+			Dir:       staticDir,
+		},
+	})
+	if err != nil {
+		t.Fatalf("new http server: %v", err)
+	}
+
+	reqPage := httptest.NewRequest(http.MethodGet, "/notes", nil)
+	reqPage.Header.Set("Accept-Encoding", "gzip")
+	recPage := httptest.NewRecorder()
+	handler.ServeHTTP(recPage, reqPage)
+
+	if recPage.Code != http.StatusOK {
+		t.Fatalf("page status: expected %d, got %d", http.StatusOK, recPage.Code)
+	}
+	if got := recPage.Header().Get("Content-Encoding"); got != "gzip" {
+		t.Fatalf("page content-encoding: expected %q, got %q", "gzip", got)
+	}
+	if got := recPage.Header().Get("Vary"); !strings.Contains(got, "Accept-Encoding") {
+		t.Fatalf("page vary header: expected Accept-Encoding, got %q", got)
+	}
+	if got := strings.TrimSpace(ungzipBody(t, recPage.Body.Bytes())); got != "[layout]page[/layout]" {
+		t.Fatalf("page body: expected layout-wrapped response, got %q", got)
+	}
+
+	reqStatic := httptest.NewRequest(http.MethodGet, "/.revotale/file.txt", nil)
+	reqStatic.Header.Set("Accept-Encoding", "gzip")
+	recStatic := httptest.NewRecorder()
+	handler.ServeHTTP(recStatic, reqStatic)
+
+	if recStatic.Code != http.StatusOK {
+		t.Fatalf("static status: expected %d, got %d", http.StatusOK, recStatic.Code)
+	}
+	if got := recStatic.Header().Get("Content-Encoding"); got != "gzip" {
+		t.Fatalf("static content-encoding: expected %q, got %q", "gzip", got)
+	}
+	if got := strings.TrimSpace(ungzipBody(t, recStatic.Body.Bytes())); got != "asset payload" {
+		t.Fatalf("static body: expected %q, got %q", "asset payload", got)
+	}
+}
+
+func TestHTTPServerDoesNotCompressWithoutGzipAcceptEncoding(t *testing.T) {
+	t.Parallel()
+
+	handler, err := New(Config[*struct{}]{
+		AppContext: &struct{}{},
+		Handlers: []framework.RouteHandler[*struct{}]{
+			framework.PageOnlyRouteHandler[*struct{}, framework.EmptyParams, string]{
+				Page: framework.PageModule[*struct{}, framework.EmptyParams, string]{
+					Pattern: "/notes",
+					ParseParams: func(path string) (framework.EmptyParams, bool) {
+						return framework.EmptyParams{}, path == "/notes"
+					},
+					Load: func(context.Context, *struct{}, *http.Request, framework.EmptyParams) (string, error) {
+						return "page", nil
+					},
+					Render: func(view string) templ.Component { return textComponent(view) },
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new http server: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/notes", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: expected %d, got %d", http.StatusOK, rec.Code)
+	}
+	if got := strings.TrimSpace(rec.Header().Get("Content-Encoding")); got != "" {
+		t.Fatalf("content-encoding: expected empty, got %q", got)
+	}
+	if got := strings.TrimSpace(rec.Body.String()); got != "page" {
+		t.Fatalf("body: expected %q, got %q", "page", got)
 	}
 }
 

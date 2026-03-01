@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"blog/framework/httpserver"
@@ -45,6 +47,22 @@ func run() error {
 	}
 	cachePolicies.Static = immutableStaticCachePolicy
 
+	// Serve static files from the manifest directory so routing cannot drift
+	// to an unprocessed source dir if env configuration is stale.
+	staticDir := filepath.Clean(filepath.Dir(cfg.StaticManifestPath))
+	if info, statErr := os.Stat(staticDir); statErr != nil {
+		return fmt.Errorf("stat static build dir %q: %w", staticDir, statErr)
+	} else if !info.IsDir() {
+		return fmt.Errorf("static build dir %q is not a directory", staticDir)
+	}
+	log.Printf(
+		"static assets bundle loaded: hash=%s prefix=%s dir=%s manifest=%s",
+		manifest.Hash,
+		manifest.URLPrefix,
+		staticDir,
+		cfg.StaticManifestPath,
+	)
+
 	handler, err := httpserver.New(httpserver.Config[*appcore.Context]{
 		AppContext:      appcore.NewContext(noteService),
 		Handlers:        webgen.Handlers(webgen.NewRouteResolvers()),
@@ -52,7 +70,7 @@ func run() error {
 		NotFoundPage:    webgen.NotFoundPage,
 		Static: httpserver.StaticMount{
 			URLPrefix: manifest.URLPrefix,
-			Dir:       cfg.StaticBuildDir,
+			Dir:       staticDir,
 		},
 		CachePolicies: cachePolicies,
 		LogServerError: func(err error) {
