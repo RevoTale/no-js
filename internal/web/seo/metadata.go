@@ -47,7 +47,7 @@ func MetaGenRootPage(
 		cardTitle,
 		description,
 		"website",
-		&metagen.Robots{Index: metagen.Bool(false), Follow: metagen.Bool(true)},
+		&metagen.Robots{Index: metagen.Bool(true), Follow: metagen.Bool(true)},
 		true,
 	)
 }
@@ -75,7 +75,7 @@ func MetaGenTalesPage(
 		view.PageTitle,
 		description,
 		"website",
-		&metagen.Robots{Index: metagen.Bool(false), Follow: metagen.Bool(true)},
+		&metagen.Robots{Index: metagen.Bool(true), Follow: metagen.Bool(true)},
 		false,
 	)
 }
@@ -134,7 +134,7 @@ func MetaGenTagPage(
 		view.PageTitle,
 		description,
 		"website",
-		&metagen.Robots{Index: metagen.Bool(false), Follow: metagen.Bool(true)},
+		&metagen.Robots{Index: metagen.Bool(true), Follow: metagen.Bool(true)},
 		false,
 	)
 }
@@ -251,6 +251,7 @@ func MetaGenAuthorPage(
 		Title:       title,
 		Description: description,
 		Alternates:  alternates,
+		Robots:      robotsWithQueryNoIndex(r, &metagen.Robots{Index: metagen.Bool(true), Follow: metagen.Bool(true)}),
 		OpenGraph:   openGraph,
 		Twitter:     twitter,
 		Authors:     authors,
@@ -353,7 +354,7 @@ func MetaGenNotePage(
 		Title:       title,
 		Description: description,
 		Alternates:  alternates,
-		Robots:      &metagen.Robots{Index: metagen.Bool(true), Follow: metagen.Bool(true)},
+		Robots:      robotsWithQueryNoIndex(r, &metagen.Robots{Index: metagen.Bool(true), Follow: metagen.Bool(true)}),
 		OpenGraph:   openGraph,
 		Twitter:     twitter,
 		Authors:     authors,
@@ -415,11 +416,32 @@ func notesListingMetadata(
 		Title:       title,
 		Description: description,
 		Alternates:  alternates,
-		Robots:      robots,
+		Robots:      robotsWithQueryNoIndex(r, robots),
 		OpenGraph:   openGraph,
 		Twitter:     twitter,
 		Publisher:   site.Publisher,
 	}), nil
+}
+
+func robotsWithQueryNoIndex(r *http.Request, base *metagen.Robots) *metagen.Robots {
+	robots := base
+	if robots == nil {
+		robots = &metagen.Robots{}
+	}
+	if requestHasQuery(r) {
+		robots.Index = metagen.Bool(false)
+		if robots.Follow == nil {
+			robots.Follow = metagen.Bool(true)
+		}
+	}
+	return robots
+}
+
+func requestHasQuery(r *http.Request) bool {
+	if r == nil || r.URL == nil {
+		return false
+	}
+	return strings.TrimSpace(r.URL.RawQuery) != ""
 }
 
 type siteMetadata struct {

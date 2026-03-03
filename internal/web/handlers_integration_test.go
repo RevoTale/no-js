@@ -600,6 +600,39 @@ func TestHandlerPageRoutesRenderHTML(t *testing.T) {
 	}
 }
 
+func TestRobotsRulesWithAndWithoutQuery(t *testing.T) {
+	t.Parallel()
+	testSrv := newTestServer(t)
+	mux := testSrv.handler
+
+	cases := []struct {
+		path           string
+		expectedRobots string
+	}{
+		{path: "/", expectedRobots: "index, follow"},
+		{path: "/tales", expectedRobots: "index, follow"},
+		{path: "/tag/go", expectedRobots: "index, follow"},
+		{path: "/author/l-you", expectedRobots: "index, follow"},
+		{path: "/?q=hello", expectedRobots: "noindex, follow"},
+		{path: "/tales?type=short", expectedRobots: "noindex, follow"},
+		{path: "/tag/go?tag=rust", expectedRobots: "noindex, follow"},
+		{path: "/author/l-you?author=zed", expectedRobots: "noindex, follow"},
+		{path: "/note/hello-world?utm_source=test", expectedRobots: "noindex, follow"},
+	}
+
+	for _, tc := range cases {
+		rec := performRequest(mux, http.MethodGet, tc.path)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s status: expected %d, got %d", tc.path, http.StatusOK, rec.Code)
+		}
+		body := requireBody(t, rec.Body)
+		expectedTag := `name="robots" content="` + tc.expectedRobots + `"`
+		if !strings.Contains(body, expectedTag) {
+			t.Fatalf("%s should include robots tag %q", tc.path, expectedTag)
+		}
+	}
+}
+
 func TestSidebarLinkBehavior(t *testing.T) {
 	t.Parallel()
 	testSrv := newTestServer(t)
