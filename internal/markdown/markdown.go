@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -250,6 +251,12 @@ func normalizeLinks(doc ast.Node, opts Options) {
 }
 
 func renderNodeHook(writer io.Writer, node ast.Node, entering bool, opts Options) (ast.WalkStatus, bool) {
+	switch typedNode := node.(type) {
+	case *ast.Heading:
+		renderHeading(writer, typedNode, entering)
+		return ast.GoToNext, true
+	}
+
 	if !entering {
 		return ast.GoToNext, false
 	}
@@ -267,6 +274,41 @@ func renderNodeHook(writer io.Writer, node ast.Node, entering bool, opts Options
 	default:
 		return ast.GoToNext, false
 	}
+}
+
+func renderHeading(writer io.Writer, heading *ast.Heading, entering bool) {
+	if heading == nil {
+		return
+	}
+
+	level := effectiveHeadingLevel(heading.Level)
+	tagName := "h" + strconv.Itoa(level)
+
+	if entering {
+		_, _ = io.WriteString(writer, `<`)
+		_, _ = io.WriteString(writer, tagName)
+		if heading.HeadingID != "" {
+			_, _ = io.WriteString(writer, ` id="`)
+			_, _ = io.WriteString(writer, stdhtml.EscapeString(strings.TrimSpace(heading.HeadingID)))
+			_, _ = io.WriteString(writer, `"`)
+		}
+		_, _ = io.WriteString(writer, `>`)
+		return
+	}
+
+	_, _ = io.WriteString(writer, `</`)
+	_, _ = io.WriteString(writer, tagName)
+	_, _ = io.WriteString(writer, `>`)
+}
+
+func effectiveHeadingLevel(level int) int {
+	if level < 1 {
+		return 2
+	}
+	if level >= 6 {
+		return 6
+	}
+	return level + 1
 }
 
 func renderCodeBlock(writer io.Writer, block *ast.CodeBlock, opts Options) {

@@ -167,3 +167,22 @@ func TestToHTML_TransformsImageSourcesWithLoader(t *testing.T) {
 		t.Fatalf("expected markdown image sizes attribute, got %s", html)
 	}
 }
+
+func TestToHTML_DemotesHeadingsToAvoidH1(t *testing.T) {
+	t.Parallel()
+
+	html := string(ToHTML("# Main title\n\n## Section title\n\n###### Small title", Options{}))
+
+	if strings.Contains(html, "<h1") {
+		t.Fatalf("markdown output should not include h1, got %s", html)
+	}
+	if !strings.Contains(html, `<h2 id="main-title">Main title</h2>`) {
+		t.Fatalf("expected h1 to be rendered as h2 with id, got %s", html)
+	}
+	if !strings.Contains(html, `<h3 id="section-title">Section title</h3>`) {
+		t.Fatalf("expected h2 to be rendered as h3 with id, got %s", html)
+	}
+	if !strings.Contains(html, `<h6 id="small-title">Small title</h6>`) {
+		t.Fatalf("expected h6 to stay capped at h6, got %s", html)
+	}
+}
