@@ -1372,6 +1372,11 @@ p + p {
   border-radius: var(--radius-md);
   background: var(--footer-bg);
   padding: 0.56rem 0.72rem;
+  font-family: var(--font-primary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
 }
 
 .footer p {
@@ -1384,6 +1389,51 @@ p + p {
 
 .footer p a {
   color: var(--footer-link);
+}
+
+.footer-locales {
+  margin-bottom: 0.58rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.34rem;
+  align-items: center;
+}
+
+.footer-locales-label {
+  font: inherit;
+  color: var(--text-muted);
+}
+
+.footer-locale-link {
+  min-height: 26px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--divider);
+  background: var(--bg-chip);
+  color: var(--text-secondary);
+  padding: 0.12rem 0.54rem;
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.footer-locale-link:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  text-decoration: none;
+}
+
+.footer-locale-link:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--topbar-search-submit-focus-ring);
+}
+
+.footer-locale-link.is-active {
+  color: var(--text-primary);
+  background: var(--channel-link-active-bg);
+  border-color: var(--topbar-search-submit-active-border);
 }
 
 @media (prefers-contrast: more) {

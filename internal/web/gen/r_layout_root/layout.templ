@@ -115,6 +115,16 @@ templ Layout(meta metagen.Metadata, view appcore.RootLayoutView, child templ.Com
 							@child
 
 							<footer class="footer">
+								<div class="footer-locales">
+									<span class="footer-locales-label">Switch Language: </span>
+									for _, localeLink := range appcore.FooterLocaleLinks(meta, view.LocaleCode()) {
+										if localeLink.Active {
+											<span class="footer-locale-link is-active" aria-current="true">{ localeLink.Label }</span>
+										} else {
+											<a class="footer-locale-link" href={ localeLink.Href } hrefLang={ localeLink.Code } rel="alternate">{ localeLink.Label }</a>
+										}
+									}
+								</div>
 								<p>
 									{ appcore.Message(view.MessagesMap(), webi18n.KeyLayoutFooterOpensourcePrefix) }
 									<a href="https://github.com/RevoTale/blog" target="_blank" rel="noopener noreferrer">{ appcore.Message(view.MessagesMap(), webi18n.KeyLayoutFooterOpensourceLink) }</a>
