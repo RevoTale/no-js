@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/RevoTale/blog/compare/v0.3.0...v0.3.1) (2026-03-03)
+
+
+### Bug Fixes
+
+* indexing disabled due to robos tags ([37b7b3e](https://github.com/RevoTale/blog/commit/37b7b3e410708ad55a219d496a08c0312f6b7719))
+
 ## [0.3.0](https://github.com/RevoTale/blog/compare/v0.2.0...v0.3.0) (2026-03-03)
 
 
