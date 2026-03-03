@@ -412,6 +412,15 @@ func newTestServer(t *testing.T) testServer {
 			"/healthz",
 		},
 	})(handler)
+	publicMiddleware, err := httpserver.WithPublicFiles(
+		httpserver.PublicFilesConfig{
+			Dir: "../../internal/web/public",
+		},
+	)
+	if err != nil {
+		t.Fatalf("new public middleware: %v", err)
+	}
+	handler = publicMiddleware(handler)
 
 	return testServer{
 		handler: handler,
@@ -861,7 +870,33 @@ func TestHandlerSEOMetadataAndHTMXPatchHeaders(t *testing.T) {
 	if recRoot.Code != http.StatusOK {
 		t.Fatalf("root status: expected %d, got %d", http.StatusOK, recRoot.Code)
 	}
+
+	recFavicon := performRequest(mux, http.MethodGet, "/favicon.svg")
+	if recFavicon.Code != http.StatusOK {
+		t.Fatalf("favicon status: expected %d, got %d", http.StatusOK, recFavicon.Code)
+	}
+	if got := recFavicon.Header().Get("Content-Type"); !strings.Contains(got, "image/svg+xml") {
+		t.Fatalf("favicon content-type: expected svg, got %q", got)
+	}
+
+	recManifest := performRequest(mux, http.MethodGet, "/site.webmanifest")
+	if recManifest.Code != http.StatusOK {
+		t.Fatalf("manifest status: expected %d, got %d", http.StatusOK, recManifest.Code)
+	}
+	if got := recManifest.Header().Get("Content-Type"); !strings.Contains(got, "application/manifest+json") {
+		t.Fatalf("manifest content-type: expected manifest+json, got %q", got)
+	}
+
 	rootBody := requireBody(t, recRoot.Body)
+	if !strings.Contains(rootBody, `rel="manifest" href="/site.webmanifest"`) {
+		t.Fatalf("root page should include manifest link tag")
+	}
+	if !strings.Contains(rootBody, `rel="icon" href="/favicon.ico"`) {
+		t.Fatalf("root page should include favicon link tag")
+	}
+	if !strings.Contains(rootBody, `rel="apple-touch-icon"`) {
+		t.Fatalf("root page should include apple-touch-icon link tag")
+	}
 	if !strings.Contains(rootBody, `rel="alternate" type="application/rss+xml"`) {
 		t.Fatalf("root page should include rss alternate metadata")
 	}

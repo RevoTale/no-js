@@ -67,6 +67,12 @@ func run() error {
 		cachePolicies.LiveNavigation = cfg.CacheLiveNavigation
 	}
 	cachePolicies.Static = immutableStaticCachePolicy
+	publicMiddleware, err := httpserver.WithPublicFiles(
+		httpserver.PublicFilesConfig{Dir: cfg.PublicDir}.WithPublicFileCachePolicy(cfg.CachePublicFiles),
+	)
+	if err != nil {
+		return fmt.Errorf("setup public file serving: %w", err)
+	}
 
 	// Serve static files from the manifest directory so routing cannot drift
 	// to an unprocessed source dir if env configuration is stale.
@@ -110,6 +116,8 @@ func run() error {
 			"/healthz",
 		},
 	})(handler)
+	handler = withRobotsEndpoint(handler, rootURL, cachePolicies.HTML)
+	handler = publicMiddleware(handler)
 
 	log.Printf("blog server listening on %s", cfg.ListenAddr)
 	if err := http.ListenAndServe(cfg.ListenAddr, handler); err != nil {
@@ -135,4 +143,55 @@ func validateRootURL(value string) (string, error) {
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
 	return parsed.String(), nil
+}
+
+func withRobotsEndpoint(
+	next http.Handler,
+	rootURL string,
+	cachePolicy string,
+) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if next == nil {
+			return
+		}
+		if r == nil || r.URL == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if r.URL.Path != "/robots.txt" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !isReadMethod(r.Method) {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		setCacheControl(w, cachePolicy)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write([]byte(buildRobotsTXT(rootURL)))
+	})
+}
+
+func buildRobotsTXT(rootURL string) string {
+	out := []string{
+		"User-agent: *",
+		"Allow: /",
+	}
+	trimmedRoot := strings.TrimSuffix(strings.TrimSpace(rootURL), "/")
+	if trimmedRoot != "" {
+		out = append(out, "Sitemap: "+trimmedRoot+"/sitemap.xml")
+	}
+	return strings.Join(out, "\n") + "\n"
+}
+
+func isReadMethod(method string) bool {
+	return method == http.MethodGet || method == http.MethodHead
+}
+
+func setCacheControl(w http.ResponseWriter, value string) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return
+	}
+	w.Header().Set("Cache-Control", trimmed)
 }

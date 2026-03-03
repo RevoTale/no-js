@@ -23,10 +23,12 @@ WORKDIR /app
 
 COPY --from=builder /out/blog /app/blog
 COPY --from=builder /src/internal/web/static-build /app/internal/web/static-build
+COPY --from=builder /src/internal/web/public /app/internal/web/public
 
 ENV BLOG_LISTEN_ADDR=:8080
 ENV BLOG_STATIC_BUILD_DIR=/app/internal/web/static-build
 ENV BLOG_STATIC_MANIFEST_PATH=/app/internal/web/static-build/manifest.json
+ENV BLOG_PUBLIC_DIR=/app/internal/web/public
 
 EXPOSE 8080
 

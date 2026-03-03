@@ -12,10 +12,12 @@ type Config struct {
 	StaticDir          string
 	StaticBuildDir     string
 	StaticManifestPath string
+	PublicDir          string
 
 	RootURL string
 
 	CacheLiveNavigation string
+	CachePublicFiles    string
 
 	GraphQLEndpoint  string
 	GraphQLAuthToken string
@@ -30,15 +32,20 @@ func Load() Config {
 		"BLOG_STATIC_MANIFEST_PATH",
 		staticBuildDir+"/manifest.json",
 	)
+	publicDir := getEnv("BLOG_PUBLIC_DIR", "internal/web/public")
 
 	return Config{
 		ListenAddr:         getEnv("BLOG_LISTEN_ADDR", ":8080"),
 		StaticDir:          staticDir,
 		StaticBuildDir:     staticBuildDir,
 		StaticManifestPath: staticManifestPath,
+		PublicDir:          publicDir,
 		RootURL:            getEnv("BLOG_ROOT_URL", ""),
 		CacheLiveNavigation: strings.TrimSpace(
 			os.Getenv("BLOG_CACHE_LIVE_NAV"),
+		),
+		CachePublicFiles: strings.TrimSpace(
+			os.Getenv("BLOG_CACHE_PUBLIC_FILES"),
 		),
 		GraphQLEndpoint:  getEnv("BLOG_GRAPHQL_ENDPOINT", "http://localhost:3000/api/graphql"),
 		GraphQLAuthToken: os.Getenv("BLOG_GRAPHQL_AUTH_TOKEN"),
