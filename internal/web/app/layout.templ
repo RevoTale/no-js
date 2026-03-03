@@ -76,6 +76,11 @@ templ Layout(meta metagen.Metadata, view appcore.RootLayoutView, child templ.Com
 										<span>{ appcore.Message(view.MessagesMap(), webi18n.KeyLayoutTitleAll) }</span>
 									}
 								</div>
+								<a
+									class="topbar-rss-link"
+									href={ view.RSSFeedURL() }
+									aria-label={ appcore.Message(view.MessagesMap(), webi18n.KeyNotesAriaFeed) }
+								>RSS</a>
 							</div>
 							<nav class="topbar-nav" aria-label={ appcore.Message(view.MessagesMap(), webi18n.KeyLayoutAriaUtility) }>
 								<form class="topbar-search" role="search" method="get" action={ appcore.LocalizeAppPath(view.LocaleCode(), "/") }>

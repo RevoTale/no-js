@@ -440,8 +440,8 @@ p + p {
   gap: 0.55rem;
 }
 
-.mobile-channels-button {
-  display: none;
+.mobile-channels-button,
+.topbar-rss-link {
   align-items: center;
   justify-content: center;
   min-height: 30px;
@@ -452,12 +452,25 @@ p + p {
   padding: 0.18rem 0.58rem;
   font-size: 0.86rem;
   font-weight: 600;
+  display: inline-flex;
+  text-decoration: none;
 }
 
-.mobile-channels-button:hover {
+.mobile-channels-button:hover,
+.topbar-rss-link:hover {
   text-decoration: none;
   color: var(--text-primary);
   background: var(--bg-hover);
+}
+
+.mobile-channels-button:focus-visible,
+.topbar-rss-link:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--topbar-search-submit-focus-ring);
+}
+
+.mobile-channels-button {
+  display: none;
 }
 
 .topbar-title {

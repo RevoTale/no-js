@@ -381,7 +381,7 @@ func notesListingMetadata(
 
 	alternateTypes := map[string]string(nil)
 	if includeRSS {
-		alternateTypes = notesRSSAlternateTypes(appCtx, view.LocaleCode())
+		alternateTypes = notesRSSAlternateTypes(appCtx, r, view.LocaleCode())
 	}
 
 	alternates, err := buildAlternates(appCtx, r, view.LocaleCode(), alternateTypes)
@@ -520,7 +520,7 @@ func requestPathWithQuery(r *http.Request) string {
 	return pathValue + "?" + strings.TrimSpace(r.URL.RawQuery)
 }
 
-func notesRSSAlternateTypes(appCtx *appcore.Context, locale string) map[string]string {
+func notesRSSAlternateTypes(appCtx *appcore.Context, r *http.Request, locale string) map[string]string {
 	if appCtx == nil {
 		return nil
 	}
@@ -535,8 +535,21 @@ func notesRSSAlternateTypes(appCtx *appcore.Context, locale string) map[string]s
 		return nil
 	}
 
+	query := url.Values{}
+	query.Set("locale", strings.TrimSpace(locale))
+	if r != nil && r.URL != nil {
+		requestQuery := r.URL.Query()
+		for _, key := range []string{"page", "author", "tag", "type", "q"} {
+			value := strings.TrimSpace(requestQuery.Get(key))
+			if value == "" {
+				continue
+			}
+			query.Set(key, value)
+		}
+	}
+
 	return map[string]string{
-		"application/rss+xml": feedURL + "?locale=" + url.QueryEscape(strings.TrimSpace(locale)),
+		"application/rss+xml": feedURL + "?" + query.Encode(),
 	}
 }
 

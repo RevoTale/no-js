@@ -78,6 +78,67 @@ func TestWithFeedAndSitemapEndpointsRSS(t *testing.T) {
 	}
 }
 
+func TestWithFeedAndSitemapEndpointsRSSUsesFilters(t *testing.T) {
+	t.Parallel()
+
+	var gotLocale string
+	var gotFilter notes.ListFilter
+
+	handler := testSEOEndpointsHandler(
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		}),
+		stubNotesLister{
+			listFn: func(
+				_ context.Context,
+				locale string,
+				filter notes.ListFilter,
+				_ notes.ListOptions,
+			) (notes.NotesListResult, error) {
+				gotLocale = locale
+				gotFilter = filter
+				return notes.NotesListResult{
+					Notes: []notes.NoteSummary{
+						{Slug: "hello-world", Title: "Hello"},
+					},
+				}, nil
+			},
+		},
+	)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(
+		rec,
+		httptest.NewRequest(
+			http.MethodGet,
+			"/feed.xml?locale=uk&page=2&author=l-you&tag=go&type=short&q=build",
+			nil,
+		),
+	)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("rss status: expected %d, got %d", http.StatusOK, rec.Code)
+	}
+	if gotLocale != "uk" {
+		t.Fatalf("rss locale: expected %q, got %q", "uk", gotLocale)
+	}
+	if gotFilter.Page != 2 {
+		t.Fatalf("rss filter page: expected %d, got %d", 2, gotFilter.Page)
+	}
+	if gotFilter.AuthorSlug != "l-you" {
+		t.Fatalf("rss filter author: expected %q, got %q", "l-you", gotFilter.AuthorSlug)
+	}
+	if gotFilter.TagName != "go" {
+		t.Fatalf("rss filter tag: expected %q, got %q", "go", gotFilter.TagName)
+	}
+	if gotFilter.Type != notes.NoteTypeShort {
+		t.Fatalf("rss filter type: expected %q, got %q", notes.NoteTypeShort, gotFilter.Type)
+	}
+	if gotFilter.Query != "build" {
+		t.Fatalf("rss filter q: expected %q, got %q", "build", gotFilter.Query)
+	}
+}
+
 func TestWithFeedAndSitemapEndpointsSitemaps(t *testing.T) {
 	t.Parallel()
 

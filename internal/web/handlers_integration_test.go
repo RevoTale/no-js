@@ -610,6 +610,9 @@ func TestSidebarLinkBehavior(t *testing.T) {
 	if !strings.Contains(rootBody, `href="/tag/go"`) {
 		t.Fatalf("root notes missing canonical tag link")
 	}
+	if !strings.Contains(rootBody, `class="topbar-rss-link" href="/feed.xml?locale=en"`) {
+		t.Fatalf("root page should include rss link to local feed endpoint")
+	}
 	if !strings.Contains(rootBody, `href="/tales"`) {
 		t.Fatalf("root notes missing tales route link")
 	}
@@ -634,6 +637,9 @@ func TestSidebarLinkBehavior(t *testing.T) {
 	if !strings.Contains(searchBody, `name="q"`) || !strings.Contains(searchBody, `value="hello"`) {
 		t.Fatalf("search page should preserve q value in search input")
 	}
+	if !strings.Contains(searchBody, `class="topbar-rss-link" href="/feed.xml?locale=en&amp;q=hello"`) {
+		t.Fatalf("search page should preserve q in rss feed link")
+	}
 	if !strings.Contains(searchBody, `href="/channels?q=hello"`) {
 		t.Fatalf("search page should preserve q in channels link")
 	}
@@ -648,6 +654,12 @@ func TestSidebarLinkBehavior(t *testing.T) {
 	}
 	if !strings.Contains(searchBody, `class="topbar-search-clear" href="/"`) {
 		t.Fatalf("search clear action should reset to root when only q is active")
+	}
+	if !strings.Contains(
+		searchBody,
+		`rel="alternate" type="application/rss+xml" href="https://revotale.com/blog/notes/feed.xml?locale=en&amp;q=hello"`,
+	) {
+		t.Fatalf("search page should include filtered rss alternate metadata")
 	}
 
 	filtered := performRequest(mux, http.MethodGet, "/author/l-you?tag=go&type=short")
@@ -666,6 +678,12 @@ func TestSidebarLinkBehavior(t *testing.T) {
 	}
 	if !strings.Contains(filteredBody, `href="/?author=l-you&amp;tag=go"`) {
 		t.Fatalf("filtered page missing ANY type clear link")
+	}
+	if !strings.Contains(
+		filteredBody,
+		`class="topbar-rss-link" href="/feed.xml?author=l-you&amp;locale=en&amp;tag=go&amp;type=short"`,
+	) {
+		t.Fatalf("filtered page should preserve author/tag/type in rss feed link")
 	}
 	if !strings.Contains(filteredBody, `href="/?author=zed&amp;tag=go&amp;type=short"`) {
 		t.Fatalf("filtered page missing merged author link")
@@ -824,6 +842,9 @@ func TestHandlerSEOMetadataAndHTMXPatchHeaders(t *testing.T) {
 	}
 	if !strings.Contains(noteBody, `property="article:tag" content="Go"`) {
 		t.Fatalf("note page should include article:tag Open Graph metadata")
+	}
+	if !strings.Contains(noteBody, `class="topbar-rss-link" href="/feed.xml?locale=uk"`) {
+		t.Fatalf("note page should include locale-aware rss link")
 	}
 	noteDocs := parseJSONLDScripts(t, noteBody)
 	noteDoc := requireJSONLDDocByType(t, noteDocs, "BlogPosting")

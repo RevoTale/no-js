@@ -20,6 +20,7 @@ type RootLayoutView interface {
 	MessagesMap() map[webi18n.Key]string
 	LayoutPageTitle() string
 	LayoutSearchQuery() string
+	RSSFeedURL() string
 	SidebarAuthors() []notes.Author
 	SidebarTags() []notes.Tag
 	SidebarCurrentAuthorSlug() string
@@ -114,6 +115,17 @@ func (v NotesPageView) LayoutPageTitle() string {
 
 func (v NotesPageView) LayoutSearchQuery() string {
 	return strings.TrimSpace(v.Filter.Query)
+}
+
+func (v NotesPageView) RSSFeedURL() string {
+	return BuildRSSFeedURL(
+		v.LocaleCode(),
+		v.Filter.Page,
+		v.Filter.AuthorSlug,
+		v.Filter.TagName,
+		v.Filter.Type,
+		v.Filter.Query,
+	)
 }
 
 func (v NotesPageView) SidebarAuthors() []notes.Author {
@@ -227,6 +239,10 @@ func (v NotePageView) LayoutPageTitle() string {
 
 func (v NotePageView) LayoutSearchQuery() string {
 	return ""
+}
+
+func (v NotePageView) RSSFeedURL() string {
+	return BuildRSSFeedURL(v.LocaleCode(), 1, "", "", notes.NoteTypeAll, "")
 }
 
 func (v NotePageView) SidebarAuthors() []notes.Author {

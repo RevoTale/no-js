@@ -16,6 +16,7 @@ import (
 
 const liveNavigationQueryKey = "__live"
 const liveNavigationQueryValue = "navigation"
+const rssEndpointPath = "/feed.xml"
 
 func LoadNotesPage(
 	ctx context.Context,
@@ -248,6 +249,45 @@ func listFilterFromQuery(r *http.Request, defaults notes.ListFilter) notes.ListF
 
 func BuildNotesURL(locale string, page int, tag string, searchQuery string) string {
 	return BuildNotesFilterURL(locale, page, "", tag, notes.NoteTypeAll, searchQuery)
+}
+
+func BuildRSSFeedURL(
+	locale string,
+	page int,
+	authorSlug string,
+	tagName string,
+	noteType notes.NoteType,
+	searchQuery string,
+) string {
+	if page < 1 {
+		page = 1
+	}
+
+	noteType = notes.ParseNoteType(string(noteType))
+	authorSlug = strings.TrimSpace(authorSlug)
+	tagName = strings.TrimSpace(tagName)
+	searchQuery = strings.TrimSpace(searchQuery)
+	locale = normalizeLocaleForApp(locale)
+
+	q := make(url.Values)
+	q.Set("locale", locale)
+	if page > 1 {
+		q.Set("page", strconv.Itoa(page))
+	}
+	if authorSlug != "" {
+		q.Set("author", authorSlug)
+	}
+	if tagName != "" {
+		q.Set("tag", tagName)
+	}
+	if noteType == notes.NoteTypeLong || noteType == notes.NoteTypeShort {
+		q.Set("type", noteType.QueryValue())
+	}
+	if searchQuery != "" {
+		q.Set("q", searchQuery)
+	}
+
+	return rssEndpointPath + "?" + q.Encode()
 }
 
 func BuildNotesFilterURL(

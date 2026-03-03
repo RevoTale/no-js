@@ -47,6 +47,11 @@ const defaultSitemapAuthorsPageSize = 1000
 const defaultSitemapTagsPageSize = 50
 
 const queryParamLocale = "locale"
+const queryParamPage = "page"
+const queryParamAuthor = "author"
+const queryParamTag = "tag"
+const queryParamType = "type"
+const queryParamSearch = "q"
 const xmlExtension = ".xml"
 
 const contentTypeRSSXML = "application/rss+xml; charset=utf-8"
@@ -204,10 +209,11 @@ func serveRSSFeedEndpoint(w http.ResponseWriter, r *http.Request, cfg feedEndpoi
 	}
 
 	locale := resolveLocale(r.URL.Query().Get(queryParamLocale), cfg.I18nConfig)
+	filter := rssListFilterFromQuery(r.URL.Query())
 	listResult, err := cfg.Notes.ListNotes(
 		r.Context(),
 		locale,
-		notes.ListFilter{Page: 1},
+		filter,
 		notes.ListOptions{},
 	)
 	if err != nil {
@@ -514,6 +520,24 @@ func parseSitemapChunkID(pathValue string, prefix string) (int, bool) {
 		return 0, false
 	}
 	return parsed, true
+}
+
+func rssListFilterFromQuery(query url.Values) notes.ListFilter {
+	return notes.ListFilter{
+		Page:       parsePositiveInt(query.Get(queryParamPage), 1),
+		AuthorSlug: strings.TrimSpace(query.Get(queryParamAuthor)),
+		TagName:    strings.TrimSpace(query.Get(queryParamTag)),
+		Type:       notes.ParseNoteType(query.Get(queryParamType)),
+		Query:      strings.TrimSpace(query.Get(queryParamSearch)),
+	}
+}
+
+func parsePositiveInt(raw string, fallback int) int {
+	parsed, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || parsed < 1 {
+		return fallback
+	}
+	return parsed
 }
 
 func sitemapEntryForPath(
