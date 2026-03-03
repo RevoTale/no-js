@@ -68,14 +68,17 @@
   {"id":"markdown.placeholder.codeBlock","translation":"[codeblock]"},
   {"id":"markdown.placeholder.table","translation":"[tabelle]"},
   {"id":"markdown.placeholder.image","translation":"[bild]"},
-  {"id":"seo.site.name","translation":"blog"},
+  {"id":"seo.site.name","translation":"RevoTale"},
   {"id":"seo.site.description","translation":"A multilingual note feed with tales and micro-tales."},
   {"id":"seo.publisher.name","translation":"RevoTale"},
-  {"id":"seo.root.description","translation":"Browse the latest notes, tales, and micro-tales."},
+  {"id":"seo.root.description","translation":"Tauchen Sie ein in prägnante Notizen, vollgepackt mit umsetzbaren Tipps zu Kodierung, Webperformance, SEO, KI-Workflows, Buchzusammenfassungen und mehr - regelmäßig aktualisiert auf RevoTale."},
   {"id":"seo.tales.description","translation":"Read long-form tales from the blog feed."},
   {"id":"seo.microTales.description","translation":"Read short-form micro-tales from the blog feed."},
   {"id":"seo.channels.description","translation":"Browse available channels and filters for the blog feed."},
   {"id":"seo.tag.description","translation":"Browse notes for this tag."},
   {"id":"seo.author.description","translation":"Browse notes by this author."},
-  {"id":"seo.note.description","translation":"Read this note from the blog archive."}
+  {"id":"seo.note.description","translation":"Read this note from the blog archive."},
+  {"id":"seo.root.title","translation":"Notizen - Kodierung, Erfahrung, Open Source, SEO & wissenschaftliche Erkenntnisse"},
+  {"id":"seo.notesJSONLD.name","translation":"Notizen"},
+  {"id":"seo.notesJSONLD.description","translation":"Entdecken Sie eine Sammlung von Notizen zu verschiedenen Themen, einschließlich Kodierung, Webperformance, SEO, KI-Workflows und Buchzusammenfassungen. Jede Notiz bietet schnelle Einblicke und umsetzbare Tipps für Entwickler und Technikbegeisterte."}
 ]

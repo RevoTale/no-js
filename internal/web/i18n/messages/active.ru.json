@@ -68,14 +68,17 @@
   {"id":"markdown.placeholder.codeBlock","translation":"[блок кода]"},
   {"id":"markdown.placeholder.table","translation":"[таблица]"},
   {"id":"markdown.placeholder.image","translation":"[изображение]"},
-  {"id":"seo.site.name","translation":"blog"},
+  {"id":"seo.site.name","translation":"RevoTale"},
   {"id":"seo.site.description","translation":"A multilingual note feed with tales and micro-tales."},
   {"id":"seo.publisher.name","translation":"RevoTale"},
-  {"id":"seo.root.description","translation":"Browse the latest notes, tales, and micro-tales."},
+  {"id":"seo.root.description","translation":"Погрузитесь в лаконичные заметки, наполненные практическими советами по кодированию, веб-производительности, SEO, рабочим процессам AI, выводам из книг и многому другому — регулярно обновляемые на RevoTale."},
   {"id":"seo.tales.description","translation":"Read long-form tales from the blog feed."},
   {"id":"seo.microTales.description","translation":"Read short-form micro-tales from the blog feed."},
   {"id":"seo.channels.description","translation":"Browse available channels and filters for the blog feed."},
   {"id":"seo.tag.description","translation":"Browse notes for this tag."},
   {"id":"seo.author.description","translation":"Browse notes by this author."},
-  {"id":"seo.note.description","translation":"Read this note from the blog archive."}
+  {"id":"seo.note.description","translation":"Read this note from the blog archive."},
+  {"id":"seo.root.title","translation":"Заметки - Быстрая разработка, опыт, открытый исходный код, SEO и научные идеи"},
+  {"id":"seo.notesJSONLD.name","translation":"Заметки"},
+  {"id":"seo.notesJSONLD.description","translation":"Изучите коллекцию заметок на различные темы, включая кодирование, веб-производительность, SEO, рабочие процессы AI и выводы из книг. Каждая заметка предназначена для предоставления быстрых идей и практических советов для разработчиков и технических энтузиастов."}
 ]

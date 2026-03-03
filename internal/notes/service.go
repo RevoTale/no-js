@@ -72,28 +72,41 @@ type Attachment struct {
 	MIMEType string
 }
 
+type NoteMention struct {
+	ID  string
+	URL string
+}
+
 type NoteSummary struct {
-	ID          string
-	Slug        string
-	Title       string
-	Excerpt     string
-	PublishedAt string
-	Description string
-	Attachment  *Attachment
-	Authors     []Author
-	Tags        []Tag
+	ID             string
+	Slug           string
+	Title          string
+	Excerpt        string
+	PublishedAt    string
+	PublishedAtISO string
+	MetaTitle      string
+	Description    string
+	MetaImage      *Attachment
+	Attachment     *Attachment
+	Mentions       []NoteMention
+	Authors        []Author
+	Tags           []Tag
 }
 
 type NoteDetail struct {
-	ID          string
-	Slug        string
-	Title       string
-	BodyHTML    template.HTML
-	PublishedAt string
-	Description string
-	Attachment  *Attachment
-	Authors     []Author
-	Tags        []Tag
+	ID             string
+	Slug           string
+	Title          string
+	BodyHTML       template.HTML
+	PublishedAt    string
+	PublishedAtISO string
+	MetaTitle      string
+	Description    string
+	MetaImage      *Attachment
+	Attachment     *Attachment
+	Mentions       []NoteMention
+	Authors        []Author
+	Tags           []Tag
 }
 
 type NotesListResult struct {
@@ -650,23 +663,28 @@ func (s *Service) GetNoteBySlug(ctx context.Context, locale string, slug string)
 	}
 
 	doc := response.Micro_posts.Docs[0]
-	translateLinks := noteTranslateLinks(doc)
+	mentions := noteMentions(doc.ExternalLinks, doc.LinkedMicroPosts)
+	translateLinks := mentionTranslateLinks(mentions)
 	markdownOptions := markdownOptionsForLocale(locale)
 	markdownOptions.TranslateLinks = translateLinks
 	markdownOptions.RootURL = s.rootURL
 	note := NoteDetail{
-		ID:          doc.Id,
-		Slug:        strOr(doc.Slug, slug),
-		Title:       pickTitle(doc.Title),
-		BodyHTML:    md.ToHTML(strOr(doc.Content, ""), markdownOptions),
-		PublishedAt: formatDate(doc.PublishedAt),
-		Attachment:  mapNoteAttachment(doc.Attachment),
-		Authors:     mapNoteAuthors(doc.Authors),
-		Tags:        mapNoteTags(doc.Tags),
+		ID:             doc.Id,
+		Slug:           strOr(doc.Slug, slug),
+		Title:          pickTitle(doc.Title),
+		BodyHTML:       md.ToHTML(strOr(doc.Content, ""), markdownOptions),
+		PublishedAt:    formatDate(doc.PublishedAt),
+		PublishedAtISO: formatDateISO(doc.PublishedAt),
+		Attachment:     mapNoteAttachment(doc.Attachment),
+		Mentions:       mentions,
+		Authors:        mapNoteAuthors(doc.Authors),
+		Tags:           mapNoteTags(doc.Tags),
 	}
 
 	if doc.Meta != nil {
 		note.Description = strOr(doc.Meta.Description, "")
+		note.MetaTitle = strOr(doc.Meta.Title, "")
+		note.MetaImage = mapNoteMetaAttachment(doc.Meta.Image)
 		if strings.TrimSpace(note.Title) == "" {
 			note.Title = strOr(doc.Meta.Title, "")
 		}
@@ -877,6 +895,7 @@ func mapNotesList(response *gql.ListNotesResponse) ([]NoteSummary, int) {
 			mapListAttachment(doc.Attachment),
 			mapListAuthors(doc.Authors),
 			mapListTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -904,6 +923,7 @@ func mapSearchNotes(response *gql.SearchNotesResponse) ([]NoteSummary, int) {
 			mapListAttachment(doc.Attachment),
 			mapListAuthors(doc.Authors),
 			mapListTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -931,6 +951,7 @@ func mapSearchNotesByType(response *gql.SearchNotesByTypeResponse) ([]NoteSummar
 			mapListByTypeAttachment(doc.Attachment),
 			mapListByTypeAuthors(doc.Authors),
 			mapListByTypeTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -958,6 +979,7 @@ func mapSearchNotesByTagIDs(response *gql.SearchNotesByTagIDsResponse) ([]NoteSu
 			mapTagListAttachment(doc.Attachment),
 			mapTagListAuthors(doc.Authors),
 			mapTagListTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -985,6 +1007,7 @@ func mapSearchNotesByTagIDsAndType(response *gql.SearchNotesByTagIDsAndTypeRespo
 			mapTagByTypeAttachment(doc.Attachment),
 			mapTagByTypeAuthors(doc.Authors),
 			mapTagByTypeTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -1012,6 +1035,7 @@ func mapSearchNotesByAuthorSlug(response *gql.SearchNotesByAuthorSlugResponse) (
 			mapAuthorListAttachment(doc.Attachment),
 			mapAuthorListAuthors(doc.Authors),
 			mapAuthorListTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -1039,6 +1063,7 @@ func mapSearchNotesByAuthorSlugAndType(response *gql.SearchNotesByAuthorSlugAndT
 			mapAuthorByTypeAttachment(doc.Attachment),
 			mapAuthorByTypeAuthors(doc.Authors),
 			mapAuthorByTypeTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -1066,6 +1091,7 @@ func mapSearchNotesByAuthorAndTagIDs(response *gql.SearchNotesByAuthorAndTagIDsR
 			mapAuthorTagAttachment(doc.Attachment),
 			mapAuthorTagAuthors(doc.Authors),
 			mapAuthorTagTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -1093,6 +1119,7 @@ func mapSearchNotesByAuthorTagIDsAndType(response *gql.SearchNotesByAuthorTagIDs
 			mapAuthorTagTypeAttachment(doc.Attachment),
 			mapAuthorTagTypeAuthors(doc.Authors),
 			mapAuthorTagTypeTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -1120,6 +1147,7 @@ func mapNotesListByType(response *gql.ListNotesByTypeResponse) ([]NoteSummary, i
 			mapListByTypeAttachment(doc.Attachment),
 			mapListByTypeAuthors(doc.Authors),
 			mapListByTypeTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -1147,6 +1175,7 @@ func mapNotesListByTags(response *gql.ListNotesByTagIDsResponse) ([]NoteSummary,
 			mapTagListAttachment(doc.Attachment),
 			mapTagListAuthors(doc.Authors),
 			mapTagListTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -1174,6 +1203,7 @@ func mapNotesListByTagIDsAndType(response *gql.ListNotesByTagIDsAndTypeResponse)
 			mapTagByTypeAttachment(doc.Attachment),
 			mapTagByTypeAuthors(doc.Authors),
 			mapTagByTypeTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -1201,6 +1231,7 @@ func mapNotesByAuthorSlug(response *gql.NotesByAuthorSlugResponse) ([]NoteSummar
 			mapAuthorListAttachment(doc.Attachment),
 			mapAuthorListAuthors(doc.Authors),
 			mapAuthorListTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -1228,6 +1259,7 @@ func mapNotesByAuthorSlugAndType(response *gql.NotesByAuthorSlugAndTypeResponse)
 			mapAuthorByTypeAttachment(doc.Attachment),
 			mapAuthorByTypeAuthors(doc.Authors),
 			mapAuthorByTypeTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -1255,6 +1287,7 @@ func mapNotesListByAuthorAndTagIDs(response *gql.ListNotesByAuthorAndTagIDsRespo
 			mapAuthorTagAttachment(doc.Attachment),
 			mapAuthorTagAuthors(doc.Authors),
 			mapAuthorTagTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
@@ -1282,10 +1315,17 @@ func mapNotesListByAuthorTagIDsAndType(response *gql.ListNotesByAuthorTagIDsAndT
 			mapAuthorTagTypeAttachment(doc.Attachment),
 			mapAuthorTagTypeAuthors(doc.Authors),
 			mapAuthorTagTypeTags(doc.Tags),
+			summarySEOFieldsFromNoteListDoc(doc.NoteListDoc),
 		))
 	}
 
 	return items, response.Micro_posts.TotalPages
+}
+
+type summarySEOFields struct {
+	MetaTitle *string
+	MetaImage *Attachment
+	Mentions  []NoteMention
 }
 
 func summaryFromListDoc(
@@ -1298,22 +1338,32 @@ func summaryFromListDoc(
 	attachment *Attachment,
 	authors []Author,
 	tags []Tag,
+	seoFields ...summarySEOFields,
 ) NoteSummary {
 	contentText := strOr(content, "")
 	if description == "" {
 		description = md.Excerpt(contentText, 220)
 	}
 
+	fields := summarySEOFields{}
+	if len(seoFields) > 0 {
+		fields = seoFields[0]
+	}
+
 	return NoteSummary{
-		ID:          id,
-		Slug:        strOr(slug, id),
-		Title:       pickTitle(title),
-		Excerpt:     md.Excerpt(contentText, 260),
-		PublishedAt: formatDate(publishedAt),
-		Description: description,
-		Attachment:  attachment,
-		Authors:     authors,
-		Tags:        tags,
+		ID:             id,
+		Slug:           strOr(slug, id),
+		Title:          pickTitle(title),
+		Excerpt:        md.Excerpt(contentText, 260),
+		PublishedAt:    formatDate(publishedAt),
+		PublishedAtISO: formatDateISO(publishedAt),
+		MetaTitle:      strOr(fields.MetaTitle, ""),
+		Description:    description,
+		MetaImage:      fields.MetaImage,
+		Attachment:     attachment,
+		Mentions:       fields.Mentions,
+		Authors:        authors,
+		Tags:           tags,
 	}
 }
 
@@ -1396,6 +1446,23 @@ func mapNoteAttachment(attachment *gql.NoteBySlugMicro_postsDocsMicro_postAttach
 	)
 }
 
+func mapNoteMetaAttachment(
+	metaImage *gql.NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_MetaImageMedia,
+) *Attachment {
+	if metaImage == nil {
+		return nil
+	}
+
+	return newAttachment(
+		metaImage.Url,
+		metaImage.Description,
+		nil,
+		nil,
+		metaImage.Width,
+		metaImage.Height,
+	)
+}
+
 func mapListAttachment(attachment *gql.NoteListDocAttachmentMedia) *Attachment {
 	if attachment == nil {
 		return nil
@@ -1408,6 +1475,21 @@ func mapListAttachment(attachment *gql.NoteListDocAttachmentMedia) *Attachment {
 		attachment.MimeType,
 		attachment.Width,
 		attachment.Height,
+	)
+}
+
+func mapListMetaAttachment(metaImage *gql.NoteListDocMetaMicro_post_MetaImageMedia) *Attachment {
+	if metaImage == nil {
+		return nil
+	}
+
+	return newAttachment(
+		metaImage.Url,
+		metaImage.Description,
+		nil,
+		nil,
+		metaImage.Width,
+		metaImage.Height,
 	)
 }
 
@@ -1499,24 +1581,89 @@ func mapAuthorFromAuthorDoc(doc gql.AuthorBySlugAuthorsDocsAuthor) Author {
 	}
 }
 
-func noteTranslateLinks(doc gql.NoteBySlugMicro_postsDocsMicro_post) map[string]string {
-	links := make(map[string]string, len(doc.ExternalLinks)+len(doc.LinkedMicroPosts))
+func noteMentions(
+	externalLinks []gql.NoteBySlugMicro_postsDocsMicro_postExternalLinksMicro_post_external_link,
+	linkedMicroPosts []gql.NoteBySlugMicro_postsDocsMicro_postLinkedMicroPostsMicro_post,
+) []NoteMention {
+	mentions := make([]NoteMention, 0, len(externalLinks)+len(linkedMicroPosts))
 
-	for _, external := range doc.ExternalLinks {
-		if strings.TrimSpace(external.Target_url) == "" {
+	for _, external := range externalLinks {
+		targetURL := strings.TrimSpace(external.Target_url)
+		if targetURL == "" {
 			continue
 		}
-		links[external.Id] = external.Target_url
+		mentions = append(mentions, NoteMention{
+			ID:  external.Id,
+			URL: targetURL,
+		})
 	}
 
-	for _, linked := range doc.LinkedMicroPosts {
+	for _, linked := range linkedMicroPosts {
 		if linked.Slug == nil || strings.TrimSpace(*linked.Slug) == "" {
 			continue
 		}
-		links[linked.Id] = "/note/" + strings.TrimSpace(*linked.Slug)
+		mentions = append(mentions, NoteMention{
+			ID:  linked.Id,
+			URL: "/note/" + strings.TrimSpace(*linked.Slug),
+		})
 	}
 
+	return mentions
+}
+
+func mentionTranslateLinks(mentions []NoteMention) map[string]string {
+	if len(mentions) == 0 {
+		return map[string]string{}
+	}
+
+	links := make(map[string]string, len(mentions))
+	for _, mention := range mentions {
+		if strings.TrimSpace(mention.ID) == "" || strings.TrimSpace(mention.URL) == "" {
+			continue
+		}
+		links[mention.ID] = mention.URL
+	}
 	return links
+}
+
+func summarySEOFieldsFromNoteListDoc(doc gql.NoteListDoc) summarySEOFields {
+	fields := summarySEOFields{}
+	if doc.Meta != nil {
+		fields.MetaTitle = doc.Meta.Title
+		fields.MetaImage = mapListMetaAttachment(doc.Meta.Image)
+	}
+	fields.Mentions = noteListMentions(doc.ExternalLinks, doc.LinkedMicroPosts)
+	return fields
+}
+
+func noteListMentions(
+	externalLinks []gql.NoteListDocExternalLinksMicro_post_external_link,
+	linkedMicroPosts []gql.NoteListDocLinkedMicroPostsMicro_post,
+) []NoteMention {
+	mentions := make([]NoteMention, 0, len(externalLinks)+len(linkedMicroPosts))
+
+	for _, external := range externalLinks {
+		targetURL := strings.TrimSpace(external.Target_url)
+		if targetURL == "" {
+			continue
+		}
+		mentions = append(mentions, NoteMention{
+			ID:  external.Id,
+			URL: targetURL,
+		})
+	}
+
+	for _, linked := range linkedMicroPosts {
+		if linked.Slug == nil || strings.TrimSpace(*linked.Slug) == "" {
+			continue
+		}
+		mentions = append(mentions, NoteMention{
+			ID:  linked.Id,
+			URL: "/note/" + strings.TrimSpace(*linked.Slug),
+		})
+	}
+
+	return mentions
 }
 
 func mergeAuthor(authors []Author, author Author) []Author {
@@ -1707,6 +1854,22 @@ func formatDate(raw *string) string {
 	}
 
 	return parsed.Format("2006-01-02")
+}
+
+func formatDateISO(raw *string) string {
+	if raw == nil || strings.TrimSpace(*raw) == "" {
+		return ""
+	}
+
+	parsed, err := time.Parse(time.RFC3339, *raw)
+	if err != nil {
+		parsed, err = time.Parse(time.RFC3339Nano, *raw)
+		if err != nil {
+			return strings.TrimSpace(*raw)
+		}
+	}
+
+	return parsed.UTC().Format(time.RFC3339)
 }
 
 func strOr(value *string, fallback string) string {

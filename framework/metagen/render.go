@@ -2,8 +2,6 @@ package metagen
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"html"
 	"io"
 	"sort"
@@ -55,17 +53,6 @@ func renderManagedHead(meta Metadata, includeTitle bool) (string, string, error)
 	writeOpenGraph(&builder, meta.OpenGraph)
 	writeTwitter(&builder, meta.Twitter)
 	writePinterest(&builder, meta.Pinterest)
-
-	for idx, doc := range meta.JSONLD {
-		encoded, err := json.Marshal(doc)
-		if err != nil {
-			return "", "", fmt.Errorf("marshal json-ld document %d: %w", idx, err)
-		}
-		writeTag(
-			&builder,
-			`<script `+managedHeadAttribute+` type="application/ld+json">`+string(encoded)+`</script>`,
-		)
-	}
 
 	return meta.Title, builder.String(), nil
 }
@@ -143,6 +130,13 @@ func writeOpenGraph(builder *strings.Builder, graph *OpenGraph) {
 	writeOpenGraphProperty(builder, "og:title", graph.Title)
 	writeOpenGraphProperty(builder, "og:description", graph.Description)
 	writeOpenGraphProperty(builder, "og:locale", graph.Locale)
+	writeOpenGraphProperty(builder, "article:published_time", graph.PublishedTime)
+	for _, author := range graph.Authors {
+		writeOpenGraphProperty(builder, "article:author", author)
+	}
+	for _, tag := range graph.Tags {
+		writeOpenGraphProperty(builder, "article:tag", tag)
+	}
 
 	for _, image := range graph.Images {
 		writeOpenGraphProperty(builder, "og:image", image.URL)

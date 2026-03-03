@@ -10,7 +10,6 @@ type Metadata struct {
 	Authors     []Author
 	Publisher   string
 	Pinterest   *Pinterest
-	JSONLD      []JSONLDDocument
 }
 
 type Alternates struct {
@@ -25,13 +24,16 @@ type Robots struct {
 }
 
 type OpenGraph struct {
-	Type        string
-	URL         string
-	SiteName    string
-	Title       string
-	Description string
-	Locale      string
-	Images      []OpenGraphImage
+	Type          string
+	URL           string
+	SiteName      string
+	Title         string
+	Description   string
+	Locale        string
+	PublishedTime string
+	Authors       []string
+	Tags          []string
+	Images        []OpenGraphImage
 }
 
 type OpenGraphImage struct {
@@ -58,8 +60,6 @@ type Author struct {
 type Pinterest struct {
 	RichPin *bool
 }
-
-type JSONLDDocument map[string]any
 
 type Patch struct {
 	Title string `json:"title,omitempty"`

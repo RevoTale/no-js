@@ -51,32 +51,38 @@ type PaginationView struct {
 }
 
 type NotesPageView struct {
-	Locale             string
-	Messages           map[webi18n.Key]string
-	PageTitle          string
-	Filter             notes.ListFilter
-	SidebarMode        SidebarMode
-	Notes              []notes.NoteSummary
-	Authors            []notes.Author
-	Tags               []notes.Tag
-	ActiveAuthor       *notes.Author
-	ActiveTag          *notes.Tag
-	Pagination         PaginationView
-	ContextTitle       string
-	ContextSubtitle    string
-	ContextDescription string
-	EmptyStateMessage  string
+	Locale                string
+	RootURL               string
+	CanonicalURL          string
+	IncludeStructuredData bool
+	Messages              map[webi18n.Key]string
+	PageTitle             string
+	Filter                notes.ListFilter
+	SidebarMode           SidebarMode
+	Notes                 []notes.NoteSummary
+	Authors               []notes.Author
+	Tags                  []notes.Tag
+	ActiveAuthor          *notes.Author
+	ActiveTag             *notes.Tag
+	Pagination            PaginationView
+	ContextTitle          string
+	ContextSubtitle       string
+	ContextDescription    string
+	EmptyStateMessage     string
 }
 
 type AuthorPageView = NotesPageView
 
 type NotePageView struct {
-	Locale             string
-	Messages           map[webi18n.Key]string
-	PageTitle          string
-	Note               notes.NoteDetail
-	SidebarAuthorItems []notes.Author
-	SidebarTagItems    []notes.Tag
+	Locale                string
+	RootURL               string
+	CanonicalURL          string
+	IncludeStructuredData bool
+	Messages              map[webi18n.Key]string
+	PageTitle             string
+	Note                  notes.NoteDetail
+	SidebarAuthorItems    []notes.Author
+	SidebarTagItems       []notes.Tag
 }
 
 func NewNotFoundLayoutView(locale string) RootLayoutView {

@@ -3,8 +3,12 @@ package r_page_note_param_slug
 
 import "blog/internal/web/appcore"
 import webi18n "blog/internal/web/i18n"
+import "blog/internal/web/seo"
 
 templ Page(view appcore.NotePageView) {
+	if view.IncludeStructuredData {
+		@seo.JSONLDScript(seo.BuildNoteJSONLD(view))
+	}
 	<article class="panel note-detail">
 		<header class="note-detail-header">
 			<a class="back-link" href={ appcore.LocalizeAppPath(view.LocaleCode(), "/") }>{ appcore.Message(view.MessagesMap(), webi18n.KeyNoteBack) }</a>

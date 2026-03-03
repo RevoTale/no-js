@@ -68,14 +68,17 @@
   {"id":"markdown.placeholder.codeBlock","translation":"[कोड ब्लॉक]"},
   {"id":"markdown.placeholder.table","translation":"[तालिका]"},
   {"id":"markdown.placeholder.image","translation":"[छवि]"},
-  {"id":"seo.site.name","translation":"blog"},
+  {"id":"seo.site.name","translation":"RevoTale"},
   {"id":"seo.site.description","translation":"A multilingual note feed with tales and micro-tales."},
   {"id":"seo.publisher.name","translation":"RevoTale"},
-  {"id":"seo.root.description","translation":"Browse the latest notes, tales, and micro-tales."},
+  {"id":"seo.root.description","translation":"कोडिंग, वेब प्रदर्शन, SEO, AI वर्कफ्लो, पुस्तक सारांश और बहुत कुछ पर क्रियाशील सुझावों से भरे संक्षिप्त नोट्स में डूबें - RevoTale पर नियमित रूप से अपडेट किए जाते हैं।"},
   {"id":"seo.tales.description","translation":"Read long-form tales from the blog feed."},
   {"id":"seo.microTales.description","translation":"Read short-form micro-tales from the blog feed."},
   {"id":"seo.channels.description","translation":"Browse available channels and filters for the blog feed."},
   {"id":"seo.tag.description","translation":"Browse notes for this tag."},
   {"id":"seo.author.description","translation":"Browse notes by this author."},
-  {"id":"seo.note.description","translation":"Read this note from the blog archive."}
+  {"id":"seo.note.description","translation":"Read this note from the blog archive."},
+  {"id":"seo.root.title","translation":"तकनीकी नोट्स - त्वरित कोडिंग, अनुभव, ओपन सोर्स, SEO और वैज्ञानिक अंतर्दृष्टि"},
+  {"id":"seo.notesJSONLD.name","translation":"नोट्स"},
+  {"id":"seo.notesJSONLD.description","translation":"विभिन्न विषयों पर नोट्स का संग्रह देखें, जिसमें कोडिंग, वेब प्रदर्शन, SEO, AI वर्कफ्लो, और पुस्तक सारांश शामिल हैं। प्रत्येक नोट डेवलपर्स और तकनीकी उत्साही लोगों को तेज़ी से अंतर्दृष्टि और क्रियाशील सुझाव प्रदान करने के लिए डिज़ाइन किया गया है।"}
 ]

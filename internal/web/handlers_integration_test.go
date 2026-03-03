@@ -7,8 +7,10 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"blog/framework/httpserver"
 	frameworki18n "blog/framework/i18n"
@@ -118,7 +120,13 @@ func (fakeGraphQLClient) MakeRequest(
 						"publishedAt": "2024-01-02T00:00:00.000Z",
 						"authors": [{"name":"L You","slug":"l-you","bio":"writer"}],
 						"tags": [{"id":"tag-1","name":"go","title":"Go"}],
-						"meta": {"description": "hello note"}
+						"externalLinks": [{"id":"ext-1","target_url":"https://example.com/docs"}],
+						"linkedMicroPosts": [{"id":"linked-1","slug":"hello-linked"}],
+						"meta": {
+							"title":"Hello World Meta",
+							"description":"hello note",
+							"image":{"url":"/images/meta-hello.webp","description":"hello image","width":1200,"height":630}
+						}
 					}
 				]
 			}
@@ -144,7 +152,13 @@ func (fakeGraphQLClient) MakeRequest(
 						"publishedAt": "2024-01-02T00:00:00.000Z",
 						"authors": [{"name":"L You","slug":"l-you","bio":"writer"}],
 						"tags": [{"id":"tag-1","name":"go","title":"Go"}],
-						"meta": {"description": "hello note"}
+						"externalLinks": [{"id":"ext-1","target_url":"https://example.com/docs"}],
+						"linkedMicroPosts": [{"id":"linked-1","slug":"hello-linked"}],
+						"meta": {
+							"title":"Hello World Meta",
+							"description":"hello note",
+							"image":{"url":"/images/meta-hello.webp","description":"hello image","width":1200,"height":630}
+						}
 					}
 				]
 			}
@@ -170,7 +184,13 @@ func (fakeGraphQLClient) MakeRequest(
 						"publishedAt": "2024-01-02T00:00:00.000Z",
 						"authors": [{"name":"L You","slug":"l-you","bio":"writer"}],
 						"tags": [{"id":"tag-1","name":"go","title":"Go"}],
-						"meta": {"description": "hello note"}
+						"externalLinks": [{"id":"ext-1","target_url":"https://example.com/docs"}],
+						"linkedMicroPosts": [{"id":"linked-1","slug":"hello-linked"}],
+						"meta": {
+							"title":"Hello World Meta",
+							"description":"hello note",
+							"image":{"url":"/images/meta-hello.webp","description":"hello image","width":1200,"height":630}
+						}
 					}
 				]
 			}
@@ -190,9 +210,13 @@ func (fakeGraphQLClient) MakeRequest(
 						"publishedAt": "2024-01-02T00:00:00.000Z",
 						"authors": [{"name":"L You","slug":"l-you","bio":"writer"}],
 						"tags": [{"id":"tag-1","name":"go","title":"Go"}],
-						"externalLinks": [],
-						"linkedMicroPosts": [],
-						"meta": {"title":"Hello World","description":"hello note"}
+						"externalLinks": [{"id":"ext-1","target_url":"https://example.com/docs"}],
+						"linkedMicroPosts": [{"id":"linked-1","slug":"hello-linked"}],
+						"meta": {
+							"title":"Hello World",
+							"description":"hello note",
+							"image":{"url":"/images/meta-hello.webp","description":"hello image","width":1200,"height":630}
+						}
 					}
 				]
 			}
@@ -427,27 +451,117 @@ func performRequestWithHeaders(
 	return rec
 }
 
+var jsonLDScriptRe = regexp.MustCompile(`(?s)<script type="application/ld\+json">(.*?)</script>`)
+
+func parseJSONLDScripts(t *testing.T, html string) []map[string]any {
+	t.Helper()
+
+	matches := jsonLDScriptRe.FindAllStringSubmatch(html, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+
+	out := make([]map[string]any, 0, len(matches))
+	for idx, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+
+		var doc map[string]any
+		if err := json.Unmarshal([]byte(match[1]), &doc); err != nil {
+			t.Fatalf("parse json-ld script[%d]: %v", idx, err)
+		}
+		out = append(out, doc)
+	}
+	return out
+}
+
+func requireJSONLDDocByType(t *testing.T, docs []map[string]any, typeName string) map[string]any {
+	t.Helper()
+
+	for _, doc := range docs {
+		if strings.TrimSpace(stringField(t, doc, "@type")) == strings.TrimSpace(typeName) {
+			return doc
+		}
+	}
+	t.Fatalf("expected JSON-LD document with @type=%q", typeName)
+	return nil
+}
+
+func stringField(t *testing.T, object map[string]any, key string) string {
+	t.Helper()
+
+	value, ok := object[key]
+	if !ok {
+		t.Fatalf("missing field %q", key)
+	}
+	text, ok := value.(string)
+	if !ok {
+		t.Fatalf("field %q should be string, got %T", key, value)
+	}
+	return text
+}
+
+func objectField(t *testing.T, object map[string]any, key string) map[string]any {
+	t.Helper()
+
+	value, ok := object[key]
+	if !ok {
+		t.Fatalf("missing field %q", key)
+	}
+	out, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("field %q should be object, got %T", key, value)
+	}
+	return out
+}
+
+func arrayField(t *testing.T, object map[string]any, key string) []any {
+	t.Helper()
+
+	value, ok := object[key]
+	if !ok {
+		t.Fatalf("missing field %q", key)
+	}
+	out, ok := value.([]any)
+	if !ok {
+		t.Fatalf("field %q should be array, got %T", key, value)
+	}
+	return out
+}
+
+func objectFromAny(t *testing.T, value any, field string) map[string]any {
+	t.Helper()
+
+	out, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("field %s should be object, got %T", field, value)
+	}
+	return out
+}
+
 func TestHandlerPageRoutesRenderHTML(t *testing.T) {
 	t.Parallel()
 	testSrv := newTestServer(t)
 	mux := testSrv.handler
+	rootTitleToken := "Notes - Quick Coding, Experience, Open Source, SEO &amp; Science Insights | RevoTale</title>"
 
 	cases := []struct {
 		path        string
 		mustContain string
 	}{
-		{path: "/channels", mustContain: "Channels :: blog</title>"},
-		{path: "/", mustContain: "Notes :: blog</title>"},
-		{path: "/?q=hello", mustContain: "Notes :: blog</title>"},
+		{path: "/channels", mustContain: "Channels | RevoTale</title>"},
+		{path: "/", mustContain: rootTitleToken},
+		{path: "/?q=hello", mustContain: rootTitleToken},
 		{path: "/?author=l-you&tag=go&type=short", mustContain: "<h1>L You</h1>"},
-		{path: "/note/hello-world", mustContain: "Hello World :: blog</title>"},
-		{path: "/author/l-you", mustContain: "L You :: blog</title>"},
-		{path: "/author/l-you?author=zed", mustContain: "L You :: blog</title>"},
-		{path: "/tag/go", mustContain: "#Go :: blog</title>"},
-		{path: "/tag/go?tag=rust", mustContain: "#Go :: blog</title>"},
-		{path: "/tales", mustContain: "Tales :: blog</title>"},
-		{path: "/tales?type=short", mustContain: "Tales :: blog</title>"},
-		{path: "/micro-tales", mustContain: "Micro-tales :: blog</title>"},
+		{path: "/note/hello-world", mustContain: "Hello World | RevoTale</title>"},
+		{path: "/author/l-you", mustContain: "L You | Author | RevoTale</title>"},
+		{path: "/author/l-you?author=zed", mustContain: "L You | Author | RevoTale</title>"},
+		{path: "/tag/go", mustContain: "#Go | RevoTale</title>"},
+		{path: "/tag/go?tag=rust", mustContain: "#Go | RevoTale</title>"},
+		{path: "/tales", mustContain: "Tales | RevoTale</title>"},
+		{path: "/tales?type=short", mustContain: "Tales | RevoTale</title>"},
+		{path: "/micro-tales", mustContain: "Micro-tales | RevoTale</title>"},
 	}
 
 	for _, tc := range cases {
@@ -659,6 +773,9 @@ func TestHandlerHTMXRoutesReturnPartial(t *testing.T) {
 		if strings.Contains(body, "<title>") {
 			t.Fatalf("%s should return partial HTMX payload without layout title", tc.path)
 		}
+		if strings.Contains(body, `application/ld+json`) {
+			t.Fatalf("%s should not include structured data scripts in HTMX partial payload", tc.path)
+		}
 	}
 }
 
@@ -667,7 +784,7 @@ func TestHandlerSEOMetadataAndHTMXPatchHeaders(t *testing.T) {
 	testSrv := newTestServer(t)
 	mux := testSrv.handler
 
-	recNote := performRequest(mux, http.MethodGet, "/uk/note/hello-world?__live=navigation")
+	recNote := performRequest(mux, http.MethodGet, "/uk/note/hello-world")
 	if recNote.Code != http.StatusOK {
 		t.Fatalf("note status: expected %d, got %d", http.StatusOK, recNote.Code)
 	}
@@ -690,36 +807,54 @@ func TestHandlerSEOMetadataAndHTMXPatchHeaders(t *testing.T) {
 	if !strings.Contains(noteBody, `name="twitter:card"`) {
 		t.Fatalf("note page missing twitter metadata")
 	}
-	if !strings.Contains(noteBody, `"@type":"BlogPosting"`) {
-		t.Fatalf("note page missing BlogPosting JSON-LD")
+	if !strings.Contains(noteBody, `property="article:published_time"`) {
+		t.Fatalf("note page should include article:published_time Open Graph metadata")
 	}
-	if !strings.Contains(noteBody, `"url":"https://revotale.com/blog/notes/uk/note/hello-world"`) {
-		t.Fatalf("note JSON-LD should link to the canonical note URL")
+	if !strings.Contains(noteBody, `property="article:author" content="https://revotale.com/blog/notes/uk/author/l-you"`) {
+		t.Fatalf("note page should include article:author Open Graph metadata")
 	}
-	if !strings.Contains(noteBody, `"mainEntityOfPage":"https://revotale.com/blog/notes/uk/note/hello-world"`) {
-		t.Fatalf("note JSON-LD should link mainEntityOfPage to the canonical note URL")
+	if !strings.Contains(noteBody, `property="article:tag" content="Go"`) {
+		t.Fatalf("note page should include article:tag Open Graph metadata")
 	}
-	if !strings.Contains(
-		noteBody,
-		`"publisher":{"@type":"Organization","name":"RevoTale","url":"https://revotale.com/blog/notes"}`,
-	) {
-		t.Fatalf("note JSON-LD should link publisher URL to blog root")
+	noteDocs := parseJSONLDScripts(t, noteBody)
+	noteDoc := requireJSONLDDocByType(t, noteDocs, "BlogPosting")
+	if got := stringField(t, noteDoc, "url"); got != "https://revotale.com/blog/notes/uk/note/hello-world" {
+		t.Fatalf("note JSON-LD url: expected canonical note URL, got %q", got)
 	}
-	if !strings.Contains(noteBody, `"url":"https://revotale.com/blog/notes/uk/author/l-you"`) {
-		t.Fatalf("note JSON-LD should link author URL")
+	mainEntity := objectField(t, noteDoc, "mainEntityOfPage")
+	if got := stringField(t, mainEntity, "@id"); got != "https://revotale.com/blog/notes/uk/note/hello-world" {
+		t.Fatalf("note JSON-LD mainEntityOfPage.@id: expected canonical note URL, got %q", got)
 	}
-	if !strings.Contains(
-		noteBody,
-		`"mentions":[{"@type":"Thing","name":"Go","url":"https://revotale.com/blog/notes/uk/tag/go"}]`,
-	) {
-		t.Fatalf("note JSON-LD should link tag mentions")
+	publisher := objectField(t, noteDoc, "publisher")
+	if got := stringField(t, publisher, "url"); got != "https://revotale.com/blog/notes" {
+		t.Fatalf("note JSON-LD publisher.url: expected root URL, got %q", got)
 	}
-	if !strings.Contains(noteBody, `"@type":"Organization"`) ||
-		!strings.Contains(noteBody, `"url":"https://revotale.com/blog/notes"`) {
-		t.Fatalf("organization JSON-LD should use the blog root URL")
+	authors := arrayField(t, noteDoc, "author")
+	if len(authors) == 0 {
+		t.Fatalf("note JSON-LD should include at least one author")
 	}
-	if !strings.Contains(noteBody, `"sameAs":["https://revotale.com/blog/notes","https://github.com/RevoTale/blog"]`) {
-		t.Fatalf("organization JSON-LD should include linked sameAs entries")
+	firstAuthor := objectFromAny(t, authors[0], "author[0]")
+	if got := stringField(t, firstAuthor, "url"); got != "https://revotale.com/blog/notes/uk/author/l-you" {
+		t.Fatalf("note JSON-LD author.url: expected localized author URL, got %q", got)
+	}
+	datePublished := stringField(t, noteDoc, "datePublished")
+	if _, err := time.Parse(time.RFC3339, datePublished); err != nil {
+		t.Fatalf("note JSON-LD datePublished should be RFC3339/ISO timestamp, got %q", datePublished)
+	}
+	mentions := arrayField(t, noteDoc, "mentions")
+	if len(mentions) < 2 {
+		t.Fatalf("note JSON-LD should include internal and external mentions, got %d", len(mentions))
+	}
+	mentionURLs := make(map[string]struct{}, len(mentions))
+	for idx, mention := range mentions {
+		obj := objectFromAny(t, mention, fmt.Sprintf("mentions[%d]", idx))
+		mentionURLs[stringField(t, obj, "@id")] = struct{}{}
+	}
+	if _, ok := mentionURLs["https://example.com/docs"]; !ok {
+		t.Fatalf("note JSON-LD should include external mention URL")
+	}
+	if _, ok := mentionURLs["https://revotale.com/blog/notes/uk/note/hello-linked"]; !ok {
+		t.Fatalf("note JSON-LD should include localized internal mention URL")
 	}
 
 	recRoot := performRequest(mux, http.MethodGet, "/")
@@ -727,26 +862,40 @@ func TestHandlerSEOMetadataAndHTMXPatchHeaders(t *testing.T) {
 		t.Fatalf("root status: expected %d, got %d", http.StatusOK, recRoot.Code)
 	}
 	rootBody := requireBody(t, recRoot.Body)
-	if !strings.Contains(rootBody, `"@type":"Blog"`) {
-		t.Fatalf("root page should include Blog listing JSON-LD")
+	if !strings.Contains(rootBody, `rel="alternate" type="application/rss+xml"`) {
+		t.Fatalf("root page should include rss alternate metadata")
 	}
-	if !strings.Contains(rootBody, `"url":"https://revotale.com/blog/notes"`) {
-		t.Fatalf("root Blog JSON-LD should link to the blog root URL")
+	rootDocs := parseJSONLDScripts(t, rootBody)
+	rootBlog := requireJSONLDDocByType(t, rootDocs, "Blog")
+	if got := stringField(t, rootBlog, "url"); got != "https://revotale.com/blog/notes" {
+		t.Fatalf("root Blog JSON-LD url: expected blog root URL, got %q", got)
 	}
-	if !strings.Contains(rootBody, `"mainEntityOfPage":"https://revotale.com/blog/notes"`) {
-		t.Fatalf("root Blog JSON-LD should link mainEntityOfPage to the blog root URL")
-	}
-	if !strings.Contains(rootBody, `"blogPost":[{"@type":"BlogPosting"`) {
+	blogPosts := arrayField(t, rootBlog, "blogPost")
+	if len(blogPosts) == 0 {
 		t.Fatalf("root Blog JSON-LD should include linked blog posts")
 	}
-	if !strings.Contains(rootBody, `"url":"https://revotale.com/blog/notes/author/l-you"`) {
-		t.Fatalf("root Blog JSON-LD should link author pages")
+	firstPost := objectFromAny(t, blogPosts[0], "blogPost[0]")
+	if got := stringField(t, firstPost, "@type"); got != "BlogPosting" {
+		t.Fatalf("root Blog JSON-LD blogPost[0].@type: expected BlogPosting, got %q", got)
 	}
-	if !strings.Contains(rootBody, `"mainEntityOfPage":"https://revotale.com/blog/notes/note/hello-world"`) {
-		t.Fatalf("root Blog JSON-LD should link note mainEntityOfPage")
+	if got := stringField(t, firstPost, "url"); got != "https://revotale.com/blog/notes/note/hello-world" {
+		t.Fatalf("root Blog JSON-LD blogPost[0].url: expected note URL, got %q", got)
 	}
-	if !strings.Contains(rootBody, `"url":"https://revotale.com/blog/notes/note/hello-world"`) {
-		t.Fatalf("root Blog JSON-LD should link note URLs")
+	firstPostMainEntity := objectField(t, firstPost, "mainEntityOfPage")
+	if got := stringField(t, firstPostMainEntity, "@id"); got != "https://revotale.com/blog/notes/note/hello-world" {
+		t.Fatalf("root Blog JSON-LD blogPost[0].mainEntityOfPage.@id: expected note URL, got %q", got)
+	}
+	firstPostAuthors := arrayField(t, firstPost, "author")
+	if len(firstPostAuthors) == 0 {
+		t.Fatalf("root Blog JSON-LD blogPost[0] should include authors")
+	}
+	firstPostAuthor := objectFromAny(t, firstPostAuthors[0], "blogPost[0].author[0]")
+	if got := stringField(t, firstPostAuthor, "url"); got != "https://revotale.com/blog/notes/author/l-you" {
+		t.Fatalf("root Blog JSON-LD blogPost[0].author[0].url: expected author URL, got %q", got)
+	}
+	firstPostMentions := arrayField(t, firstPost, "mentions")
+	if len(firstPostMentions) < 2 {
+		t.Fatalf("root Blog JSON-LD blogPost[0] should include mentions, got %d", len(firstPostMentions))
 	}
 
 	recChannels := performRequest(mux, http.MethodGet, "/channels")
@@ -757,8 +906,9 @@ func TestHandlerSEOMetadataAndHTMXPatchHeaders(t *testing.T) {
 	if !strings.Contains(channelsBody, `name="robots" content="noindex, follow"`) {
 		t.Fatalf("channels page should include noindex robots metadata")
 	}
-	if strings.Contains(channelsBody, `"@type":"Blog"`) {
-		t.Fatalf("channels page should not include Blog listing JSON-LD")
+	channelsDocs := parseJSONLDScripts(t, channelsBody)
+	if len(channelsDocs) != 0 {
+		t.Fatalf("channels page should not include structured data scripts, got %d", len(channelsDocs))
 	}
 
 	recHTMX := performRequestWithHeaders(mux, http.MethodGet, "/?__live=navigation", map[string]string{
@@ -776,6 +926,24 @@ func TestHandlerSEOMetadataAndHTMXPatchHeaders(t *testing.T) {
 	}
 	if strings.Contains(patchHeader, "__live=navigation") {
 		t.Fatalf("htmx metadata patch should strip __live marker from canonical/hreflang")
+	}
+
+	payload := make(map[string]json.RawMessage)
+	if err := json.Unmarshal([]byte(patchHeader), &payload); err != nil {
+		t.Fatalf("htmx metadata patch header should be valid json payload: %v", err)
+	}
+	patchPayloadRaw, ok := payload["metagen:patch"]
+	if !ok {
+		t.Fatalf("htmx metadata patch header should include metagen:patch payload")
+	}
+	var patchPayload struct {
+		Head string `json:"head"`
+	}
+	if err := json.Unmarshal(patchPayloadRaw, &patchPayload); err != nil {
+		t.Fatalf("htmx metadata patch payload should be valid json: %v", err)
+	}
+	if strings.Contains(patchPayload.Head, `application/ld+json`) {
+		t.Fatalf("htmx metadata patch head should not include structured data scripts")
 	}
 }
 

@@ -68,14 +68,17 @@
   {"id":"markdown.placeholder.codeBlock","translation":"[コードブロック]"},
   {"id":"markdown.placeholder.table","translation":"[表]"},
   {"id":"markdown.placeholder.image","translation":"[画像]"},
-  {"id":"seo.site.name","translation":"blog"},
+  {"id":"seo.site.name","translation":"RevoTale"},
   {"id":"seo.site.description","translation":"A multilingual note feed with tales and micro-tales."},
   {"id":"seo.publisher.name","translation":"RevoTale"},
-  {"id":"seo.root.description","translation":"Browse the latest notes, tales, and micro-tales."},
+  {"id":"seo.root.description","translation":"コーディング、ウェブパフォーマンス、SEO、AIワークフロー、書籍の要点など、実用的なヒントが詰まった簡潔なメモをRevoTaleで定期的に更新しています。"},
   {"id":"seo.tales.description","translation":"Read long-form tales from the blog feed."},
   {"id":"seo.microTales.description","translation":"Read short-form micro-tales from the blog feed."},
   {"id":"seo.channels.description","translation":"Browse available channels and filters for the blog feed."},
   {"id":"seo.tag.description","translation":"Browse notes for this tag."},
   {"id":"seo.author.description","translation":"Browse notes by this author."},
-  {"id":"seo.note.description","translation":"Read this note from the blog archive."}
+  {"id":"seo.note.description","translation":"Read this note from the blog archive."},
+  {"id":"seo.root.title","translation":"技術メモ - クイックコーディング、経験、オープンソース、SEOおよび科学的な洞察"},
+  {"id":"seo.notesJSONLD.name","translation":"ノート"},
+  {"id":"seo.notesJSONLD.description","translation":"コーディング、ウェブパフォーマンス、SEO、AIワークフロー、書籍の要点など、さまざまなトピックに関するノートのコレクションをご覧ください。各ノートは、開発者や技術愛好家に素早い洞察と実行可能なヒントを提供するために設計されています。"}
 ]

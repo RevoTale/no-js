@@ -16,10 +16,6 @@ import (
 	webi18n "blog/internal/web/i18n"
 )
 
-const (
-	organizationURL = "https://github.com/RevoTale/blog"
-)
-
 func MetaGenRootPage(
 	ctx context.Context,
 	appCtx *appcore.Context,
@@ -29,14 +25,31 @@ func MetaGenRootPage(
 	if err != nil {
 		return metagen.Metadata{}, err
 	}
+	cardTitle := localizeSEO(
+		appCtx,
+		view.LocaleCode(),
+		webi18n.KeySeoRootTitle,
+		"Notes - Quick Coding, Experience, Open Source, SEO & Science Insights",
+		nil,
+	)
 	description := localizeSEO(
 		appCtx,
 		view.LocaleCode(),
 		webi18n.KeySeoRootDescription,
-		"Browse the latest notes, tales, and micro-tales.",
+		"Dive into concise notes packed with actionable tips on coding, web-performance, SEO, "+
+			"AI workflows, book takeaways and more-updated regularly on RevoTale.",
 		nil,
 	)
-	return notesListingMetadata(appCtx, r, view, description, "website", nil, true)
+	return notesListingMetadata(
+		appCtx,
+		r,
+		view,
+		cardTitle,
+		description,
+		"website",
+		&metagen.Robots{Index: metagen.Bool(false), Follow: metagen.Bool(true)},
+		true,
+	)
 }
 
 func MetaGenTalesPage(
@@ -55,7 +68,16 @@ func MetaGenTalesPage(
 		"Read long-form tales from the blog feed.",
 		nil,
 	)
-	return notesListingMetadata(appCtx, r, view, description, "website", nil, true)
+	return notesListingMetadata(
+		appCtx,
+		r,
+		view,
+		view.PageTitle,
+		description,
+		"website",
+		&metagen.Robots{Index: metagen.Bool(false), Follow: metagen.Bool(true)},
+		false,
+	)
 }
 
 func MetaGenMicroTalesPage(
@@ -74,7 +96,16 @@ func MetaGenMicroTalesPage(
 		"Read short-form micro-tales from the blog feed.",
 		nil,
 	)
-	return notesListingMetadata(appCtx, r, view, description, "website", nil, true)
+	return notesListingMetadata(
+		appCtx,
+		r,
+		view,
+		view.PageTitle,
+		description,
+		"website",
+		&metagen.Robots{Index: metagen.Bool(false), Follow: metagen.Bool(true)},
+		false,
+	)
 }
 
 func MetaGenTagPage(
@@ -96,7 +127,16 @@ func MetaGenTagPage(
 			"Tag": strings.TrimSpace(strings.TrimPrefix(view.PageTitle, "#")),
 		},
 	)
-	return notesListingMetadata(appCtx, r, view, description, "website", nil, true)
+	return notesListingMetadata(
+		appCtx,
+		r,
+		view,
+		view.PageTitle,
+		description,
+		"website",
+		&metagen.Robots{Index: metagen.Bool(false), Follow: metagen.Bool(true)},
+		false,
+	)
 }
 
 func MetaGenChannelsPage(
@@ -119,6 +159,7 @@ func MetaGenChannelsPage(
 		appCtx,
 		r,
 		view,
+		view.PageTitle,
 		description,
 		"website",
 		&metagen.Robots{Index: metagen.Bool(false), Follow: metagen.Bool(true)},
@@ -138,7 +179,27 @@ func MetaGenAuthorPage(
 	}
 
 	site := siteInfo(appCtx, view.LocaleCode())
-	title := titledPage(view.PageTitle, site.Name)
+
+	authorName := ""
+	authorSlug := ""
+	var image *metagen.OpenGraphImage
+	if view.ActiveAuthor != nil {
+		authorName = strings.TrimSpace(view.ActiveAuthor.Name)
+		authorSlug = strings.TrimSpace(view.ActiveAuthor.Slug)
+		image = authorAvatarImage(appCtx, view.ActiveAuthor)
+	}
+
+	contentTitle := strings.TrimSpace(authorName)
+	if contentTitle == "" {
+		contentTitle = strings.TrimSpace(view.PageTitle)
+	}
+	if contentTitle != "" {
+		contentTitle = contentTitle + " | Author"
+	} else {
+		contentTitle = "Author"
+	}
+	title := titleWithSite(contentTitle, site.Name)
+
 	description := localizeSEO(
 		appCtx,
 		view.LocaleCode(),
@@ -152,55 +213,30 @@ func MetaGenAuthorPage(
 		description = strings.TrimSpace(view.ActiveAuthor.Bio)
 	}
 
-	alternates, alternatesErr := buildAlternates(appCtx, r, view.LocaleCode())
+	alternates, alternatesErr := buildAlternates(appCtx, r, view.LocaleCode(), nil)
 	if alternatesErr != nil {
 		return metagen.Metadata{}, alternatesErr
 	}
 	canonicalURL := strings.TrimSpace(alternates.Canonical)
 
-	var authorName string
-	var authorSlug string
-	var image *metagen.OpenGraphImage
-	if view.ActiveAuthor != nil {
-		authorName = strings.TrimSpace(view.ActiveAuthor.Name)
-		authorSlug = strings.TrimSpace(view.ActiveAuthor.Slug)
-		image = authorAvatarImage(appCtx, view.ActiveAuthor)
-	}
-
 	openGraph := &metagen.OpenGraph{
 		Type:        "profile",
 		URL:         canonicalURL,
 		SiteName:    site.Name,
-		Title:       title,
+		Title:       contentTitle,
 		Description: description,
 		Locale:      view.LocaleCode(),
 	}
 	twitter := &metagen.Twitter{
 		Card:        "summary",
-		Title:       title,
+		Site:        "@RevoTale",
+		Title:       contentTitle,
 		Description: description,
 	}
 	if image != nil {
 		openGraph.Images = []metagen.OpenGraphImage{*image}
 		twitter.Card = "summary_large_image"
 		twitter.Images = []string{image.URL}
-	}
-
-	jsonLD := []metagen.JSONLDDocument{
-		organizationDocument(site),
-	}
-	if authorName != "" {
-		person := metagen.JSONLDDocument{
-			"@context":    "https://schema.org",
-			"@type":       "Person",
-			"name":        authorName,
-			"description": description,
-			"url":         canonicalURL,
-		}
-		if image != nil {
-			person["image"] = image.URL
-		}
-		jsonLD = append(jsonLD, person)
 	}
 
 	authors := []metagen.Author{}
@@ -220,7 +256,6 @@ func MetaGenAuthorPage(
 		Authors:     authors,
 		Publisher:   site.Publisher,
 		Pinterest:   &metagen.Pinterest{RichPin: metagen.Bool(true)},
-		JSONLD:      jsonLD,
 	}), nil
 }
 
@@ -236,7 +271,14 @@ func MetaGenNotePage(
 	}
 
 	site := siteInfo(appCtx, view.LocaleCode())
-	title := titledPage(view.PageTitle, site.Name)
+	contentTitle := strings.TrimSpace(view.Note.MetaTitle)
+	if contentTitle == "" {
+		contentTitle = strings.TrimSpace(view.Note.Title)
+	}
+	if contentTitle == "" {
+		contentTitle = strings.TrimSpace(view.PageTitle)
+	}
+	title := titleWithSite(contentTitle, site.Name)
 	description := strings.TrimSpace(view.Note.Description)
 	if description == "" {
 		description = localizeSEO(
@@ -248,24 +290,25 @@ func MetaGenNotePage(
 		)
 	}
 
-	alternates, alternatesErr := buildAlternates(appCtx, r, view.LocaleCode())
+	alternates, alternatesErr := buildAlternates(appCtx, r, view.LocaleCode(), nil)
 	if alternatesErr != nil {
 		return metagen.Metadata{}, alternatesErr
 	}
 	canonicalURL := strings.TrimSpace(alternates.Canonical)
 
-	image := noteAttachmentImage(appCtx, view.Note.Attachment)
+	image := noteImage(appCtx, view.Note.MetaImage, view.Note.Attachment)
 	openGraph := &metagen.OpenGraph{
 		Type:        "article",
 		URL:         canonicalURL,
 		SiteName:    site.Name,
-		Title:       title,
+		Title:       contentTitle,
 		Description: description,
 		Locale:      view.LocaleCode(),
 	}
 	twitter := &metagen.Twitter{
 		Card:        "summary",
-		Title:       title,
+		Site:        "@RevoTale",
+		Title:       contentTitle,
 		Description: description,
 	}
 	if image != nil {
@@ -275,26 +318,22 @@ func MetaGenNotePage(
 	}
 
 	authors := make([]metagen.Author, 0, len(view.Note.Authors))
-	authorItems := make([]map[string]any, 0, len(view.Note.Authors))
+	openGraphAuthors := make([]string, 0, len(view.Note.Authors))
 	for _, author := range view.Note.Authors {
 		authorName := strings.TrimSpace(author.Name)
 		authorSlug := strings.TrimSpace(author.Slug)
 		if authorName == "" {
 			continue
 		}
+		authorURL := absoluteLocalizedURL(appCtx, view.LocaleCode(), "/author/"+authorSlug)
 		authors = append(authors, metagen.Author{
 			Name: authorName,
-			URL:  absoluteLocalizedURL(appCtx, view.LocaleCode(), "/author/"+authorSlug),
+			URL:  authorURL,
 		})
-		authorItems = append(authorItems, map[string]any{
-			"@type": "Person",
-			"name":  authorName,
-			"url":   absoluteLocalizedURL(appCtx, view.LocaleCode(), "/author/"+authorSlug),
-		})
+		openGraphAuthors = append(openGraphAuthors, authorURL)
 	}
 
-	mentions := make([]map[string]any, 0, len(view.Note.Tags))
-	keywords := make([]string, 0, len(view.Note.Tags))
+	openGraphTags := make([]string, 0, len(view.Note.Tags))
 	for _, tag := range view.Note.Tags {
 		tagName := strings.TrimSpace(tag.Title)
 		if tagName == "" {
@@ -303,58 +342,23 @@ func MetaGenNotePage(
 		if tagName == "" {
 			continue
 		}
-		keywords = append(keywords, tagName)
-		mention := map[string]any{
-			"@type": "Thing",
-			"name":  tagName,
-		}
-		tagSlug := strings.TrimSpace(tag.Name)
-		if tagSlug != "" {
-			mention["url"] = absoluteLocalizedURL(appCtx, view.LocaleCode(), "/tag/"+tagSlug)
-		}
-		mentions = append(mentions, mention)
+		openGraphTags = append(openGraphTags, tagName)
 	}
 
-	publishing := metagen.JSONLDDocument{
-		"@context":         "https://schema.org",
-		"@type":            "BlogPosting",
-		"headline":         strings.TrimSpace(view.Note.Title),
-		"description":      description,
-		"mainEntityOfPage": canonicalURL,
-		"url":              canonicalURL,
-		"publisher": map[string]any{
-			"@type": "Organization",
-			"name":  site.Publisher,
-			"url":   site.RootURL,
-		},
-	}
-	if strings.TrimSpace(view.Note.PublishedAt) != "" {
-		publishing["datePublished"] = strings.TrimSpace(view.Note.PublishedAt)
-	}
-	if len(authorItems) > 0 {
-		publishing["author"] = authorItems
-	}
-	if len(mentions) > 0 {
-		publishing["mentions"] = mentions
-		publishing["keywords"] = strings.Join(keywords, ", ")
-	}
-	if image != nil {
-		publishing["image"] = image.URL
-	}
+	openGraph.PublishedTime = strings.TrimSpace(view.Note.PublishedAtISO)
+	openGraph.Authors = openGraphAuthors
+	openGraph.Tags = openGraphTags
 
 	return metagen.Normalize(metagen.Metadata{
 		Title:       title,
 		Description: description,
 		Alternates:  alternates,
+		Robots:      &metagen.Robots{Index: metagen.Bool(true), Follow: metagen.Bool(true)},
 		OpenGraph:   openGraph,
 		Twitter:     twitter,
 		Authors:     authors,
 		Publisher:   site.Publisher,
 		Pinterest:   &metagen.Pinterest{RichPin: metagen.Bool(true)},
-		JSONLD: []metagen.JSONLDDocument{
-			organizationDocument(site),
-			publishing,
-		},
 	}), nil
 }
 
@@ -362,15 +366,25 @@ func notesListingMetadata(
 	appCtx *appcore.Context,
 	r *http.Request,
 	view appcore.NotesPageView,
+	cardTitle string,
 	description string,
 	openGraphType string,
 	robots *metagen.Robots,
-	includeListingJSONLD bool,
+	includeRSS bool,
 ) (metagen.Metadata, error) {
 	site := siteInfo(appCtx, view.LocaleCode())
-	title := titledPage(view.PageTitle, site.Name)
+	contentTitle := strings.TrimSpace(cardTitle)
+	if contentTitle == "" {
+		contentTitle = strings.TrimSpace(view.PageTitle)
+	}
+	title := titleWithSite(contentTitle, site.Name)
 
-	alternates, err := buildAlternates(appCtx, r, view.LocaleCode())
+	alternateTypes := map[string]string(nil)
+	if includeRSS {
+		alternateTypes = notesRSSAlternateTypes(appCtx, view.LocaleCode())
+	}
+
+	alternates, err := buildAlternates(appCtx, r, view.LocaleCode(), alternateTypes)
 	if err != nil {
 		return metagen.Metadata{}, err
 	}
@@ -381,26 +395,20 @@ func notesListingMetadata(
 		Type:        strings.TrimSpace(openGraphType),
 		URL:         canonicalURL,
 		SiteName:    site.Name,
-		Title:       title,
+		Title:       contentTitle,
 		Description: description,
 		Locale:      view.LocaleCode(),
 	}
 	twitter := &metagen.Twitter{
 		Card:        "summary",
-		Title:       title,
+		Site:        "@RevoTale",
+		Title:       contentTitle,
 		Description: description,
 	}
 	if image != nil {
 		openGraph.Images = []metagen.OpenGraphImage{*image}
 		twitter.Card = "summary_large_image"
 		twitter.Images = []string{image.URL}
-	}
-
-	jsonLD := []metagen.JSONLDDocument{
-		organizationDocument(site),
-	}
-	if includeListingJSONLD {
-		jsonLD = append(jsonLD, blogListingDocument(appCtx, view, canonicalURL, site, description))
 	}
 
 	return metagen.Normalize(metagen.Metadata{
@@ -411,88 +419,7 @@ func notesListingMetadata(
 		OpenGraph:   openGraph,
 		Twitter:     twitter,
 		Publisher:   site.Publisher,
-		JSONLD:      jsonLD,
 	}), nil
-}
-
-func blogListingDocument(
-	appCtx *appcore.Context,
-	view appcore.NotesPageView,
-	canonicalURL string,
-	site siteMetadata,
-	description string,
-) metagen.JSONLDDocument {
-	posts := make([]map[string]any, 0, len(view.Notes))
-	for _, note := range view.Notes {
-		noteTitle := strings.TrimSpace(note.Title)
-		if noteTitle == "" {
-			continue
-		}
-		noteURL := absoluteLocalizedURL(appCtx, view.LocaleCode(), "/note/"+strings.TrimSpace(note.Slug))
-		post := map[string]any{
-			"@type":            "BlogPosting",
-			"headline":         noteTitle,
-			"url":              noteURL,
-			"mainEntityOfPage": noteURL,
-			"description":      strings.TrimSpace(note.Description),
-		}
-		if strings.TrimSpace(note.PublishedAt) != "" {
-			post["datePublished"] = strings.TrimSpace(note.PublishedAt)
-		}
-		if len(note.Authors) > 0 {
-			authors := make([]map[string]any, 0, len(note.Authors))
-			for _, author := range note.Authors {
-				name := strings.TrimSpace(author.Name)
-				slug := strings.TrimSpace(author.Slug)
-				if name == "" {
-					continue
-				}
-				authors = append(authors, map[string]any{
-					"@type": "Person",
-					"name":  name,
-					"url":   absoluteLocalizedURL(appCtx, view.LocaleCode(), "/author/"+slug),
-				})
-			}
-			if len(authors) > 0 {
-				post["author"] = authors
-			}
-		}
-		if note.Attachment != nil {
-			if imageURL := absoluteMediaURL(appCtx, note.Attachment.URL); imageURL != "" {
-				post["image"] = imageURL
-			}
-		}
-		posts = append(posts, post)
-	}
-
-	return metagen.JSONLDDocument{
-		"@context":         "https://schema.org",
-		"@type":            "Blog",
-		"name":             site.Name,
-		"url":              canonicalURL,
-		"description":      description,
-		"publisher":        map[string]any{"@type": "Organization", "name": site.Publisher, "url": site.RootURL},
-		"blogPost":         posts,
-		"inLanguage":       view.LocaleCode(),
-		"mainEntityOfPage": canonicalURL,
-	}
-}
-
-func organizationDocument(site siteMetadata) metagen.JSONLDDocument {
-	sameAs := []string{organizationURL}
-	if rootURL := strings.TrimSpace(site.RootURL); rootURL != "" {
-		sameAs = append([]string{rootURL}, sameAs...)
-	}
-
-	out := metagen.JSONLDDocument{
-		"@context":    "https://schema.org",
-		"@type":       "Organization",
-		"name":        site.Publisher,
-		"url":         site.RootURL,
-		"description": site.Description,
-		"sameAs":      sameAs,
-	}
-	return out
 }
 
 type siteMetadata struct {
@@ -503,7 +430,7 @@ type siteMetadata struct {
 }
 
 func siteInfo(appCtx *appcore.Context, locale string) siteMetadata {
-	name := localizeSEO(appCtx, locale, webi18n.KeySeoSiteName, "blog", nil)
+	name := localizeSEO(appCtx, locale, webi18n.KeySeoSiteName, "RevoTale", nil)
 	description := localizeSEO(
 		appCtx,
 		locale,
@@ -544,19 +471,24 @@ func localizeSEO(
 	return value
 }
 
-func titledPage(pageTitle string, siteName string) string {
+func titleWithSite(pageTitle string, siteName string) string {
 	trimmedPage := strings.TrimSpace(pageTitle)
 	trimmedSite := strings.TrimSpace(siteName)
 	if trimmedSite == "" {
-		trimmedSite = "blog"
+		trimmedSite = "RevoTale"
 	}
 	if trimmedPage == "" {
 		return trimmedSite
 	}
-	return trimmedPage + " :: " + trimmedSite
+	return trimmedPage + " | " + trimmedSite
 }
 
-func buildAlternates(appCtx *appcore.Context, r *http.Request, locale string) (metagen.Alternates, error) {
+func buildAlternates(
+	appCtx *appcore.Context,
+	r *http.Request,
+	locale string,
+	alternateTypes map[string]string,
+) (metagen.Alternates, error) {
 	if appCtx == nil {
 		return metagen.Alternates{}, fmt.Errorf("app context is required")
 	}
@@ -571,7 +503,7 @@ func buildAlternates(appCtx *appcore.Context, r *http.Request, locale string) (m
 		return metagen.Alternates{}, fmt.Errorf("normalize i18n config: %w", err)
 	}
 
-	return metagen.BuildAlternates(rootURL, cfg, locale, requestPathWithQuery(r), nil)
+	return metagen.BuildAlternates(rootURL, cfg, locale, requestPathWithQuery(r), alternateTypes)
 }
 
 func requestPathWithQuery(r *http.Request) string {
@@ -588,14 +520,44 @@ func requestPathWithQuery(r *http.Request) string {
 	return pathValue + "?" + strings.TrimSpace(r.URL.RawQuery)
 }
 
+func notesRSSAlternateTypes(appCtx *appcore.Context, locale string) map[string]string {
+	if appCtx == nil {
+		return nil
+	}
+
+	rootURL := strings.TrimSpace(appCtx.RootURL())
+	if rootURL == "" {
+		return nil
+	}
+
+	feedURL := joinRootAndPath(rootURL, "/feed.xml")
+	if strings.TrimSpace(feedURL) == "" {
+		return nil
+	}
+
+	return map[string]string{
+		"application/rss+xml": feedURL + "?locale=" + url.QueryEscape(strings.TrimSpace(locale)),
+	}
+}
+
 func firstListingImage(appCtx *appcore.Context, notes []notes.NoteSummary) *metagen.OpenGraphImage {
 	for _, note := range notes {
-		if note.Attachment == nil {
-			continue
+		if image := noteImage(appCtx, note.MetaImage, note.Attachment); image != nil {
+			return image
 		}
-		return noteAttachmentImage(appCtx, note.Attachment)
 	}
 	return nil
+}
+
+func noteImage(
+	appCtx *appcore.Context,
+	metaImage *notes.Attachment,
+	attachment *notes.Attachment,
+) *metagen.OpenGraphImage {
+	if image := noteAttachmentImage(appCtx, metaImage); image != nil {
+		return image
+	}
+	return noteAttachmentImage(appCtx, attachment)
 }
 
 func noteAttachmentImage(appCtx *appcore.Context, attachment *notes.Attachment) *metagen.OpenGraphImage {

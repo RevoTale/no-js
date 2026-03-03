@@ -1,7 +1,6 @@
 package metagen
 
 import (
-	"encoding/json"
 	"sort"
 	"strings"
 )
@@ -13,7 +12,6 @@ func Normalize(meta Metadata) Metadata {
 		Alternates:  normalizeAlternates(meta.Alternates),
 		Authors:     normalizeAuthors(meta.Authors),
 		Publisher:   strings.TrimSpace(meta.Publisher),
-		JSONLD:      normalizeJSONLD(meta.JSONLD),
 	}
 
 	if robots := normalizeRobots(meta.Robots); robots != nil {
@@ -101,13 +99,16 @@ func normalizeOpenGraph(graph *OpenGraph) *OpenGraph {
 	}
 
 	normalized := &OpenGraph{
-		Type:        strings.TrimSpace(graph.Type),
-		URL:         strings.TrimSpace(graph.URL),
-		SiteName:    strings.TrimSpace(graph.SiteName),
-		Title:       strings.TrimSpace(graph.Title),
-		Description: strings.TrimSpace(graph.Description),
-		Locale:      strings.ToLower(strings.TrimSpace(graph.Locale)),
-		Images:      normalizeOpenGraphImages(graph.Images),
+		Type:          strings.TrimSpace(graph.Type),
+		URL:           strings.TrimSpace(graph.URL),
+		SiteName:      strings.TrimSpace(graph.SiteName),
+		Title:         strings.TrimSpace(graph.Title),
+		Description:   strings.TrimSpace(graph.Description),
+		Locale:        strings.ToLower(strings.TrimSpace(graph.Locale)),
+		PublishedTime: strings.TrimSpace(graph.PublishedTime),
+		Authors:       normalizeOpenGraphStrings(graph.Authors),
+		Tags:          normalizeOpenGraphStrings(graph.Tags),
+		Images:        normalizeOpenGraphImages(graph.Images),
 	}
 
 	if normalized.Type == "" &&
@@ -116,6 +117,9 @@ func normalizeOpenGraph(graph *OpenGraph) *OpenGraph {
 		normalized.Title == "" &&
 		normalized.Description == "" &&
 		normalized.Locale == "" &&
+		normalized.PublishedTime == "" &&
+		len(normalized.Authors) == 0 &&
+		len(normalized.Tags) == 0 &&
 		len(normalized.Images) == 0 {
 		return nil
 	}
@@ -220,6 +224,24 @@ func normalizeOpenGraphImages(images []OpenGraphImage) []OpenGraphImage {
 	return normalized
 }
 
+func normalizeOpenGraphStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	normalized := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		normalized = append(normalized, trimmed)
+	}
+
+	sort.Strings(normalized)
+	return compactSortedStrings(normalized)
+}
+
 func normalizeTwitterImages(images []string) []string {
 	if len(images) == 0 {
 		return nil
@@ -234,41 +256,22 @@ func normalizeTwitterImages(images []string) []string {
 		normalized = append(normalized, trimmed)
 	}
 	sort.Strings(normalized)
-	return normalized
+	return compactSortedStrings(normalized)
 }
 
-func normalizeJSONLD(documents []JSONLDDocument) []JSONLDDocument {
-	if len(documents) == 0 {
+func compactSortedStrings(values []string) []string {
+	if len(values) == 0 {
 		return nil
 	}
 
-	type sortableDocument struct {
-		encoded []byte
-		parsed  JSONLDDocument
-	}
-
-	sortable := make([]sortableDocument, 0, len(documents))
-	for _, doc := range documents {
-		if len(doc) == 0 {
+	out := values[:0]
+	var previous string
+	for _, value := range values {
+		if len(out) > 0 && value == previous {
 			continue
 		}
-		encoded, err := json.Marshal(doc)
-		if err != nil {
-			continue
-		}
-		sortable = append(sortable, sortableDocument{
-			encoded: encoded,
-			parsed:  doc,
-		})
-	}
-
-	sort.Slice(sortable, func(i int, j int) bool {
-		return string(sortable[i].encoded) < string(sortable[j].encoded)
-	})
-
-	out := make([]JSONLDDocument, 0, len(sortable))
-	for _, doc := range sortable {
-		out = append(out, doc.parsed)
+		out = append(out, value)
+		previous = value
 	}
 	return out
 }

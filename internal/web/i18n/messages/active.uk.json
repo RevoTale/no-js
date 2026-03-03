@@ -68,14 +68,17 @@
   {"id":"markdown.placeholder.codeBlock","translation":"[блок коду]"},
   {"id":"markdown.placeholder.table","translation":"[таблиця]"},
   {"id":"markdown.placeholder.image","translation":"[зображення]"},
-  {"id":"seo.site.name","translation":"blog"},
+  {"id":"seo.site.name","translation":"RevoTale"},
   {"id":"seo.site.description","translation":"A multilingual note feed with tales and micro-tales."},
   {"id":"seo.publisher.name","translation":"RevoTale"},
-  {"id":"seo.root.description","translation":"Browse the latest notes, tales, and micro-tales."},
+  {"id":"seo.root.description","translation":"Занурюйтесь у короткі нотатки, наповнені практичними порадами з програмування, веб-продуктивності, SEO, робочих процесів AI, висновків з книг та багато іншого — регулярно оновлюється на RevoTale."},
   {"id":"seo.tales.description","translation":"Read long-form tales from the blog feed."},
   {"id":"seo.microTales.description","translation":"Read short-form micro-tales from the blog feed."},
   {"id":"seo.channels.description","translation":"Browse available channels and filters for the blog feed."},
   {"id":"seo.tag.description","translation":"Browse notes for this tag."},
   {"id":"seo.author.description","translation":"Browse notes by this author."},
-  {"id":"seo.note.description","translation":"Read this note from the blog archive."}
+  {"id":"seo.note.description","translation":"Read this note from the blog archive."},
+  {"id":"seo.root.title","translation":"Нотатки - програмування, досвід, відкритий код, SEO та наукові ідеї"},
+  {"id":"seo.notesJSONLD.name","translation":"Нотатки"},
+  {"id":"seo.notesJSONLD.description","translation":"Досліджуйте колекцію нотаток з різних тем, включаючи програмування, веб-продуктивність, SEO, робочі процеси AI та висновки з книг. Кожна нотатка створена для надання швидких знань та практичних порад для розробників та ентузіастів технологій."}
 ]

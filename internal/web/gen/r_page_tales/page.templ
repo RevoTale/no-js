@@ -4,9 +4,13 @@ package r_page_tales
 import (
 	"blog/internal/web/appcore"
 	"blog/internal/web/components"
+	"blog/internal/web/seo"
 )
 
 templ Page(view appcore.NotesPageView) {
+	if view.IncludeStructuredData {
+		@seo.JSONLDScript(seo.BuildNotesBlogJSONLD(view))
+	}
 	<div id="notes-content" hx-history-elt>
 		@components.NotesFeed(view, view.EmptyStateMessage)
 	</div>

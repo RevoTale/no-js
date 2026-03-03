@@ -9,6 +9,7 @@ import (
 
 	"blog/framework"
 	frameworki18n "blog/framework/i18n"
+	"blog/framework/metagen"
 	"blog/internal/notes"
 	webi18n "blog/internal/web/i18n"
 )
@@ -35,6 +36,7 @@ func LoadNotesPage(
 	if err != nil {
 		return NotesPageView{}, err
 	}
+	applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
 	view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyRoot)
 	return view, nil
 }
@@ -61,7 +63,7 @@ func LoadAuthorPage(
 	if err != nil {
 		return AuthorPageView{}, err
 	}
-
+	applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
 	view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyAuthor)
 	return view, nil
 }
@@ -88,6 +90,7 @@ func LoadTagPage(
 	if err != nil {
 		return NotesPageView{}, err
 	}
+	applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
 	view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyTag)
 	return view, nil
 }
@@ -107,6 +110,7 @@ func LoadNotesTalesPage(
 	if err != nil {
 		return NotesPageView{}, err
 	}
+	applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
 	view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyTales)
 	return view, nil
 }
@@ -126,6 +130,7 @@ func LoadNotesMicroTalesPage(
 	if err != nil {
 		return NotesPageView{}, err
 	}
+	applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
 	view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyMicro)
 	return view, nil
 }
@@ -142,6 +147,7 @@ func LoadChannelsPage(
 	if err != nil {
 		return NotesPageView{}, err
 	}
+	applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
 
 	view.PageTitle = Message(view.Messages, webi18n.KeyChannelsPageTitle)
 	return view, nil
@@ -191,12 +197,15 @@ func LoadNotePage(
 	}
 
 	return NotePageView{
-		Locale:             locale,
-		Messages:           messages,
-		PageTitle:          pageTitle,
-		Note:               *note,
-		SidebarAuthorItems: uniqueSortedAuthors(note.Authors),
-		SidebarTagItems:    uniqueSortedTags(note.Tags),
+		Locale:                locale,
+		RootURL:               strings.TrimSpace(appCtx.RootURL()),
+		CanonicalURL:          canonicalURLFromRequest(appCtx, r, locale),
+		IncludeStructuredData: shouldIncludeStructuredData(r),
+		Messages:              messages,
+		PageTitle:             pageTitle,
+		Note:                  *note,
+		SidebarAuthorItems:    uniqueSortedAuthors(note.Authors),
+		SidebarTagItems:       uniqueSortedTags(note.Tags),
 	}, nil
 }
 
@@ -420,6 +429,75 @@ func normalizePageURL(pageURL string) (string, url.Values) {
 	}
 
 	return pathValue, parsed.Query()
+}
+
+func applyStructuredDataContextForNotesView(
+	view *NotesPageView,
+	appCtx *Context,
+	r *http.Request,
+	locale string,
+) {
+	if view == nil {
+		return
+	}
+
+	rootURL := ""
+	if appCtx != nil {
+		rootURL = strings.TrimSpace(appCtx.RootURL())
+	}
+	view.RootURL = rootURL
+	view.CanonicalURL = canonicalURLFromRequest(appCtx, r, locale)
+	view.IncludeStructuredData = shouldIncludeStructuredData(r)
+}
+
+func shouldIncludeStructuredData(r *http.Request) bool {
+	if r == nil {
+		return true
+	}
+
+	if strings.EqualFold(strings.TrimSpace(r.Header.Get("HX-Request")), "true") {
+		return false
+	}
+
+	if r.URL == nil {
+		return true
+	}
+
+	return strings.TrimSpace(r.URL.Query().Get(liveNavigationQueryKey)) != liveNavigationQueryValue
+}
+
+func canonicalURLFromRequest(appCtx *Context, r *http.Request, locale string) string {
+	if appCtx == nil || r == nil {
+		return ""
+	}
+
+	rootURL := strings.TrimSpace(appCtx.RootURL())
+	if rootURL == "" {
+		return ""
+	}
+
+	cfg, err := frameworki18n.NormalizeConfig(appCtx.I18nConfig())
+	if err != nil {
+		return ""
+	}
+
+	pathValue := "/"
+	if r.URL != nil {
+		pathValue = strings.TrimSpace(r.URL.Path)
+		if pathValue == "" {
+			pathValue = "/"
+		}
+		if strings.TrimSpace(r.URL.RawQuery) != "" {
+			pathValue += "?" + strings.TrimSpace(r.URL.RawQuery)
+		}
+	}
+
+	alternates, err := metagen.BuildAlternates(rootURL, cfg, locale, pathValue, nil)
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(alternates.Canonical)
 }
 
 func parsePage(value string) int {

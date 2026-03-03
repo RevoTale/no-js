@@ -242,6 +242,16 @@ func (v *ListNotesByAuthorAndTagIDsMicro_postsDocsMicro_post) GetAttachment() *N
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns ListNotesByAuthorAndTagIDsMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *ListNotesByAuthorAndTagIDsMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns ListNotesByAuthorAndTagIDsMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *ListNotesByAuthorAndTagIDsMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns ListNotesByAuthorAndTagIDsMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *ListNotesByAuthorAndTagIDsMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -289,6 +299,10 @@ type __premarshalListNotesByAuthorAndTagIDsMicro_postsDocsMicro_post struct {
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -311,6 +325,8 @@ func (v *ListNotesByAuthorAndTagIDsMicro_postsDocsMicro_post) __premarshalJSON()
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -384,6 +400,16 @@ func (v *ListNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post) GetAttachment(
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns ListNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *ListNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns ListNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *ListNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns ListNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *ListNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -431,6 +457,10 @@ type __premarshalListNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post struct 
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -453,6 +483,8 @@ func (v *ListNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post) __premarshalJS
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -524,6 +556,16 @@ func (v *ListNotesByTagIDsAndTypeMicro_postsDocsMicro_post) GetAttachment() *Not
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns ListNotesByTagIDsAndTypeMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *ListNotesByTagIDsAndTypeMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns ListNotesByTagIDsAndTypeMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *ListNotesByTagIDsAndTypeMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns ListNotesByTagIDsAndTypeMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *ListNotesByTagIDsAndTypeMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -571,6 +613,10 @@ type __premarshalListNotesByTagIDsAndTypeMicro_postsDocsMicro_post struct {
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -593,6 +639,8 @@ func (v *ListNotesByTagIDsAndTypeMicro_postsDocsMicro_post) __premarshalJSON() (
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -660,6 +708,16 @@ func (v *ListNotesByTagIDsMicro_postsDocsMicro_post) GetAttachment() *NoteListDo
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns ListNotesByTagIDsMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *ListNotesByTagIDsMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns ListNotesByTagIDsMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *ListNotesByTagIDsMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns ListNotesByTagIDsMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *ListNotesByTagIDsMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -707,6 +765,10 @@ type __premarshalListNotesByTagIDsMicro_postsDocsMicro_post struct {
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -729,6 +791,8 @@ func (v *ListNotesByTagIDsMicro_postsDocsMicro_post) __premarshalJSON() (*__prem
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -794,6 +858,16 @@ func (v *ListNotesByTypeMicro_postsDocsMicro_post) GetAttachment() *NoteListDocA
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns ListNotesByTypeMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *ListNotesByTypeMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns ListNotesByTypeMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *ListNotesByTypeMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns ListNotesByTypeMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *ListNotesByTypeMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -841,6 +915,10 @@ type __premarshalListNotesByTypeMicro_postsDocsMicro_post struct {
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -863,6 +941,8 @@ func (v *ListNotesByTypeMicro_postsDocsMicro_post) __premarshalJSON() (*__premar
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -924,6 +1004,16 @@ func (v *ListNotesMicro_postsDocsMicro_post) GetAttachment() *NoteListDocAttachm
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns ListNotesMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *ListNotesMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns ListNotesMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *ListNotesMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns ListNotesMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *ListNotesMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -971,6 +1061,10 @@ type __premarshalListNotesMicro_postsDocsMicro_post struct {
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -993,6 +1087,8 @@ func (v *ListNotesMicro_postsDocsMicro_post) __premarshalJSON() (*__premarshalLi
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -1215,8 +1311,9 @@ func (v *NoteBySlugMicro_postsDocsMicro_postLinkedMicroPostsMicro_post) GetSlug(
 
 // NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_Meta includes the requested fields of the GraphQL type Micro_post_Meta.
 type NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_Meta struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
+	Title       *string                                                           `json:"title"`
+	Description *string                                                           `json:"description"`
+	Image       *NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_MetaImageMedia `json:"image"`
 }
 
 // GetTitle returns NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_Meta.Title, and is useful for accessing the field via an interface.
@@ -1225,6 +1322,39 @@ func (v *NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_Meta) GetTitle() *str
 // GetDescription returns NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_Meta.Description, and is useful for accessing the field via an interface.
 func (v *NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_Meta) GetDescription() *string {
 	return v.Description
+}
+
+// GetImage returns NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_Meta.Image, and is useful for accessing the field via an interface.
+func (v *NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_Meta) GetImage() *NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_MetaImageMedia {
+	return v.Image
+}
+
+// NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_MetaImageMedia includes the requested fields of the GraphQL type Media.
+type NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_MetaImageMedia struct {
+	Url         *string  `json:"url"`
+	Description *string  `json:"description"`
+	Width       *float64 `json:"width"`
+	Height      *float64 `json:"height"`
+}
+
+// GetUrl returns NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_MetaImageMedia.Url, and is useful for accessing the field via an interface.
+func (v *NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_MetaImageMedia) GetUrl() *string {
+	return v.Url
+}
+
+// GetDescription returns NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_MetaImageMedia.Description, and is useful for accessing the field via an interface.
+func (v *NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_MetaImageMedia) GetDescription() *string {
+	return v.Description
+}
+
+// GetWidth returns NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_MetaImageMedia.Width, and is useful for accessing the field via an interface.
+func (v *NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_MetaImageMedia) GetWidth() *float64 {
+	return v.Width
+}
+
+// GetHeight returns NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_MetaImageMedia.Height, and is useful for accessing the field via an interface.
+func (v *NoteBySlugMicro_postsDocsMicro_postMetaMicro_post_MetaImageMedia) GetHeight() *float64 {
+	return v.Height
 }
 
 // NoteBySlugMicro_postsDocsMicro_postTagsTag includes the requested fields of the GraphQL type Tag.
@@ -1253,15 +1383,17 @@ func (v *NoteBySlugResponse) GetMicro_posts() *NoteBySlugMicro_posts { return v.
 
 // NoteListDoc includes the GraphQL fields of Micro_post requested by the fragment NoteListDoc.
 type NoteListDoc struct {
-	Id          string                          `json:"id"`
-	Slug        *string                         `json:"slug"`
-	Title       *string                         `json:"title"`
-	Content     *string                         `json:"content"`
-	PublishedAt *string                         `json:"publishedAt"`
-	Authors     []NoteListDocAuthorsAuthor      `json:"authors"`
-	Tags        []NoteListDocTagsTag            `json:"tags"`
-	Attachment  *NoteListDocAttachmentMedia     `json:"attachment"`
-	Meta        *NoteListDocMetaMicro_post_Meta `json:"meta"`
+	Id               string                                             `json:"id"`
+	Slug             *string                                            `json:"slug"`
+	Title            *string                                            `json:"title"`
+	Content          *string                                            `json:"content"`
+	PublishedAt      *string                                            `json:"publishedAt"`
+	Authors          []NoteListDocAuthorsAuthor                         `json:"authors"`
+	Tags             []NoteListDocTagsTag                               `json:"tags"`
+	Attachment       *NoteListDocAttachmentMedia                        `json:"attachment"`
+	ExternalLinks    []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post            `json:"linkedMicroPosts"`
+	Meta             *NoteListDocMetaMicro_post_Meta                    `json:"meta"`
 }
 
 // GetId returns NoteListDoc.Id, and is useful for accessing the field via an interface.
@@ -1287,6 +1419,16 @@ func (v *NoteListDoc) GetTags() []NoteListDocTagsTag { return v.Tags }
 
 // GetAttachment returns NoteListDoc.Attachment, and is useful for accessing the field via an interface.
 func (v *NoteListDoc) GetAttachment() *NoteListDocAttachmentMedia { return v.Attachment }
+
+// GetExternalLinks returns NoteListDoc.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *NoteListDoc) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns NoteListDoc.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *NoteListDoc) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.LinkedMicroPosts
+}
 
 // GetMeta returns NoteListDoc.Meta, and is useful for accessing the field via an interface.
 func (v *NoteListDoc) GetMeta() *NoteListDocMetaMicro_post_Meta { return v.Meta }
@@ -1359,13 +1501,69 @@ func (v *NoteListDocAuthorsAuthorAvatarMedia) GetWidth() *float64 { return v.Wid
 // GetHeight returns NoteListDocAuthorsAuthorAvatarMedia.Height, and is useful for accessing the field via an interface.
 func (v *NoteListDocAuthorsAuthorAvatarMedia) GetHeight() *float64 { return v.Height }
 
+// NoteListDocExternalLinksMicro_post_external_link includes the requested fields of the GraphQL type Micro_post_external_link.
+type NoteListDocExternalLinksMicro_post_external_link struct {
+	Id         string `json:"id"`
+	Target_url string `json:"target_url"`
+}
+
+// GetId returns NoteListDocExternalLinksMicro_post_external_link.Id, and is useful for accessing the field via an interface.
+func (v *NoteListDocExternalLinksMicro_post_external_link) GetId() string { return v.Id }
+
+// GetTarget_url returns NoteListDocExternalLinksMicro_post_external_link.Target_url, and is useful for accessing the field via an interface.
+func (v *NoteListDocExternalLinksMicro_post_external_link) GetTarget_url() string {
+	return v.Target_url
+}
+
+// NoteListDocLinkedMicroPostsMicro_post includes the requested fields of the GraphQL type Micro_post.
+type NoteListDocLinkedMicroPostsMicro_post struct {
+	Id   string  `json:"id"`
+	Slug *string `json:"slug"`
+}
+
+// GetId returns NoteListDocLinkedMicroPostsMicro_post.Id, and is useful for accessing the field via an interface.
+func (v *NoteListDocLinkedMicroPostsMicro_post) GetId() string { return v.Id }
+
+// GetSlug returns NoteListDocLinkedMicroPostsMicro_post.Slug, and is useful for accessing the field via an interface.
+func (v *NoteListDocLinkedMicroPostsMicro_post) GetSlug() *string { return v.Slug }
+
 // NoteListDocMetaMicro_post_Meta includes the requested fields of the GraphQL type Micro_post_Meta.
 type NoteListDocMetaMicro_post_Meta struct {
-	Description *string `json:"description"`
+	Title       *string                                   `json:"title"`
+	Description *string                                   `json:"description"`
+	Image       *NoteListDocMetaMicro_post_MetaImageMedia `json:"image"`
 }
+
+// GetTitle returns NoteListDocMetaMicro_post_Meta.Title, and is useful for accessing the field via an interface.
+func (v *NoteListDocMetaMicro_post_Meta) GetTitle() *string { return v.Title }
 
 // GetDescription returns NoteListDocMetaMicro_post_Meta.Description, and is useful for accessing the field via an interface.
 func (v *NoteListDocMetaMicro_post_Meta) GetDescription() *string { return v.Description }
+
+// GetImage returns NoteListDocMetaMicro_post_Meta.Image, and is useful for accessing the field via an interface.
+func (v *NoteListDocMetaMicro_post_Meta) GetImage() *NoteListDocMetaMicro_post_MetaImageMedia {
+	return v.Image
+}
+
+// NoteListDocMetaMicro_post_MetaImageMedia includes the requested fields of the GraphQL type Media.
+type NoteListDocMetaMicro_post_MetaImageMedia struct {
+	Url         *string  `json:"url"`
+	Description *string  `json:"description"`
+	Width       *float64 `json:"width"`
+	Height      *float64 `json:"height"`
+}
+
+// GetUrl returns NoteListDocMetaMicro_post_MetaImageMedia.Url, and is useful for accessing the field via an interface.
+func (v *NoteListDocMetaMicro_post_MetaImageMedia) GetUrl() *string { return v.Url }
+
+// GetDescription returns NoteListDocMetaMicro_post_MetaImageMedia.Description, and is useful for accessing the field via an interface.
+func (v *NoteListDocMetaMicro_post_MetaImageMedia) GetDescription() *string { return v.Description }
+
+// GetWidth returns NoteListDocMetaMicro_post_MetaImageMedia.Width, and is useful for accessing the field via an interface.
+func (v *NoteListDocMetaMicro_post_MetaImageMedia) GetWidth() *float64 { return v.Width }
+
+// GetHeight returns NoteListDocMetaMicro_post_MetaImageMedia.Height, and is useful for accessing the field via an interface.
+func (v *NoteListDocMetaMicro_post_MetaImageMedia) GetHeight() *float64 { return v.Height }
 
 // NoteListDocTagsTag includes the requested fields of the GraphQL type Tag.
 type NoteListDocTagsTag struct {
@@ -1440,6 +1638,16 @@ func (v *NotesByAuthorSlugAndTypeMicro_postsDocsMicro_post) GetAttachment() *Not
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns NotesByAuthorSlugAndTypeMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *NotesByAuthorSlugAndTypeMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns NotesByAuthorSlugAndTypeMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *NotesByAuthorSlugAndTypeMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns NotesByAuthorSlugAndTypeMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *NotesByAuthorSlugAndTypeMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -1487,6 +1695,10 @@ type __premarshalNotesByAuthorSlugAndTypeMicro_postsDocsMicro_post struct {
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -1509,6 +1721,8 @@ func (v *NotesByAuthorSlugAndTypeMicro_postsDocsMicro_post) __premarshalJSON() (
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -1576,6 +1790,16 @@ func (v *NotesByAuthorSlugMicro_postsDocsMicro_post) GetAttachment() *NoteListDo
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns NotesByAuthorSlugMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *NotesByAuthorSlugMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns NotesByAuthorSlugMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *NotesByAuthorSlugMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns NotesByAuthorSlugMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *NotesByAuthorSlugMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -1623,6 +1847,10 @@ type __premarshalNotesByAuthorSlugMicro_postsDocsMicro_post struct {
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -1645,6 +1873,8 @@ func (v *NotesByAuthorSlugMicro_postsDocsMicro_post) __premarshalJSON() (*__prem
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -1718,6 +1948,16 @@ func (v *SearchNotesByAuthorAndTagIDsMicro_postsDocsMicro_post) GetAttachment() 
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns SearchNotesByAuthorAndTagIDsMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *SearchNotesByAuthorAndTagIDsMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns SearchNotesByAuthorAndTagIDsMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *SearchNotesByAuthorAndTagIDsMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns SearchNotesByAuthorAndTagIDsMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *SearchNotesByAuthorAndTagIDsMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -1765,6 +2005,10 @@ type __premarshalSearchNotesByAuthorAndTagIDsMicro_postsDocsMicro_post struct {
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -1787,6 +2031,8 @@ func (v *SearchNotesByAuthorAndTagIDsMicro_postsDocsMicro_post) __premarshalJSON
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -1860,6 +2106,16 @@ func (v *SearchNotesByAuthorSlugAndTypeMicro_postsDocsMicro_post) GetAttachment(
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns SearchNotesByAuthorSlugAndTypeMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *SearchNotesByAuthorSlugAndTypeMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns SearchNotesByAuthorSlugAndTypeMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *SearchNotesByAuthorSlugAndTypeMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns SearchNotesByAuthorSlugAndTypeMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *SearchNotesByAuthorSlugAndTypeMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -1907,6 +2163,10 @@ type __premarshalSearchNotesByAuthorSlugAndTypeMicro_postsDocsMicro_post struct 
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -1929,6 +2189,8 @@ func (v *SearchNotesByAuthorSlugAndTypeMicro_postsDocsMicro_post) __premarshalJS
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -2000,6 +2262,16 @@ func (v *SearchNotesByAuthorSlugMicro_postsDocsMicro_post) GetAttachment() *Note
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns SearchNotesByAuthorSlugMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *SearchNotesByAuthorSlugMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns SearchNotesByAuthorSlugMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *SearchNotesByAuthorSlugMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns SearchNotesByAuthorSlugMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *SearchNotesByAuthorSlugMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -2047,6 +2319,10 @@ type __premarshalSearchNotesByAuthorSlugMicro_postsDocsMicro_post struct {
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -2069,6 +2345,8 @@ func (v *SearchNotesByAuthorSlugMicro_postsDocsMicro_post) __premarshalJSON() (*
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -2142,6 +2420,16 @@ func (v *SearchNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post) GetAttachmen
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns SearchNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *SearchNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns SearchNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *SearchNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns SearchNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *SearchNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -2189,6 +2477,10 @@ type __premarshalSearchNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post struc
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -2211,6 +2503,8 @@ func (v *SearchNotesByAuthorTagIDsAndTypeMicro_postsDocsMicro_post) __premarshal
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -2282,6 +2576,16 @@ func (v *SearchNotesByTagIDsAndTypeMicro_postsDocsMicro_post) GetAttachment() *N
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns SearchNotesByTagIDsAndTypeMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *SearchNotesByTagIDsAndTypeMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns SearchNotesByTagIDsAndTypeMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *SearchNotesByTagIDsAndTypeMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns SearchNotesByTagIDsAndTypeMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *SearchNotesByTagIDsAndTypeMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -2329,6 +2633,10 @@ type __premarshalSearchNotesByTagIDsAndTypeMicro_postsDocsMicro_post struct {
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -2351,6 +2659,8 @@ func (v *SearchNotesByTagIDsAndTypeMicro_postsDocsMicro_post) __premarshalJSON()
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -2418,6 +2728,16 @@ func (v *SearchNotesByTagIDsMicro_postsDocsMicro_post) GetAttachment() *NoteList
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns SearchNotesByTagIDsMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *SearchNotesByTagIDsMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns SearchNotesByTagIDsMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *SearchNotesByTagIDsMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns SearchNotesByTagIDsMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *SearchNotesByTagIDsMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -2465,6 +2785,10 @@ type __premarshalSearchNotesByTagIDsMicro_postsDocsMicro_post struct {
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -2487,6 +2811,8 @@ func (v *SearchNotesByTagIDsMicro_postsDocsMicro_post) __premarshalJSON() (*__pr
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -2554,6 +2880,16 @@ func (v *SearchNotesByTypeMicro_postsDocsMicro_post) GetAttachment() *NoteListDo
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns SearchNotesByTypeMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *SearchNotesByTypeMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns SearchNotesByTypeMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *SearchNotesByTypeMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns SearchNotesByTypeMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *SearchNotesByTypeMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -2601,6 +2937,10 @@ type __premarshalSearchNotesByTypeMicro_postsDocsMicro_post struct {
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -2623,6 +2963,8 @@ func (v *SearchNotesByTypeMicro_postsDocsMicro_post) __premarshalJSON() (*__prem
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -2686,6 +3028,16 @@ func (v *SearchNotesMicro_postsDocsMicro_post) GetAttachment() *NoteListDocAttac
 	return v.NoteListDoc.Attachment
 }
 
+// GetExternalLinks returns SearchNotesMicro_postsDocsMicro_post.ExternalLinks, and is useful for accessing the field via an interface.
+func (v *SearchNotesMicro_postsDocsMicro_post) GetExternalLinks() []NoteListDocExternalLinksMicro_post_external_link {
+	return v.NoteListDoc.ExternalLinks
+}
+
+// GetLinkedMicroPosts returns SearchNotesMicro_postsDocsMicro_post.LinkedMicroPosts, and is useful for accessing the field via an interface.
+func (v *SearchNotesMicro_postsDocsMicro_post) GetLinkedMicroPosts() []NoteListDocLinkedMicroPostsMicro_post {
+	return v.NoteListDoc.LinkedMicroPosts
+}
+
 // GetMeta returns SearchNotesMicro_postsDocsMicro_post.Meta, and is useful for accessing the field via an interface.
 func (v *SearchNotesMicro_postsDocsMicro_post) GetMeta() *NoteListDocMetaMicro_post_Meta {
 	return v.NoteListDoc.Meta
@@ -2733,6 +3085,10 @@ type __premarshalSearchNotesMicro_postsDocsMicro_post struct {
 
 	Attachment *NoteListDocAttachmentMedia `json:"attachment"`
 
+	ExternalLinks []NoteListDocExternalLinksMicro_post_external_link `json:"externalLinks"`
+
+	LinkedMicroPosts []NoteListDocLinkedMicroPostsMicro_post `json:"linkedMicroPosts"`
+
 	Meta *NoteListDocMetaMicro_post_Meta `json:"meta"`
 }
 
@@ -2755,6 +3111,8 @@ func (v *SearchNotesMicro_postsDocsMicro_post) __premarshalJSON() (*__premarshal
 	retval.Authors = v.NoteListDoc.Authors
 	retval.Tags = v.NoteListDoc.Tags
 	retval.Attachment = v.NoteListDoc.Attachment
+	retval.ExternalLinks = v.NoteListDoc.ExternalLinks
+	retval.LinkedMicroPosts = v.NoteListDoc.LinkedMicroPosts
 	retval.Meta = v.NoteListDoc.Meta
 	return &retval, nil
 }
@@ -3585,8 +3943,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -3662,8 +4035,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -3743,8 +4131,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -3826,8 +4229,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -3905,8 +4323,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -3986,8 +4419,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -4070,6 +4518,12 @@ query NoteBySlug ($slug: String!, $locale: LocaleInputType, $fallbackLocale: Fal
 			meta {
 				title
 				description
+				image {
+					url
+					description
+					width
+					height
+				}
 			}
 		}
 	}
@@ -4145,8 +4599,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -4224,8 +4693,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -4305,8 +4789,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -4384,8 +4883,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -4467,8 +4981,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -4548,8 +5077,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -4631,8 +5175,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -4716,8 +5275,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -4797,8 +5371,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `
@@ -4880,8 +5469,23 @@ fragment NoteListDoc on Micro_post {
 		filename
 		mimeType
 	}
+	externalLinks {
+		id
+		target_url
+	}
+	linkedMicroPosts {
+		id
+		slug
+	}
 	meta {
+		title
 		description
+		image {
+			url
+			description
+			width
+			height
+		}
 	}
 }
 `

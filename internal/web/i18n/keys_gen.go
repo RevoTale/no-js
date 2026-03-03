@@ -77,8 +77,11 @@ const (
 	KeySeoChannelsDescription        Key = "seo.channels.description"
 	KeySeoMicroTalesDescription      Key = "seo.microTales.description"
 	KeySeoNoteDescription            Key = "seo.note.description"
+	KeySeoNotesJSONLDDescription     Key = "seo.notesJSONLD.description"
+	KeySeoNotesJSONLDName            Key = "seo.notesJSONLD.name"
 	KeySeoPublisherName              Key = "seo.publisher.name"
 	KeySeoRootDescription            Key = "seo.root.description"
+	KeySeoRootTitle                  Key = "seo.root.title"
 	KeySeoSiteDescription            Key = "seo.site.description"
 	KeySeoSiteName                   Key = "seo.site.name"
 	KeySeoTagDescription             Key = "seo.tag.description"
@@ -159,8 +162,11 @@ var AllKeys = []Key{
 	KeySeoChannelsDescription,
 	KeySeoMicroTalesDescription,
 	KeySeoNoteDescription,
+	KeySeoNotesJSONLDDescription,
+	KeySeoNotesJSONLDName,
 	KeySeoPublisherName,
 	KeySeoRootDescription,
+	KeySeoRootTitle,
 	KeySeoSiteDescription,
 	KeySeoSiteName,
 	KeySeoTagDescription,
@@ -241,10 +247,13 @@ var DefaultMessages = map[Key]string{
 	KeySeoChannelsDescription:        "Browse available channels and filters for the blog feed.",
 	KeySeoMicroTalesDescription:      "Read short-form micro-tales from the blog feed.",
 	KeySeoNoteDescription:            "Read this note from the blog archive.",
+	KeySeoNotesJSONLDDescription:     "Explore a collection of notes on various topics, including coding, web performance, SEO, AI workflows, and book takeaways. Each note is designed to provide quick insights and actionable tips for developers and tech enthusiasts.",
+	KeySeoNotesJSONLDName:            "Notes",
 	KeySeoPublisherName:              "RevoTale",
-	KeySeoRootDescription:            "Browse the latest notes, tales, and micro-tales.",
+	KeySeoRootDescription:            "Dive into concise notes packed with actionable tips on coding, web-performance, SEO, AI workflows, book takeaways and more—updated regularly on RevoTale. ",
+	KeySeoRootTitle:                  "Notes - Quick Coding, Experience, Open Source, SEO & Science Insights",
 	KeySeoSiteDescription:            "A multilingual note feed with tales and micro-tales.",
-	KeySeoSiteName:                   "blog",
+	KeySeoSiteName:                   "RevoTale",
 	KeySeoTagDescription:             "Browse notes for this tag.",
 	KeySeoTalesDescription:           "Read long-form tales from the blog feed.",
 }

@@ -34,9 +34,15 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 			Follow: Bool(true),
 		},
 		OpenGraph: &OpenGraph{
-			Type:     "article",
-			SiteName: "Blog",
-			Locale:   "en",
+			Type:          "article",
+			SiteName:      "Blog",
+			Locale:        "en",
+			PublishedTime: "2026-03-03T08:00:00Z",
+			Authors: []string{
+				"https://example.com/authors/b",
+				"https://example.com/authors/a",
+			},
+			Tags: []string{"seo", "blog", "seo"},
 			Images: []OpenGraphImage{
 				{URL: "https://example.com/images/b.png"},
 				{URL: "https://example.com/images/a.png", Alt: "alt-a"},
@@ -56,9 +62,6 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 		},
 		Publisher: "RevoTale",
 		Pinterest: &Pinterest{RichPin: Bool(true)},
-		JSONLD: []JSONLDDocument{
-			{"@type": "BlogPosting", "headline": "Example Title"},
-		},
 	}
 
 	second := Metadata{
@@ -77,9 +80,15 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 		},
 		Robots: first.Robots,
 		OpenGraph: &OpenGraph{
-			Type:     "article",
-			SiteName: "Blog",
-			Locale:   "en",
+			Type:          "article",
+			SiteName:      "Blog",
+			Locale:        "en",
+			PublishedTime: "2026-03-03T08:00:00Z",
+			Authors: []string{
+				"https://example.com/authors/a",
+				"https://example.com/authors/b",
+			},
+			Tags: []string{"seo", "blog"},
 			Images: []OpenGraphImage{
 				{URL: "https://example.com/images/a.png", Alt: "alt-a"},
 				{URL: "https://example.com/images/b.png"},
@@ -99,9 +108,6 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 		},
 		Publisher: "RevoTale",
 		Pinterest: &Pinterest{RichPin: Bool(true)},
-		JSONLD: []JSONLDDocument{
-			{"headline": "Example Title", "@type": "BlogPosting"},
-		},
 	}
 
 	firstHead := renderHeadToString(t, first)
@@ -117,11 +123,13 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 		`rel="canonical" href="https://example.com/note/hello"`,
 		`hreflang="de" href="https://example.com/de/note/hello"`,
 		`property="og:type" content="article"`,
+		`property="article:published_time" content="2026-03-03T08:00:00Z"`,
+		`property="article:author" content="https://example.com/authors/a"`,
+		`property="article:tag" content="blog"`,
 		`name="twitter:card" content="summary_large_image"`,
 		`name="robots" content="noindex, follow"`,
 		`name="author" content="Alice"`,
 		`name="pinterest-rich-pin" content="true"`,
-		`type="application/ld+json"`,
 	}
 	for _, token := range required {
 		if !strings.Contains(firstHead, token) {

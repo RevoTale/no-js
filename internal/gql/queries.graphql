@@ -28,8 +28,23 @@ fragment NoteListDoc on Micro_post {
     filename
     mimeType
   }
+  externalLinks {
+    id
+    target_url
+  }
+  linkedMicroPosts {
+    id
+    slug
+  }
   meta {
+    title
     description
+    image {
+      url
+      description
+      width
+      height
+    }
   }
 }
 
@@ -664,6 +679,12 @@ query NoteBySlug(
       meta {
         title
         description
+        image {
+          url
+          description
+          width
+          height
+        }
       }
     }
   }

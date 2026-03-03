@@ -4,9 +4,13 @@ package r_page_author_param_slug
 import (
 	"blog/internal/web/appcore"
 	"blog/internal/web/components"
+	"blog/internal/web/seo"
 )
 
 templ Page(view appcore.AuthorPageView) {
+	if view.IncludeStructuredData {
+		@seo.JSONLDScript(seo.BuildAuthorJSONLD(view))
+	}
 	<div id="notes-content" hx-history-elt>
 		@components.NotesFeed(view, view.EmptyStateMessage)
 	</div>

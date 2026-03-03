@@ -68,14 +68,17 @@
   {"id":"markdown.placeholder.codeBlock","translation":"[bloc de code]"},
   {"id":"markdown.placeholder.table","translation":"[tableau]"},
   {"id":"markdown.placeholder.image","translation":"[image]"},
-  {"id":"seo.site.name","translation":"blog"},
+  {"id":"seo.site.name","translation":"RevoTale"},
   {"id":"seo.site.description","translation":"A multilingual note feed with tales and micro-tales."},
   {"id":"seo.publisher.name","translation":"RevoTale"},
-  {"id":"seo.root.description","translation":"Browse the latest notes, tales, and micro-tales."},
+  {"id":"seo.root.description","translation":"Plongez dans des notes concises remplies de conseils pratiques sur le codage, la performance web, le SEO, les workflows IA, les résumés de livres et plus - mises à jour régulièrement sur RevoTale."},
   {"id":"seo.tales.description","translation":"Read long-form tales from the blog feed."},
   {"id":"seo.microTales.description","translation":"Read short-form micro-tales from the blog feed."},
   {"id":"seo.channels.description","translation":"Browse available channels and filters for the blog feed."},
   {"id":"seo.tag.description","translation":"Browse notes for this tag."},
   {"id":"seo.author.description","translation":"Browse notes by this author."},
-  {"id":"seo.note.description","translation":"Read this note from the blog archive."}
+  {"id":"seo.note.description","translation":"Read this note from the blog archive."},
+  {"id":"seo.root.title","translation":"Tech - Codage, Expérience, Open Source, SEO & Aperçus Scientifiques"},
+  {"id":"seo.notesJSONLD.name","translation":"Notes"},
+  {"id":"seo.notesJSONLD.description","translation":"Explorez une collection de notes sur divers sujets, notamment le codage, la performance web, le SEO, les workflows IA et les résumés de livres. Chaque note est conçue pour fournir des aperçus rapides et des conseils pratiques pour les développeurs et les passionnés de technologie."}
 ]
