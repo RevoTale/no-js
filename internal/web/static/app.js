@@ -1,6 +1,7 @@
 (() => {
   const copyResetDelayMs = 2000;
   const copyTimers = new WeakMap();
+  const managedHeadSelector = '[data-metagen-managed="true"]';
 
   const fallbackCopyText = text => {
     const area = document.createElement("textarea");
@@ -98,5 +99,37 @@
     }
 
     window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  });
+
+  document.addEventListener("metagen:patch", event => {
+    const detail = event && event.detail;
+    if (!detail || typeof detail !== "object") {
+      return;
+    }
+
+    if (typeof detail.title === "string" && detail.title.trim() !== "") {
+      document.title = detail.title;
+    }
+
+    if (typeof detail.head !== "string") {
+      return;
+    }
+
+    const existingManaged = document.head.querySelectorAll(managedHeadSelector);
+    existingManaged.forEach(node => node.remove());
+
+    const trimmedHead = detail.head.trim();
+    if (trimmedHead === "") {
+      return;
+    }
+
+    const template = document.createElement("template");
+    template.innerHTML = trimmedHead;
+    const nodes = Array.from(template.content.childNodes);
+    nodes.forEach(node => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        document.head.appendChild(node);
+      }
+    });
   });
 })();

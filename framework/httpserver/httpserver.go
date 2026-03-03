@@ -12,6 +12,7 @@ import (
 	"blog/framework"
 	"blog/framework/engine"
 	frameworki18n "blog/framework/i18n"
+	"blog/framework/metagen"
 	"github.com/a-h/templ"
 )
 
@@ -130,10 +131,22 @@ func (s *server[C]) handleRoute(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *server[C]) renderPage(r *http.Request, w http.ResponseWriter, component templ.Component) error {
+func (s *server[C]) renderPage(
+	r *http.Request,
+	w http.ResponseWriter,
+	component templ.Component,
+	meta metagen.Metadata,
+) error {
 	cachePolicy := s.cachePolicies.HTML
 	if s.isHTMXRequest(r) {
 		cachePolicy = s.liveCachePolicyFor(r)
+		patch, err := metagen.BuildHTMXPatch(meta)
+		if err != nil {
+			return fmt.Errorf("build htmx metadata patch: %w", err)
+		}
+		if err := metagen.WriteHTMXHeaders(w, patch); err != nil {
+			return fmt.Errorf("write htmx metadata patch: %w", err)
+		}
 	}
 
 	return s.renderPageWithStatus(r, w, component, 0, cachePolicy)

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"blog/framework"
+	"blog/framework/metagen"
 	"github.com/a-h/templ"
 )
 
@@ -60,7 +61,7 @@ func TestServeRoutePageOnly(t *testing.T) {
 				},
 			},
 		},
-		RenderPage: func(_ *http.Request, _ http.ResponseWriter, component templ.Component) error {
+		RenderPage: func(_ *http.Request, _ http.ResponseWriter, component templ.Component, _ metagen.Metadata) error {
 			var b bytes.Buffer
 			if err := component.Render(context.Background(), &b); err != nil {
 				return err
@@ -102,7 +103,7 @@ func TestServeRouteSkipsLayoutsForPartialRequests(t *testing.T) {
 					},
 					Render: func(view string) templ.Component { return textComponent(view) },
 					Layouts: []framework.LayoutRenderer[string]{
-						func(_ string, child templ.Component) templ.Component {
+						func(_ metagen.Metadata, _ string, child templ.Component) templ.Component {
 							return wrapComponent("layout", child)
 						},
 					},
@@ -110,7 +111,7 @@ func TestServeRouteSkipsLayoutsForPartialRequests(t *testing.T) {
 			},
 		},
 		IsPartialRequest: func(_ *http.Request) bool { return true },
-		RenderPage: func(_ *http.Request, _ http.ResponseWriter, component templ.Component) error {
+		RenderPage: func(_ *http.Request, _ http.ResponseWriter, component templ.Component, _ metagen.Metadata) error {
 			var b bytes.Buffer
 			if err := component.Render(context.Background(), &b); err != nil {
 				return err
@@ -156,7 +157,7 @@ func TestNotFoundAndServerErrorClassification(t *testing.T) {
 					},
 				},
 			},
-			RenderPage:      func(*http.Request, http.ResponseWriter, templ.Component) error { return nil },
+			RenderPage:      func(*http.Request, http.ResponseWriter, templ.Component, metagen.Metadata) error { return nil },
 			IsNotFoundError: func(err error) bool { return errors.Is(err, errNotFound) },
 			HandleNotFound: func(_ http.ResponseWriter, _ *http.Request, ctx framework.NotFoundContext) {
 				notFoundCalled = true
@@ -210,7 +211,7 @@ func TestNotFoundAndServerErrorClassification(t *testing.T) {
 					},
 				},
 			},
-			RenderPage:      func(*http.Request, http.ResponseWriter, templ.Component) error { return nil },
+			RenderPage:      func(*http.Request, http.ResponseWriter, templ.Component, metagen.Metadata) error { return nil },
 			IsNotFoundError: func(error) bool { return false },
 			HandleNotFound: func(http.ResponseWriter, *http.Request, framework.NotFoundContext) {
 				notFoundCalled = true
@@ -252,17 +253,17 @@ func TestLayoutOrder(t *testing.T) {
 					},
 					Render: func(view string) templ.Component { return textComponent(view) },
 					Layouts: []framework.LayoutRenderer[string]{
-						func(_ string, child templ.Component) templ.Component {
+						func(_ metagen.Metadata, _ string, child templ.Component) templ.Component {
 							return wrapComponent("outer", child)
 						},
-						func(_ string, child templ.Component) templ.Component {
+						func(_ metagen.Metadata, _ string, child templ.Component) templ.Component {
 							return wrapComponent("inner", child)
 						},
 					},
 				},
 			},
 		},
-		RenderPage: func(_ *http.Request, _ http.ResponseWriter, component templ.Component) error {
+		RenderPage: func(_ *http.Request, _ http.ResponseWriter, component templ.Component, _ metagen.Metadata) error {
 			var b bytes.Buffer
 			if err := component.Render(context.Background(), &b); err != nil {
 				return err
@@ -280,5 +281,111 @@ func TestLayoutOrder(t *testing.T) {
 	}
 	if rendered != "[outer][inner]body[/inner][/outer]" {
 		t.Fatalf("unexpected render output: %q", rendered)
+	}
+}
+
+func TestMetaGenRunsBeforeLoad(t *testing.T) {
+	t.Parallel()
+
+	steps := make([]string, 0, 2)
+
+	routeEngine, err := New(Config[*testAppContext]{
+		AppContext: &testAppContext{},
+		Handlers: []framework.RouteHandler[*testAppContext]{
+			framework.PageOnlyRouteHandler[*testAppContext, framework.EmptyParams, string]{
+				Page: framework.PageModule[*testAppContext, framework.EmptyParams, string]{
+					Pattern: "/notes",
+					ParseParams: func(path string) (framework.EmptyParams, bool) {
+						return framework.EmptyParams{}, path == "/notes"
+					},
+					MetaGen: func(context.Context, *testAppContext, *http.Request, framework.EmptyParams) (metagen.Metadata, error) {
+						steps = append(steps, "meta")
+						return metagen.Metadata{Title: "Notes"}, nil
+					},
+					Load: func(context.Context, *testAppContext, *http.Request, framework.EmptyParams) (string, error) {
+						steps = append(steps, "load")
+						return "body", nil
+					},
+					Render: func(view string) templ.Component {
+						return textComponent(view)
+					},
+				},
+			},
+		},
+		RenderPage: func(_ *http.Request, _ http.ResponseWriter, _ templ.Component, _ metagen.Metadata) error {
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new engine: %v", err)
+	}
+
+	if !routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/notes", nil)) {
+		t.Fatal("expected route to match")
+	}
+	if len(steps) != 2 || steps[0] != "meta" || steps[1] != "load" {
+		t.Fatalf("expected metagen before load, got steps=%v", steps)
+	}
+}
+
+func TestMetaGenErrorSkipsLoadAndRender(t *testing.T) {
+	t.Parallel()
+
+	errNotFound := errors.New("not found")
+	loadCalled := false
+	renderCalled := false
+	notFoundCalled := false
+
+	routeEngine, err := New(Config[*testAppContext]{
+		AppContext: &testAppContext{},
+		Handlers: []framework.RouteHandler[*testAppContext]{
+			framework.PageOnlyRouteHandler[*testAppContext, framework.EmptyParams, string]{
+				Page: framework.PageModule[*testAppContext, framework.EmptyParams, string]{
+					Pattern: "/notes",
+					ParseParams: func(path string) (framework.EmptyParams, bool) {
+						return framework.EmptyParams{}, path == "/notes"
+					},
+					MetaGen: func(context.Context, *testAppContext, *http.Request, framework.EmptyParams) (metagen.Metadata, error) {
+						return metagen.Metadata{}, errNotFound
+					},
+					Load: func(context.Context, *testAppContext, *http.Request, framework.EmptyParams) (string, error) {
+						loadCalled = true
+						return "body", nil
+					},
+					Render: func(view string) templ.Component {
+						return textComponent(view)
+					},
+				},
+			},
+		},
+		RenderPage: func(_ *http.Request, _ http.ResponseWriter, _ templ.Component, _ metagen.Metadata) error {
+			renderCalled = true
+			return nil
+		},
+		IsNotFoundError: func(err error) bool {
+			return errors.Is(err, errNotFound)
+		},
+		HandleNotFound: func(_ http.ResponseWriter, _ *http.Request, ctx framework.NotFoundContext) {
+			notFoundCalled = true
+			if ctx.Source != framework.NotFoundSourceMetaGen {
+				t.Fatalf("expected not-found source %q, got %q", framework.NotFoundSourceMetaGen, ctx.Source)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new engine: %v", err)
+	}
+
+	if !routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/notes", nil)) {
+		t.Fatal("expected route to match")
+	}
+	if loadCalled {
+		t.Fatal("load should not run when metagen fails")
+	}
+	if renderCalled {
+		t.Fatal("render callback should not run when metagen fails")
+	}
+	if !notFoundCalled {
+		t.Fatal("expected not-found callback for metagen not found")
 	}
 }

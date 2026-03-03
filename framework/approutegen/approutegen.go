@@ -16,7 +16,10 @@ import (
 
 var dynamicSegmentNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
 var pageViewTypePattern = regexp.MustCompile(`templ\s+Page\s*\(\s*view\s+([A-Za-z0-9_.]+)\s*\)`)
-var layoutSignaturePattern = regexp.MustCompile(
+var rootLayoutSignaturePattern = regexp.MustCompile(
+	`templ\s+Layout\s*\(\s*meta\s+metagen\.Metadata\s*,\s*view\s+([A-Za-z0-9_.]+)\s*,\s*child\s+templ\.Component\s*\)`,
+)
+var childLayoutSignaturePattern = regexp.MustCompile(
 	`templ\s+Layout\s*\(\s*view\s+([A-Za-z0-9_.]+)\s*,\s*child\s+templ\.Component\s*\)`,
 )
 var notFoundSignaturePattern = regexp.MustCompile(
@@ -117,7 +120,7 @@ func Run() error {
 		return errors.New("root 404 template is required: internal/web/app/404.templ")
 	}
 	for _, layout := range routes.Layouts {
-		if err := validateLayoutTemplateSignature(layout.SourcePath); err != nil {
+		if err := validateLayoutTemplateSignature(layout); err != nil {
 			return err
 		}
 	}
@@ -152,7 +155,8 @@ func Run() error {
 	if err := os.MkdirAll(paths.ResolverRoot, 0o755); err != nil {
 		return fmt.Errorf("create resolver namespace root %q: %w", paths.ResolverRoot, err)
 	}
-	if err := os.WriteFile(filepath.Join(paths.ResolverRoot, generatedResolverFileName), resolversSource, 0o644); err != nil {
+	resolverFilePath := filepath.Join(paths.ResolverRoot, generatedResolverFileName)
+	if err := os.WriteFile(resolverFilePath, resolversSource, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", generatedResolverFileName, err)
 	}
 
@@ -447,15 +451,27 @@ func parsePageViewType(pageTemplatePath string) (string, error) {
 	return viewType, nil
 }
 
-func validateLayoutTemplateSignature(layoutTemplatePath string) error {
+func validateLayoutTemplateSignature(layout templateDef) error {
+	layoutTemplatePath := layout.SourcePath
 	source, err := os.ReadFile(layoutTemplatePath)
 	if err != nil {
 		return fmt.Errorf("read %q: %w", filepath.ToSlash(layoutTemplatePath), err)
 	}
 
-	matches := layoutSignaturePattern.FindStringSubmatch(string(source))
+	signaturePattern := childLayoutSignaturePattern
+	expectedSignature := "templ Layout(view appcore.RootLayoutView, child templ.Component)"
+	if layout.RouteID == "" {
+		signaturePattern = rootLayoutSignaturePattern
+		expectedSignature = "templ Layout(meta metagen.Metadata, view appcore.RootLayoutView, child templ.Component)"
+	}
+
+	matches := signaturePattern.FindStringSubmatch(string(source))
 	if len(matches) < 2 {
-		return fmt.Errorf("%q must declare templ Layout(view appcore.RootLayoutView, child templ.Component)", filepath.ToSlash(layoutTemplatePath))
+		return fmt.Errorf(
+			"%q must declare %s",
+			filepath.ToSlash(layoutTemplatePath),
+			expectedSignature,
+		)
 	}
 
 	viewType := strings.TrimSpace(matches[1])
@@ -613,9 +629,10 @@ func generateResolverNamespaceSource(metas []routeMeta) ([]byte, error) {
 	buffer.WriteString(generatedGoHeader + "\n")
 	buffer.WriteString("package resolvers\n\n")
 	buffer.WriteString("import (\n")
+	buffer.WriteString("\t\"blog/framework/metagen\"\n")
+	buffer.WriteString("\t\"blog/internal/web/appcore\"\n")
 	buffer.WriteString("\t\"context\"\n")
 	buffer.WriteString("\t\"net/http\"\n")
-	buffer.WriteString("\t\"blog/internal/web/appcore\"\n")
 	buffer.WriteString(")\n\n")
 
 	for _, meta := range metas {
@@ -623,6 +640,14 @@ func generateResolverNamespaceSource(metas []routeMeta) ([]byte, error) {
 	}
 
 	buffer.WriteString("type RouteResolver interface {\n")
+	for _, meta := range metas {
+		writef(
+			buffer,
+			"\t%s(ctx context.Context, appCtx *appcore.Context, r *http.Request, params %s) (metagen.Metadata, error)\n",
+			metaGenPageMethod(meta),
+			meta.ParamsTypeName,
+		)
+	}
 	for _, meta := range metas {
 		writef(
 			buffer,
@@ -658,6 +683,7 @@ func generateRegistrySource(
 		"\"net/http\"",
 		"\"strings\"",
 		"\"blog/framework\"",
+		"\"blog/framework/metagen\"",
 		"\"blog/framework/router\"",
 		"\"blog/internal/web/appcore\"",
 		"route_resolvers \"blog/internal/web/resolvers\"",
@@ -762,11 +788,15 @@ func generateRegistrySource(
 		wrapper := wrappers[name]
 		writef(
 			buffer,
-			"func %s(view %s, child templ.Component) templ.Component {\n",
+			"func %s(meta metagen.Metadata, view %s, child templ.Component) templ.Component {\n",
 			wrapper.Name,
 			wrapper.ViewType,
 		)
-		writef(buffer, "\treturn %s.Layout(view, child)\n", wrapper.LayoutModule)
+		if wrapper.Root {
+			writef(buffer, "\treturn %s.Layout(meta, view, child)\n", wrapper.LayoutModule)
+		} else {
+			writef(buffer, "\treturn %s.Layout(view, child)\n", wrapper.LayoutModule)
+		}
 		buffer.WriteString("}\n\n")
 	}
 
@@ -807,6 +837,13 @@ func writeNotFoundPageFunc(
 	buffer.WriteString("\t}\n")
 	buffer.WriteString("\trouteID := nearestNotFoundRouteID(notFound)\n")
 	buffer.WriteString("\tview := appcore.NewNotFoundLayoutView(notFound.Locale)\n")
+	buffer.WriteString("\tmeta := metagen.Metadata{\n")
+	buffer.WriteString("\t\tTitle: view.LayoutPageTitle(),\n")
+	buffer.WriteString("\t\tRobots: &metagen.Robots{\n")
+	buffer.WriteString("\t\t\tIndex: metagen.Bool(false),\n")
+	buffer.WriteString("\t\t\tFollow: metagen.Bool(false),\n")
+	buffer.WriteString("\t\t},\n")
+	buffer.WriteString("\t}\n")
 	buffer.WriteString("\tswitch routeID {\n")
 	for _, routeID := range notFoundKeys {
 		if routeID == "" {
@@ -817,7 +854,11 @@ func writeNotFoundPageFunc(
 		writef(buffer, "\t\tcomponent := %s.Page(view, pathValue)\n", notFound.ModuleName)
 		chain := layoutChain(routeID, layouts)
 		for idx := len(chain) - 1; idx >= 0; idx-- {
-			writef(buffer, "\t\tcomponent = %s.Layout(view, component)\n", chain[idx].ModuleName)
+			if chain[idx].RouteID == "" {
+				writef(buffer, "\t\tcomponent = %s.Layout(meta, view, component)\n", chain[idx].ModuleName)
+			} else {
+				writef(buffer, "\t\tcomponent = %s.Layout(view, component)\n", chain[idx].ModuleName)
+			}
 		}
 		buffer.WriteString("\t\treturn component\n")
 	}
@@ -827,7 +868,11 @@ func writeNotFoundPageFunc(
 	writef(buffer, "\t\tcomponent := %s.Page(view, pathValue)\n", rootNotFound.ModuleName)
 	rootChain := layoutChain("", layouts)
 	for idx := len(rootChain) - 1; idx >= 0; idx-- {
-		writef(buffer, "\t\tcomponent = %s.Layout(view, component)\n", rootChain[idx].ModuleName)
+		if rootChain[idx].RouteID == "" {
+			writef(buffer, "\t\tcomponent = %s.Layout(meta, view, component)\n", rootChain[idx].ModuleName)
+		} else {
+			writef(buffer, "\t\tcomponent = %s.Layout(view, component)\n", rootChain[idx].ModuleName)
+		}
 	}
 	buffer.WriteString("\t\treturn component\n")
 	buffer.WriteString("\t}\n")
@@ -938,6 +983,7 @@ type layoutWrapperDef struct {
 	Name         string
 	ViewType     string
 	LayoutModule string
+	Root         bool
 }
 
 func writePageModule(buffer *bytes.Buffer, meta routeMeta, layouts map[string]templateDef) {
@@ -949,6 +995,14 @@ func writePageModule(buffer *bytes.Buffer, meta routeMeta, layouts map[string]te
 	)
 	writef(buffer, "\t\t\t\tPattern:     %q,\n", routePattern(meta.RouteID))
 	writef(buffer, "\t\t\t\tParseParams: %s,\n", parseParamsFuncName(meta))
+	writef(
+		buffer,
+		"\t\t\t\tMetaGen: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, "+
+			"params %s) (metagen.Metadata, error) {\n",
+		meta.ParamsTypeName,
+	)
+	writef(buffer, "\t\t\t\t\treturn resolvers.%s(ctx, appCtx, r, params)\n", metaGenPageMethod(meta))
+	buffer.WriteString("\t\t\t\t},\n")
 	writef(
 		buffer,
 		"\t\t\t\tLoad: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, "+
@@ -985,6 +1039,7 @@ func collectLayoutWrappers(metas []routeMeta, layouts map[string]templateDef) (m
 				Name:         name,
 				ViewType:     meta.PageViewType,
 				LayoutModule: layout.ModuleName,
+				Root:         layout.RouteID == "",
 			}
 
 			existing, ok := wrappers[name]
@@ -992,7 +1047,7 @@ func collectLayoutWrappers(metas []routeMeta, layouts map[string]templateDef) (m
 				wrappers[name] = def
 				continue
 			}
-			if existing.ViewType != def.ViewType || existing.LayoutModule != def.LayoutModule {
+			if existing.ViewType != def.ViewType || existing.LayoutModule != def.LayoutModule || existing.Root != def.Root {
 				return nil, fmt.Errorf("layout wrapper conflict for %q", name)
 			}
 		}
@@ -1047,6 +1102,10 @@ func routePattern(routeID string) string {
 
 func resolvePageMethod(meta routeMeta) string {
 	return "Resolve" + meta.RouteName + "Page"
+}
+
+func metaGenPageMethod(meta routeMeta) string {
+	return "MetaGen" + meta.RouteName + "Page"
 }
 
 func wrapperFuncName(routeName string, layoutName string) string {

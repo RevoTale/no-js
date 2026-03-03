@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"blog/framework"
+	"blog/framework/metagen"
 	"github.com/a-h/templ"
 )
 
@@ -82,7 +83,7 @@ func TestHTTPServerCachePoliciesAndHTMX(t *testing.T) {
 					},
 					Render: func(view string) templ.Component { return textComponent(view) },
 					Layouts: []framework.LayoutRenderer[string]{
-						func(_ string, child templ.Component) templ.Component {
+						func(_ metagen.Metadata, _ string, child templ.Component) templ.Component {
 							return wrapComponent("layout", child)
 						},
 					},
@@ -137,6 +138,9 @@ func TestHTTPServerCachePoliciesAndHTMX(t *testing.T) {
 	if body := strings.TrimSpace(recHTMX.Body.String()); body != "page" {
 		t.Fatalf("htmx body: expected partial response, got %q", body)
 	}
+	if got := strings.TrimSpace(recHTMX.Header().Get("HX-Trigger-After-Settle")); got == "" {
+		t.Fatalf("htmx should include metadata patch header")
+	}
 
 	reqHTMXNav := httptest.NewRequest(http.MethodGet, "/notes?__live=navigation", nil)
 	reqHTMXNav.Header.Set("HX-Request", "true")
@@ -147,6 +151,9 @@ func TestHTTPServerCachePoliciesAndHTMX(t *testing.T) {
 	}
 	if got := recHTMXNav.Header().Get("Cache-Control"); got != "live-nav-cache" {
 		t.Fatalf("htmx nav cache policy: expected %q, got %q", "live-nav-cache", got)
+	}
+	if got := strings.TrimSpace(recHTMXNav.Header().Get("HX-Trigger-After-Settle")); got == "" {
+		t.Fatalf("htmx nav should include metadata patch header")
 	}
 
 	recStatic := httptest.NewRecorder()
@@ -193,7 +200,7 @@ func TestHTTPServerGzipCompression(t *testing.T) {
 					},
 					Render: func(view string) templ.Component { return textComponent(view) },
 					Layouts: []framework.LayoutRenderer[string]{
-						func(_ string, child templ.Component) templ.Component {
+						func(_ metagen.Metadata, _ string, child templ.Component) templ.Component {
 							return wrapComponent("layout", child)
 						},
 					},

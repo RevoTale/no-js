@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,6 +30,10 @@ func main() {
 
 func run() error {
 	cfg := config.Load()
+	rootURL, err := validateRootURL(cfg.RootURL)
+	if err != nil {
+		return err
+	}
 
 	manifest, err := staticassets.ReadManifest(cfg.StaticManifestPath)
 	if err != nil {
@@ -56,7 +61,7 @@ func run() error {
 	appcore.SetLocalizationConfig(i18nConfig)
 
 	graphqlClient := gql.NewClient(cfg)
-	noteService := notes.NewService(graphqlClient, cfg.PageSize, cfg.RootURL)
+	noteService := notes.NewService(graphqlClient, cfg.PageSize, rootURL)
 	cachePolicies := httpserver.DefaultCachePolicies()
 	if strings.TrimSpace(cfg.CacheLiveNavigation) != "" {
 		cachePolicies.LiveNavigation = cfg.CacheLiveNavigation
@@ -80,7 +85,7 @@ func run() error {
 	)
 
 	handler, err := httpserver.New(httpserver.Config[*appcore.Context]{
-		AppContext:      appcore.NewContext(noteService, i18nConfig, i18nCatalog),
+		AppContext:      appcore.NewContext(noteService, i18nConfig, i18nCatalog, rootURL),
 		Handlers:        webgen.Handlers(webgen.NewRouteResolvers()),
 		IsNotFoundError: appcore.IsNotFoundError,
 		NotFoundPage:    webgen.NotFoundPage,
@@ -112,4 +117,22 @@ func run() error {
 	}
 
 	return nil
+}
+
+func validateRootURL(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", fmt.Errorf("BLOG_ROOT_URL is required and must be an absolute URL")
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("parse BLOG_ROOT_URL %q: %w", trimmed, err)
+	}
+	if !parsed.IsAbs() || strings.TrimSpace(parsed.Host) == "" {
+		return "", fmt.Errorf("BLOG_ROOT_URL %q must be absolute", trimmed)
+	}
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String(), nil
 }

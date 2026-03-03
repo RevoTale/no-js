@@ -67,5 +67,15 @@
   {"id":"markdown.code.plainText","translation":"обычный текст"},
   {"id":"markdown.placeholder.codeBlock","translation":"[блок кода]"},
   {"id":"markdown.placeholder.table","translation":"[таблица]"},
-  {"id":"markdown.placeholder.image","translation":"[изображение]"}
+  {"id":"markdown.placeholder.image","translation":"[изображение]"},
+  {"id":"seo.site.name","translation":"blog"},
+  {"id":"seo.site.description","translation":"A multilingual note feed with tales and micro-tales."},
+  {"id":"seo.publisher.name","translation":"RevoTale"},
+  {"id":"seo.root.description","translation":"Browse the latest notes, tales, and micro-tales."},
+  {"id":"seo.tales.description","translation":"Read long-form tales from the blog feed."},
+  {"id":"seo.microTales.description","translation":"Read short-form micro-tales from the blog feed."},
+  {"id":"seo.channels.description","translation":"Browse available channels and filters for the blog feed."},
+  {"id":"seo.tag.description","translation":"Browse notes for this tag."},
+  {"id":"seo.author.description","translation":"Browse notes by this author."},
+  {"id":"seo.note.description","translation":"Read this note from the blog archive."}
 ]

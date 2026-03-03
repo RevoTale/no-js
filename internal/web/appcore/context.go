@@ -14,6 +14,7 @@ var errNotesServiceUnavailable = errors.New("notes service unavailable")
 
 type Context struct {
 	service     *notes.Service
+	rootURL     string
 	i18nConfig  frameworki18n.Config
 	i18nCatalog *frameworki18n.Catalog
 }
@@ -22,9 +23,11 @@ func NewContext(
 	service *notes.Service,
 	i18nConfig frameworki18n.Config,
 	i18nCatalog *frameworki18n.Catalog,
+	rootURL string,
 ) *Context {
 	return &Context{
 		service:     service,
+		rootURL:     strings.TrimSpace(rootURL),
 		i18nConfig:  i18nConfig,
 		i18nCatalog: i18nCatalog,
 	}
@@ -51,6 +54,20 @@ func (ctx *Context) T(locale string, key webi18n.Key, data map[string]any) strin
 		return fallback
 	}
 	return ctx.i18nCatalog.Localize(locale, string(key), data, fallback)
+}
+
+func (ctx *Context) RootURL() string {
+	if ctx == nil {
+		return ""
+	}
+	return strings.TrimSpace(ctx.rootURL)
+}
+
+func (ctx *Context) I18nConfig() frameworki18n.Config {
+	if ctx == nil {
+		return frameworki18n.Config{}
+	}
+	return ctx.i18nConfig
 }
 
 func IsNotFoundError(err error) bool {

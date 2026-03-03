@@ -142,24 +142,42 @@ func TestParsePageViewTypeRejectsNonAppcoreType(t *testing.T) {
 
 func TestValidateLayoutTemplateSignature(t *testing.T) {
 	root := t.TempDir()
-	validPath := filepath.Join(root, "layout_valid.templ")
-	invalidPath := filepath.Join(root, "layout_invalid.templ")
+	rootValidPath := filepath.Join(root, "root_layout_valid.templ")
+	rootInvalidPath := filepath.Join(root, "root_layout_invalid.templ")
+	childValidPath := filepath.Join(root, "child_layout_valid.templ")
+	childInvalidPath := filepath.Join(root, "child_layout_invalid.templ")
 	writeTestFile(
 		t,
-		validPath,
+		rootValidPath,
+		"package appsrc\n\nimport (\n\"blog/framework/metagen\"\n\"blog/internal/web/appcore\"\n)\n\ntempl Layout(meta metagen.Metadata, view appcore.RootLayoutView, child templ.Component) { @child }\n",
+	)
+	writeTestFile(
+		t,
+		rootInvalidPath,
+		"package appsrc\n\nimport (\n\"blog/framework/metagen\"\n\"blog/internal/web/appcore\"\n)\n\ntempl Layout(meta metagen.Metadata, view appcore.NotesPageView, child templ.Component) { @child }\n",
+	)
+	writeTestFile(
+		t,
+		childValidPath,
 		"package appsrc\n\nimport \"blog/internal/web/appcore\"\n\ntempl Layout(view appcore.RootLayoutView, child templ.Component) { @child }\n",
 	)
 	writeTestFile(
 		t,
-		invalidPath,
-		"package appsrc\n\nimport \"blog/internal/web/appcore\"\n\ntempl Layout(view appcore.NotesPageView, child templ.Component) { @child }\n",
+		childInvalidPath,
+		"package appsrc\n\nimport (\n\"blog/framework/metagen\"\n\"blog/internal/web/appcore\"\n)\n\ntempl Layout(meta metagen.Metadata, view appcore.RootLayoutView, child templ.Component) { @child }\n",
 	)
 
-	if err := validateLayoutTemplateSignature(validPath); err != nil {
-		t.Fatalf("expected valid signature, got %v", err)
+	if err := validateLayoutTemplateSignature(templateDef{RouteID: "", SourcePath: rootValidPath}); err != nil {
+		t.Fatalf("expected valid root layout signature, got %v", err)
 	}
-	if err := validateLayoutTemplateSignature(invalidPath); err == nil {
-		t.Fatal("expected invalid layout signature error")
+	if err := validateLayoutTemplateSignature(templateDef{RouteID: "", SourcePath: rootInvalidPath}); err == nil {
+		t.Fatal("expected invalid root layout signature error")
+	}
+	if err := validateLayoutTemplateSignature(templateDef{RouteID: "author/[slug]", SourcePath: childValidPath}); err != nil {
+		t.Fatalf("expected valid child layout signature, got %v", err)
+	}
+	if err := validateLayoutTemplateSignature(templateDef{RouteID: "author/[slug]", SourcePath: childInvalidPath}); err == nil {
+		t.Fatal("expected invalid child layout signature error")
 	}
 }
 

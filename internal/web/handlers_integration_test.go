@@ -20,6 +20,8 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+const testRootURL = "https://revotale.com/blog/notes"
+
 type fakeGraphQLClient struct{}
 
 func (fakeGraphQLClient) MakeRequest(
@@ -360,9 +362,9 @@ func newTestServer(t *testing.T) testServer {
 	}
 	appcore.SetLocalizationConfig(i18nConfig)
 
-	svc := notes.NewService(fakeGraphQLClient{}, 12, "")
+	svc := notes.NewService(fakeGraphQLClient{}, 12, testRootURL)
 	handler, err := httpserver.New(httpserver.Config[*appcore.Context]{
-		AppContext:      appcore.NewContext(svc, i18nConfig, i18nCatalog),
+		AppContext:      appcore.NewContext(svc, i18nConfig, i18nCatalog, testRootURL),
 		Handlers:        webgen.Handlers(webgen.NewRouteResolvers()),
 		IsNotFoundError: appcore.IsNotFoundError,
 		NotFoundPage:    webgen.NotFoundPage,
@@ -434,18 +436,18 @@ func TestHandlerPageRoutesRenderHTML(t *testing.T) {
 		path        string
 		mustContain string
 	}{
-		{path: "/channels", mustContain: "<title>Channels :: blog</title>"},
-		{path: "/", mustContain: "<title>Notes :: blog</title>"},
-		{path: "/?q=hello", mustContain: "<title>Notes :: blog</title>"},
+		{path: "/channels", mustContain: "Channels :: blog</title>"},
+		{path: "/", mustContain: "Notes :: blog</title>"},
+		{path: "/?q=hello", mustContain: "Notes :: blog</title>"},
 		{path: "/?author=l-you&tag=go&type=short", mustContain: "<h1>L You</h1>"},
-		{path: "/note/hello-world", mustContain: "<title>Hello World :: blog</title>"},
-		{path: "/author/l-you", mustContain: "<title>L You :: blog</title>"},
-		{path: "/author/l-you?author=zed", mustContain: "<title>L You :: blog</title>"},
-		{path: "/tag/go", mustContain: "<title>#Go :: blog</title>"},
-		{path: "/tag/go?tag=rust", mustContain: "<title>#Go :: blog</title>"},
-		{path: "/tales", mustContain: "<title>Tales :: blog</title>"},
-		{path: "/tales?type=short", mustContain: "<title>Tales :: blog</title>"},
-		{path: "/micro-tales", mustContain: "<title>Micro-tales :: blog</title>"},
+		{path: "/note/hello-world", mustContain: "Hello World :: blog</title>"},
+		{path: "/author/l-you", mustContain: "L You :: blog</title>"},
+		{path: "/author/l-you?author=zed", mustContain: "L You :: blog</title>"},
+		{path: "/tag/go", mustContain: "#Go :: blog</title>"},
+		{path: "/tag/go?tag=rust", mustContain: "#Go :: blog</title>"},
+		{path: "/tales", mustContain: "Tales :: blog</title>"},
+		{path: "/tales?type=short", mustContain: "Tales :: blog</title>"},
+		{path: "/micro-tales", mustContain: "Micro-tales :: blog</title>"},
 	}
 
 	for _, tc := range cases {
@@ -660,6 +662,123 @@ func TestHandlerHTMXRoutesReturnPartial(t *testing.T) {
 	}
 }
 
+func TestHandlerSEOMetadataAndHTMXPatchHeaders(t *testing.T) {
+	t.Parallel()
+	testSrv := newTestServer(t)
+	mux := testSrv.handler
+
+	recNote := performRequest(mux, http.MethodGet, "/uk/note/hello-world?__live=navigation")
+	if recNote.Code != http.StatusOK {
+		t.Fatalf("note status: expected %d, got %d", http.StatusOK, recNote.Code)
+	}
+	noteBody := requireBody(t, recNote.Body)
+	if !strings.Contains(noteBody, `rel="canonical" href="https://revotale.com/blog/notes/uk/note/hello-world"`) {
+		t.Fatalf("note page missing canonical link")
+	}
+	if strings.Contains(noteBody, "__live=navigation") {
+		t.Fatalf("note canonical/hreflang should not include __live marker")
+	}
+	if !strings.Contains(noteBody, `rel="alternate" hreflang="en"`) {
+		t.Fatalf("note page missing hreflang=en")
+	}
+	if !strings.Contains(noteBody, `property="og:title"`) {
+		t.Fatalf("note page missing Open Graph title metadata")
+	}
+	if !strings.Contains(noteBody, `property="og:url" content="https://revotale.com/blog/notes/uk/note/hello-world"`) {
+		t.Fatalf("note page should publish canonical Open Graph url")
+	}
+	if !strings.Contains(noteBody, `name="twitter:card"`) {
+		t.Fatalf("note page missing twitter metadata")
+	}
+	if !strings.Contains(noteBody, `"@type":"BlogPosting"`) {
+		t.Fatalf("note page missing BlogPosting JSON-LD")
+	}
+	if !strings.Contains(noteBody, `"url":"https://revotale.com/blog/notes/uk/note/hello-world"`) {
+		t.Fatalf("note JSON-LD should link to the canonical note URL")
+	}
+	if !strings.Contains(noteBody, `"mainEntityOfPage":"https://revotale.com/blog/notes/uk/note/hello-world"`) {
+		t.Fatalf("note JSON-LD should link mainEntityOfPage to the canonical note URL")
+	}
+	if !strings.Contains(
+		noteBody,
+		`"publisher":{"@type":"Organization","name":"RevoTale","url":"https://revotale.com/blog/notes"}`,
+	) {
+		t.Fatalf("note JSON-LD should link publisher URL to blog root")
+	}
+	if !strings.Contains(noteBody, `"url":"https://revotale.com/blog/notes/uk/author/l-you"`) {
+		t.Fatalf("note JSON-LD should link author URL")
+	}
+	if !strings.Contains(
+		noteBody,
+		`"mentions":[{"@type":"Thing","name":"Go","url":"https://revotale.com/blog/notes/uk/tag/go"}]`,
+	) {
+		t.Fatalf("note JSON-LD should link tag mentions")
+	}
+	if !strings.Contains(noteBody, `"@type":"Organization"`) ||
+		!strings.Contains(noteBody, `"url":"https://revotale.com/blog/notes"`) {
+		t.Fatalf("organization JSON-LD should use the blog root URL")
+	}
+	if !strings.Contains(noteBody, `"sameAs":["https://revotale.com/blog/notes","https://github.com/RevoTale/blog"]`) {
+		t.Fatalf("organization JSON-LD should include linked sameAs entries")
+	}
+
+	recRoot := performRequest(mux, http.MethodGet, "/")
+	if recRoot.Code != http.StatusOK {
+		t.Fatalf("root status: expected %d, got %d", http.StatusOK, recRoot.Code)
+	}
+	rootBody := requireBody(t, recRoot.Body)
+	if !strings.Contains(rootBody, `"@type":"Blog"`) {
+		t.Fatalf("root page should include Blog listing JSON-LD")
+	}
+	if !strings.Contains(rootBody, `"url":"https://revotale.com/blog/notes"`) {
+		t.Fatalf("root Blog JSON-LD should link to the blog root URL")
+	}
+	if !strings.Contains(rootBody, `"mainEntityOfPage":"https://revotale.com/blog/notes"`) {
+		t.Fatalf("root Blog JSON-LD should link mainEntityOfPage to the blog root URL")
+	}
+	if !strings.Contains(rootBody, `"blogPost":[{"@type":"BlogPosting"`) {
+		t.Fatalf("root Blog JSON-LD should include linked blog posts")
+	}
+	if !strings.Contains(rootBody, `"url":"https://revotale.com/blog/notes/author/l-you"`) {
+		t.Fatalf("root Blog JSON-LD should link author pages")
+	}
+	if !strings.Contains(rootBody, `"mainEntityOfPage":"https://revotale.com/blog/notes/note/hello-world"`) {
+		t.Fatalf("root Blog JSON-LD should link note mainEntityOfPage")
+	}
+	if !strings.Contains(rootBody, `"url":"https://revotale.com/blog/notes/note/hello-world"`) {
+		t.Fatalf("root Blog JSON-LD should link note URLs")
+	}
+
+	recChannels := performRequest(mux, http.MethodGet, "/channels")
+	if recChannels.Code != http.StatusOK {
+		t.Fatalf("channels status: expected %d, got %d", http.StatusOK, recChannels.Code)
+	}
+	channelsBody := requireBody(t, recChannels.Body)
+	if !strings.Contains(channelsBody, `name="robots" content="noindex, follow"`) {
+		t.Fatalf("channels page should include noindex robots metadata")
+	}
+	if strings.Contains(channelsBody, `"@type":"Blog"`) {
+		t.Fatalf("channels page should not include Blog listing JSON-LD")
+	}
+
+	recHTMX := performRequestWithHeaders(mux, http.MethodGet, "/?__live=navigation", map[string]string{
+		"HX-Request": "true",
+	})
+	if recHTMX.Code != http.StatusOK {
+		t.Fatalf("htmx status: expected %d, got %d", http.StatusOK, recHTMX.Code)
+	}
+	patchHeader := strings.TrimSpace(recHTMX.Header().Get("HX-Trigger-After-Settle"))
+	if patchHeader == "" {
+		t.Fatalf("htmx response should include metadata patch header")
+	}
+	if !strings.Contains(patchHeader, "metagen:patch") {
+		t.Fatalf("htmx metadata patch header should include metagen patch event")
+	}
+	if strings.Contains(patchHeader, "__live=navigation") {
+		t.Fatalf("htmx metadata patch should strip __live marker from canonical/hreflang")
+	}
+}
+
 func TestPagerLinksIncludeHTMXNavigationActions(t *testing.T) {
 	t.Parallel()
 	testSrv := newTestServer(t)
@@ -767,7 +886,7 @@ func TestHandlerNotFoundAndHealth(t *testing.T) {
 		t.Fatalf("missing note status: expected %d, got %d", http.StatusNotFound, recMissingNote.Code)
 	}
 	missingNoteBody := requireBody(t, recMissingNote.Body)
-	if !strings.Contains(missingNoteBody, "<title>404 Not Found :: blog</title>") {
+	if !strings.Contains(missingNoteBody, "404 Not Found</title>") {
 		t.Fatalf("missing note page should render custom 404 title")
 	}
 	if !strings.Contains(missingNoteBody, "/note/missing") {

@@ -5,8 +5,19 @@ import (
 	"net/http"
 
 	"blog/framework"
+	"blog/framework/metagen"
 	"blog/internal/web/appcore"
+	"blog/internal/web/seo"
 )
+
+func (Resolver) MetaGenNoteParamSlugPage(
+	ctx context.Context,
+	appCtx *appcore.Context,
+	r *http.Request,
+	params NoteParamSlugParams,
+) (metagen.Metadata, error) {
+	return seo.MetaGenNotePage(ctx, appCtx, r, params.Slug)
+}
 
 func (Resolver) ResolveNoteParamSlugPage(
 	ctx context.Context,

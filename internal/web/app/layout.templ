@@ -1,19 +1,20 @@
 package appsrc
 
 import (
+	"blog/framework/metagen"
 	"blog/internal/techstack"
 	"blog/internal/web/appcore"
 	"blog/internal/web/components"
 	webi18n "blog/internal/web/i18n"
 )
 
-templ Layout(view appcore.RootLayoutView, child templ.Component) {
+templ Layout(meta metagen.Metadata, view appcore.RootLayoutView, child templ.Component) {
 	<!doctype html>
 	<html lang={ view.LocaleCode() }>
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<title>{ view.LayoutPageTitle() } :: blog</title>
+			@metagen.Head(meta)
 			<meta name="color-scheme" content="light dark"/>
 			<link rel="stylesheet" href={ appcore.StaticAssetURL("tui.css") }/>
 			@templ.Raw(appcore.ChromaStyleTag())

@@ -2,6 +2,7 @@
 package resolvers
 
 import (
+	"blog/framework/metagen"
 	"blog/internal/web/appcore"
 	"context"
 	"net/http"
@@ -32,6 +33,13 @@ type TalesParams struct {
 }
 
 type RouteResolver interface {
+	MetaGenRootPage(ctx context.Context, appCtx *appcore.Context, r *http.Request, params RootParams) (metagen.Metadata, error)
+	MetaGenAuthorParamSlugPage(ctx context.Context, appCtx *appcore.Context, r *http.Request, params AuthorParamSlugParams) (metagen.Metadata, error)
+	MetaGenChannelsPage(ctx context.Context, appCtx *appcore.Context, r *http.Request, params ChannelsParams) (metagen.Metadata, error)
+	MetaGenMicroTalesPage(ctx context.Context, appCtx *appcore.Context, r *http.Request, params MicroTalesParams) (metagen.Metadata, error)
+	MetaGenNoteParamSlugPage(ctx context.Context, appCtx *appcore.Context, r *http.Request, params NoteParamSlugParams) (metagen.Metadata, error)
+	MetaGenTagParamSlugPage(ctx context.Context, appCtx *appcore.Context, r *http.Request, params TagParamSlugParams) (metagen.Metadata, error)
+	MetaGenTalesPage(ctx context.Context, appCtx *appcore.Context, r *http.Request, params TalesParams) (metagen.Metadata, error)
 	ResolveRootPage(ctx context.Context, appCtx *appcore.Context, r *http.Request, params RootParams) (appcore.NotesPageView, error)
 	ResolveAuthorParamSlugPage(ctx context.Context, appCtx *appcore.Context, r *http.Request, params AuthorParamSlugParams) (appcore.AuthorPageView, error)
 	ResolveChannelsPage(ctx context.Context, appCtx *appcore.Context, r *http.Request, params ChannelsParams) (appcore.NotesPageView, error)

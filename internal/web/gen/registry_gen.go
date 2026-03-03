@@ -3,6 +3,7 @@ package gen
 
 import (
 	"blog/framework"
+	"blog/framework/metagen"
 	"blog/framework/router"
 	"blog/internal/web/appcore"
 	r_layout_author_param_slug "blog/internal/web/gen/r_layout_author_param_slug"
@@ -42,6 +43,9 @@ func Handlers(resolvers RouteResolvers) []framework.RouteHandler[*appcore.Contex
 			Page: framework.PageModule[*appcore.Context, RootParams, appcore.NotesPageView]{
 				Pattern:     "/",
 				ParseParams: parseRootParams,
+				MetaGen: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, params RootParams) (metagen.Metadata, error) {
+					return resolvers.MetaGenRootPage(ctx, appCtx, r, params)
+				},
 				Load: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, params RootParams) (appcore.NotesPageView, error) {
 					return resolvers.ResolveRootPage(ctx, appCtx, r, params)
 				},
@@ -55,6 +59,9 @@ func Handlers(resolvers RouteResolvers) []framework.RouteHandler[*appcore.Contex
 			Page: framework.PageModule[*appcore.Context, AuthorParamSlugParams, appcore.AuthorPageView]{
 				Pattern:     "/author/[slug]",
 				ParseParams: parseAuthorParamSlugParams,
+				MetaGen: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, params AuthorParamSlugParams) (metagen.Metadata, error) {
+					return resolvers.MetaGenAuthorParamSlugPage(ctx, appCtx, r, params)
+				},
 				Load: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, params AuthorParamSlugParams) (appcore.AuthorPageView, error) {
 					return resolvers.ResolveAuthorParamSlugPage(ctx, appCtx, r, params)
 				},
@@ -69,6 +76,9 @@ func Handlers(resolvers RouteResolvers) []framework.RouteHandler[*appcore.Contex
 			Page: framework.PageModule[*appcore.Context, ChannelsParams, appcore.NotesPageView]{
 				Pattern:     "/channels",
 				ParseParams: parseChannelsParams,
+				MetaGen: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, params ChannelsParams) (metagen.Metadata, error) {
+					return resolvers.MetaGenChannelsPage(ctx, appCtx, r, params)
+				},
 				Load: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, params ChannelsParams) (appcore.NotesPageView, error) {
 					return resolvers.ResolveChannelsPage(ctx, appCtx, r, params)
 				},
@@ -82,6 +92,9 @@ func Handlers(resolvers RouteResolvers) []framework.RouteHandler[*appcore.Contex
 			Page: framework.PageModule[*appcore.Context, MicroTalesParams, appcore.NotesPageView]{
 				Pattern:     "/micro-tales",
 				ParseParams: parseMicroTalesParams,
+				MetaGen: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, params MicroTalesParams) (metagen.Metadata, error) {
+					return resolvers.MetaGenMicroTalesPage(ctx, appCtx, r, params)
+				},
 				Load: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, params MicroTalesParams) (appcore.NotesPageView, error) {
 					return resolvers.ResolveMicroTalesPage(ctx, appCtx, r, params)
 				},
@@ -95,6 +108,9 @@ func Handlers(resolvers RouteResolvers) []framework.RouteHandler[*appcore.Contex
 			Page: framework.PageModule[*appcore.Context, NoteParamSlugParams, appcore.NotePageView]{
 				Pattern:     "/note/[slug]",
 				ParseParams: parseNoteParamSlugParams,
+				MetaGen: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, params NoteParamSlugParams) (metagen.Metadata, error) {
+					return resolvers.MetaGenNoteParamSlugPage(ctx, appCtx, r, params)
+				},
 				Load: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, params NoteParamSlugParams) (appcore.NotePageView, error) {
 					return resolvers.ResolveNoteParamSlugPage(ctx, appCtx, r, params)
 				},
@@ -108,6 +124,9 @@ func Handlers(resolvers RouteResolvers) []framework.RouteHandler[*appcore.Contex
 			Page: framework.PageModule[*appcore.Context, TagParamSlugParams, appcore.NotesPageView]{
 				Pattern:     "/tag/[slug]",
 				ParseParams: parseTagParamSlugParams,
+				MetaGen: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, params TagParamSlugParams) (metagen.Metadata, error) {
+					return resolvers.MetaGenTagParamSlugPage(ctx, appCtx, r, params)
+				},
 				Load: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, params TagParamSlugParams) (appcore.NotesPageView, error) {
 					return resolvers.ResolveTagParamSlugPage(ctx, appCtx, r, params)
 				},
@@ -121,6 +140,9 @@ func Handlers(resolvers RouteResolvers) []framework.RouteHandler[*appcore.Contex
 			Page: framework.PageModule[*appcore.Context, TalesParams, appcore.NotesPageView]{
 				Pattern:     "/tales",
 				ParseParams: parseTalesParams,
+				MetaGen: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, params TalesParams) (metagen.Metadata, error) {
+					return resolvers.MetaGenTalesPage(ctx, appCtx, r, params)
+				},
 				Load: func(ctx context.Context, appCtx *appcore.Context, r *http.Request, params TalesParams) (appcore.NotesPageView, error) {
 					return resolvers.ResolveTalesPage(ctx, appCtx, r, params)
 				},
@@ -140,10 +162,17 @@ func NotFoundPage(notFound framework.NotFoundContext) templ.Component {
 	}
 	routeID := nearestNotFoundRouteID(notFound)
 	view := appcore.NewNotFoundLayoutView(notFound.Locale)
+	meta := metagen.Metadata{
+		Title: view.LayoutPageTitle(),
+		Robots: &metagen.Robots{
+			Index:  metagen.Bool(false),
+			Follow: metagen.Bool(false),
+		},
+	}
 	switch routeID {
 	default:
 		component := r_not_found_root.Page(view, pathValue)
-		component = r_layout_root.Layout(view, component)
+		component = r_layout_root.Layout(meta, view, component)
 		return component
 	}
 }
@@ -303,34 +332,34 @@ func parseTalesParams(requestPath string) (TalesParams, bool) {
 	return TalesParams{}, true
 }
 
-func wrapAuthorParamSlugWithAuthorParamSlugLayout(view appcore.AuthorPageView, child templ.Component) templ.Component {
+func wrapAuthorParamSlugWithAuthorParamSlugLayout(meta metagen.Metadata, view appcore.AuthorPageView, child templ.Component) templ.Component {
 	return r_layout_author_param_slug.Layout(view, child)
 }
 
-func wrapAuthorParamSlugWithRootLayout(view appcore.AuthorPageView, child templ.Component) templ.Component {
-	return r_layout_root.Layout(view, child)
+func wrapAuthorParamSlugWithRootLayout(meta metagen.Metadata, view appcore.AuthorPageView, child templ.Component) templ.Component {
+	return r_layout_root.Layout(meta, view, child)
 }
 
-func wrapChannelsWithRootLayout(view appcore.NotesPageView, child templ.Component) templ.Component {
-	return r_layout_root.Layout(view, child)
+func wrapChannelsWithRootLayout(meta metagen.Metadata, view appcore.NotesPageView, child templ.Component) templ.Component {
+	return r_layout_root.Layout(meta, view, child)
 }
 
-func wrapMicroTalesWithRootLayout(view appcore.NotesPageView, child templ.Component) templ.Component {
-	return r_layout_root.Layout(view, child)
+func wrapMicroTalesWithRootLayout(meta metagen.Metadata, view appcore.NotesPageView, child templ.Component) templ.Component {
+	return r_layout_root.Layout(meta, view, child)
 }
 
-func wrapNoteParamSlugWithRootLayout(view appcore.NotePageView, child templ.Component) templ.Component {
-	return r_layout_root.Layout(view, child)
+func wrapNoteParamSlugWithRootLayout(meta metagen.Metadata, view appcore.NotePageView, child templ.Component) templ.Component {
+	return r_layout_root.Layout(meta, view, child)
 }
 
-func wrapRootWithRootLayout(view appcore.NotesPageView, child templ.Component) templ.Component {
-	return r_layout_root.Layout(view, child)
+func wrapRootWithRootLayout(meta metagen.Metadata, view appcore.NotesPageView, child templ.Component) templ.Component {
+	return r_layout_root.Layout(meta, view, child)
 }
 
-func wrapTagParamSlugWithRootLayout(view appcore.NotesPageView, child templ.Component) templ.Component {
-	return r_layout_root.Layout(view, child)
+func wrapTagParamSlugWithRootLayout(meta metagen.Metadata, view appcore.NotesPageView, child templ.Component) templ.Component {
+	return r_layout_root.Layout(meta, view, child)
 }
 
-func wrapTalesWithRootLayout(view appcore.NotesPageView, child templ.Component) templ.Component {
-	return r_layout_root.Layout(view, child)
+func wrapTalesWithRootLayout(meta metagen.Metadata, view appcore.NotesPageView, child templ.Component) templ.Component {
+	return r_layout_root.Layout(meta, view, child)
 }

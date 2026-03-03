@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"blog/framework"
+	"blog/framework/metagen"
 	"github.com/a-h/templ"
 )
 
@@ -13,7 +14,7 @@ type Config[C interface{}] struct {
 	Handlers   []framework.RouteHandler[C]
 
 	IsPartialRequest func(r *http.Request) bool
-	RenderPage       func(r *http.Request, w http.ResponseWriter, component templ.Component) error
+	RenderPage       func(r *http.Request, w http.ResponseWriter, component templ.Component, meta metagen.Metadata) error
 
 	IsNotFoundError   func(err error) bool
 	HandleNotFound    func(w http.ResponseWriter, r *http.Request, notFoundContext framework.NotFoundContext)
@@ -25,7 +26,7 @@ type Engine[C interface{}] struct {
 	handlers   []framework.RouteHandler[C]
 
 	isPartialRequest func(r *http.Request) bool
-	renderPage       func(r *http.Request, w http.ResponseWriter, component templ.Component) error
+	renderPage       func(r *http.Request, w http.ResponseWriter, component templ.Component, meta metagen.Metadata) error
 
 	isNotFound  func(err error) bool
 	notFound    func(w http.ResponseWriter, r *http.Request, notFoundContext framework.NotFoundContext)
@@ -94,8 +95,9 @@ func (engine *Engine[C]) RenderPage(
 	r *http.Request,
 	w http.ResponseWriter,
 	component templ.Component,
+	meta metagen.Metadata,
 ) error {
-	return engine.renderPage(r, w, component)
+	return engine.renderPage(r, w, component, meta)
 }
 
 func (engine *Engine[C]) IsNotFound(err error) bool {

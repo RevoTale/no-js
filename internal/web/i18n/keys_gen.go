@@ -73,6 +73,16 @@ const (
 	KeyPagerNext                     Key = "pager.next"
 	KeyPagerPage                     Key = "pager.page"
 	KeyPagerPrev                     Key = "pager.prev"
+	KeySeoAuthorDescription          Key = "seo.author.description"
+	KeySeoChannelsDescription        Key = "seo.channels.description"
+	KeySeoMicroTalesDescription      Key = "seo.microTales.description"
+	KeySeoNoteDescription            Key = "seo.note.description"
+	KeySeoPublisherName              Key = "seo.publisher.name"
+	KeySeoRootDescription            Key = "seo.root.description"
+	KeySeoSiteDescription            Key = "seo.site.description"
+	KeySeoSiteName                   Key = "seo.site.name"
+	KeySeoTagDescription             Key = "seo.tag.description"
+	KeySeoTalesDescription           Key = "seo.tales.description"
 )
 
 var AllKeys = []Key{
@@ -145,6 +155,16 @@ var AllKeys = []Key{
 	KeyPagerNext,
 	KeyPagerPage,
 	KeyPagerPrev,
+	KeySeoAuthorDescription,
+	KeySeoChannelsDescription,
+	KeySeoMicroTalesDescription,
+	KeySeoNoteDescription,
+	KeySeoPublisherName,
+	KeySeoRootDescription,
+	KeySeoSiteDescription,
+	KeySeoSiteName,
+	KeySeoTagDescription,
+	KeySeoTalesDescription,
 }
 
 var DefaultMessages = map[Key]string{
@@ -217,4 +237,14 @@ var DefaultMessages = map[Key]string{
 	KeyPagerNext:                     "next",
 	KeyPagerPage:                     "page",
 	KeyPagerPrev:                     "prev",
+	KeySeoAuthorDescription:          "Browse notes by this author.",
+	KeySeoChannelsDescription:        "Browse available channels and filters for the blog feed.",
+	KeySeoMicroTalesDescription:      "Read short-form micro-tales from the blog feed.",
+	KeySeoNoteDescription:            "Read this note from the blog archive.",
+	KeySeoPublisherName:              "RevoTale",
+	KeySeoRootDescription:            "Browse the latest notes, tales, and micro-tales.",
+	KeySeoSiteDescription:            "A multilingual note feed with tales and micro-tales.",
+	KeySeoSiteName:                   "blog",
+	KeySeoTagDescription:             "Browse notes for this tag.",
+	KeySeoTalesDescription:           "Read long-form tales from the blog feed.",
 }

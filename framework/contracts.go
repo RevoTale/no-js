@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	frameworki18n "blog/framework/i18n"
+	"blog/framework/metagen"
 	"github.com/a-h/templ"
 )
 
@@ -24,13 +25,21 @@ type PageLoader[C interface{}, P interface{}, VM interface{}] func(
 	params P,
 ) (VM, error)
 
+type PageMetaGen[C interface{}, P interface{}] func(
+	ctx context.Context,
+	appCtx C,
+	r *http.Request,
+	params P,
+) (metagen.Metadata, error)
+
 type PageRenderer[VM interface{}] func(view VM) templ.Component
 
-type LayoutRenderer[VM interface{}] func(view VM, child templ.Component) templ.Component
+type LayoutRenderer[VM interface{}] func(meta metagen.Metadata, view VM, child templ.Component) templ.Component
 
 type PageModule[C interface{}, P interface{}, VM interface{}] struct {
 	Pattern     string
 	ParseParams ParamsParser[P]
+	MetaGen     PageMetaGen[C, P]
 	Load        PageLoader[C, P, VM]
 	Render      PageRenderer[VM]
 	Layouts     []LayoutRenderer[VM]
@@ -39,7 +48,7 @@ type PageModule[C interface{}, P interface{}, VM interface{}] struct {
 type RuntimeContext[C interface{}] interface {
 	AppContext() C
 	IsPartialRequest(r *http.Request) bool
-	RenderPage(r *http.Request, w http.ResponseWriter, component templ.Component) error
+	RenderPage(r *http.Request, w http.ResponseWriter, component templ.Component, meta metagen.Metadata) error
 	IsNotFound(err error) bool
 	RespondNotFound(w http.ResponseWriter, r *http.Request, notFoundContext NotFoundContext)
 	RespondServerError(w http.ResponseWriter, err error)
@@ -49,6 +58,7 @@ type NotFoundSource string
 
 const (
 	NotFoundSourcePageLoad       NotFoundSource = "page_load"
+	NotFoundSourceMetaGen        NotFoundSource = "meta_gen"
 	NotFoundSourceUnmatchedRoute NotFoundSource = "unmatched_route"
 )
 
@@ -77,12 +87,13 @@ func (h PageOnlyRouteHandler[C, P, VM]) TryServe(
 
 func applyLayouts[VM interface{}](
 	layouts []LayoutRenderer[VM],
+	meta metagen.Metadata,
 	view VM,
 	child templ.Component,
 ) templ.Component {
 	wrapped := child
 	for idx := len(layouts) - 1; idx >= 0; idx-- {
-		wrapped = layouts[idx](view, wrapped)
+		wrapped = layouts[idx](meta, view, wrapped)
 	}
 	return wrapped
 }
@@ -98,29 +109,41 @@ func servePageModule[C interface{}, P interface{}, VM interface{}](
 		return false
 	}
 
+	meta := metagen.Metadata{}
+	if module.MetaGen != nil {
+		var err error
+		meta, err = module.MetaGen(r.Context(), runtime.AppContext(), r, params)
+		if err != nil {
+			handleModuleError(runtime, w, r, err, module.Pattern, NotFoundSourceMetaGen, "meta")
+			return true
+		}
+	}
+	meta = metagen.Normalize(meta)
+
 	view, err := module.Load(r.Context(), runtime.AppContext(), r, params)
 	if err != nil {
-		handleLoadError(runtime, w, r, err, module.Pattern, NotFoundSourcePageLoad)
+		handleModuleError(runtime, w, r, err, module.Pattern, NotFoundSourcePageLoad, "load")
 		return true
 	}
 
 	component := module.Render(view)
 	if !runtime.IsPartialRequest(r) {
-		component = applyLayouts(module.Layouts, view, component)
+		component = applyLayouts(module.Layouts, meta, view, component)
 	}
-	if err := runtime.RenderPage(r, w, component); err != nil {
+	if err := runtime.RenderPage(r, w, component, meta); err != nil {
 		runtime.RespondServerError(w, fmt.Errorf("render route %q: %w", module.Pattern, err))
 	}
 	return true
 }
 
-func handleLoadError[C interface{}](
+func handleModuleError[C interface{}](
 	runtime RuntimeContext[C],
 	w http.ResponseWriter,
 	r *http.Request,
 	err error,
 	routePattern string,
 	source NotFoundSource,
+	stage string,
 ) {
 	if runtime.IsNotFound(err) {
 		runtime.RespondNotFound(w, r, NotFoundContext{
@@ -132,5 +155,5 @@ func handleLoadError[C interface{}](
 		return
 	}
 
-	runtime.RespondServerError(w, fmt.Errorf("load route %q: %w", routePattern, err))
+	runtime.RespondServerError(w, fmt.Errorf("%s route %q: %w", stage, routePattern, err))
 }

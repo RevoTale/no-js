@@ -5,8 +5,19 @@ import (
 	"net/http"
 
 	"blog/framework"
+	"blog/framework/metagen"
 	"blog/internal/web/appcore"
+	"blog/internal/web/seo"
 )
+
+func (Resolver) MetaGenChannelsPage(
+	ctx context.Context,
+	appCtx *appcore.Context,
+	r *http.Request,
+	_ ChannelsParams,
+) (metagen.Metadata, error) {
+	return seo.MetaGenChannelsPage(ctx, appCtx, r)
+}
 
 func (Resolver) ResolveChannelsPage(
 	ctx context.Context,
