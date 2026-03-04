@@ -15,7 +15,7 @@ const blogPathPrefix = "/cdn/image/blog"
 var cdnS3PathPattern = regexp.MustCompile(`((?:^|/)cdn/image/s3/)(\d+)(/)`)
 
 // These widths must stay aligned with the imgproxy routes in docker-compose.base.yml.
-var deviceSizes = []int{16, 32, 48, 64, 96, 128, 256, 384, 450, 530, 640, 750, 828, 1080, 1200, 1920, 2048, 3840}
+var deviceSizes = []int{ 32, 64, 128, 256, 450, 530, 640, 828, 1080, 1200, 1920}
 
 type Loader struct {
 	enabled bool
