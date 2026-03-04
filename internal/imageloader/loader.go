@@ -13,7 +13,8 @@ const markdownSizesValue = "(max-width: 660px) 100vw, 672px"
 
 var cdnS3PathPattern = regexp.MustCompile(`((?:^|/)cdn/image/s3/)(\d+)(/)`)
 
-var deviceSizes = []int{384, 450, 530, 640, 828, 1080, 1920}
+// These widths must stay aligned with the imgproxy routes in docker-compose.base.yml.
+var deviceSizes = []int{16, 32, 48, 64, 96, 128, 256, 384, 450, 530, 640, 750, 828, 1080, 1200, 1920, 2048, 3840}
 
 type Loader struct {
 	enabled bool
@@ -50,17 +51,17 @@ func (l Loader) URL(src string, width int) string {
 	return fmt.Sprintf("/cdn/image/relative/%d/%s", targetWidth, relativePath)
 }
 
-func (l Loader) ResponsiveSrcSet(src string, maxWidth int) (string,error) {
+func (l Loader) ResponsiveSrcSet(src string, maxWidth int) (string, error) {
 	if !l.enabled {
 		return "", errors.New("loader not enabled")
 	}
 
 	widths, err := responsiveWidths(maxWidth)
-	if nil != err {
-		return "",err
+	if err != nil {
+		return "", err
 	}
 	if len(widths) == 0 {
-		return src,nil
+		return src, nil
 	}
 	parts := make([]string, 0, len(widths))
 	for _, width := range widths {
@@ -101,13 +102,29 @@ func MarkdownSizes() string {
 }
 
 func normalizeWidth(width int) int {
-	if width > 0 {
-		return width
+	target := width
+	if target <= 0 {
+		target = thumbWidth
 	}
-	return thumbWidth
+	return nearestAllowedWidth(target)
 }
 
-func cutSmallerSizes(size int) []int  {
+func nearestAllowedWidth(width int) int {
+	if len(deviceSizes) == 0 {
+		return width
+	}
+	if width <= deviceSizes[0] {
+		return deviceSizes[0]
+	}
+	for _, candidate := range deviceSizes {
+		if width <= candidate {
+			return candidate
+		}
+	}
+	return deviceSizes[len(deviceSizes)-1]
+}
+
+func cutSmallerSizes(size int) []int {
 	out := make([]int, 0, len(deviceSizes))
 	for _, ds := range deviceSizes {
 		if ds <= size {
@@ -116,24 +133,18 @@ func cutSmallerSizes(size int) []int  {
 	}
 
 	return out
-
 }
 
-func responsiveWidths(maxWidth int) ([]int,error) {
+func responsiveWidths(maxWidth int) ([]int, error) {
 	if maxWidth < 0 {
 		return nil, errors.New("width negative")
 	}
 	if maxWidth == 0 {
 		return append([]int(nil), deviceSizes...), nil
 	}
-	out := cutSmallerSizes(maxWidth)
-	if len(out) != 0 {
- 		return out, nil
-	}
-	if len(deviceSizes) == 0 {
-		return  nil, errors.New("device sizes is null")
-	}
-	return append([]int{}, deviceSizes[0]) , nil
+	targetWidth := normalizeWidth(maxWidth)
+	out := cutSmallerSizes(targetWidth)
+	return out, nil
 }
 
 func positiveOrZero(value int) int {

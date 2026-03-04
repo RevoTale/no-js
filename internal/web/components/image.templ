@@ -3,13 +3,13 @@ package components
 import "blog/internal/web/appcore"
 
 
-templ ImageResponsive(className string, src string, alt string, loading string, width int, height int) {
+templ ImageResponsive(className string, src string, alt string, loading string, sizes string, width int, height int) {
 	if appcore.ImageLoaderEnabled() {
 		<img
 			class={ className }
-			src={ appcore.ImageURL(src, width) }
-			srcset={ appcore.ImageResponsiveSrcSet(src, width) }
-			sizes={ appcore.ImageResponsiveSizes() }
+			src={ appcore.ImageURL(src, appcore.ImageResponsiveTargetWidth(width, appcore.ImageResponsiveSizes(sizes, width))) }
+			srcset={ appcore.ImageResponsiveSrcSet(src, appcore.ImageResponsiveTargetWidth(width, appcore.ImageResponsiveSizes(sizes, width))) }
+			sizes={ appcore.ImageResponsiveSizes(sizes, width) }
 			alt={ alt }
 			loading={ loading }
 			width={ width }

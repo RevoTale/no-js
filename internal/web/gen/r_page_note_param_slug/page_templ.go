@@ -150,7 +150,7 @@ func Page(view appcore.NotePageView) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				if author.Avatar != nil {
-					templ_7745c5c3_Err = components.ImageResponsive("author-avatar", author.Avatar.URL, author.Avatar.Alt, "lazy", 24, 24).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.ImageResponsive("author-avatar", author.Avatar.URL, author.Avatar.Alt, "lazy", "24px", 24, 24).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -273,7 +273,7 @@ func Page(view appcore.NotePageView) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if view.Note.Attachment.Width > 0 && view.Note.Attachment.Height > 0 {
-				templ_7745c5c3_Err = components.ImageResponsive("attachment-image", view.Note.Attachment.URL, appcore.AttachmentAltText(view.Note.Attachment.Alt, view.Note.Title), "lazy", view.Note.Attachment.Width, view.Note.Attachment.Height).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.ImageResponsive("attachment-image", view.Note.Attachment.URL, appcore.AttachmentAltText(view.Note.Attachment.Alt, view.Note.Title), "lazy", "(max-width: 768px) 100vw, 672px", view.Note.Attachment.Width, view.Note.Attachment.Height).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

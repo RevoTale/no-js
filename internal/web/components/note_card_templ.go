@@ -57,7 +57,7 @@ func NoteCard(locale string, messages map[webi18n.Key]string, note notes.NoteSum
 			return templ_7745c5c3_Err
 		}
 		if appcore.HasFirstAuthorAvatar(note.Authors) {
-			templ_7745c5c3_Err = ImageResponsive("author-avatar large", appcore.FirstAuthorAvatarURL(note.Authors), appcore.FirstAuthorAvatarAlt(note.Authors), "lazy", 40, 40).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ImageResponsive("author-avatar large", appcore.FirstAuthorAvatarURL(note.Authors), appcore.FirstAuthorAvatarAlt(note.Authors), "lazy", "40px", 40, 40).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -304,7 +304,7 @@ func NoteCard(locale string, messages map[webi18n.Key]string, note notes.NoteSum
 				return templ_7745c5c3_Err
 			}
 			if note.Attachment.Width > 0 && note.Attachment.Height > 0 {
-				templ_7745c5c3_Err = ImageResponsive("attachment-image", note.Attachment.URL, appcore.AttachmentAltText(note.Attachment.Alt, note.Title), "lazy", note.Attachment.Width, note.Attachment.Height).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = ImageResponsive("attachment-image", note.Attachment.URL, appcore.AttachmentAltText(note.Attachment.Alt, note.Title), "lazy", "(max-width: 768px) 100vw, 672px", note.Attachment.Width, note.Attachment.Height).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

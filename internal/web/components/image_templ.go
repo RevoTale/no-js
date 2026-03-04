@@ -9,7 +9,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import "blog/internal/web/appcore"
 
-func ImageResponsive(className string, src string, alt string, loading string, width int, height int) templ.Component {
+func ImageResponsive(className string, src string, alt string, loading string, sizes string, width int, height int) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -54,9 +54,9 @@ func ImageResponsive(className string, src string, alt string, loading string, w
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(appcore.ImageURL(src, width))
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(appcore.ImageURL(src, appcore.ImageResponsiveTargetWidth(width, appcore.ImageResponsiveSizes(sizes, width))))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/image.templ`, Line: 10, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/image.templ`, Line: 10, Col: 117}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -67,9 +67,9 @@ func ImageResponsive(className string, src string, alt string, loading string, w
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(appcore.ImageResponsiveSrcSet(src, width))
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(appcore.ImageResponsiveSrcSet(src, appcore.ImageResponsiveTargetWidth(width, appcore.ImageResponsiveSizes(sizes, width))))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/image.templ`, Line: 11, Col: 53}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/image.templ`, Line: 11, Col: 133}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -80,9 +80,9 @@ func ImageResponsive(className string, src string, alt string, loading string, w
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var6 string
-			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(appcore.ImageResponsiveSizes())
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(appcore.ImageResponsiveSizes(sizes, width))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/image.templ`, Line: 12, Col: 41}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/image.templ`, Line: 12, Col: 53}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
