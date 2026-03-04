@@ -57,7 +57,7 @@ func NoteCard(locale string, messages map[webi18n.Key]string, note notes.NoteSum
 			return templ_7745c5c3_Err
 		}
 		if appcore.HasFirstAuthorAvatar(note.Authors) {
-			templ_7745c5c3_Err = ImageFixed("author-avatar large", appcore.FirstAuthorAvatarURL(note.Authors), appcore.FirstAuthorAvatarAlt(note.Authors), "lazy", 40, 40).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ImageResponsive("author-avatar large", appcore.FirstAuthorAvatarURL(note.Authors), appcore.FirstAuthorAvatarAlt(note.Authors), "lazy", 40, 40).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

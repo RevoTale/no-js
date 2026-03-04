@@ -1,6 +1,7 @@
 package appcore
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -26,12 +27,14 @@ func ImageURL(src string, width int) string {
 	return currentImageLoader().URL(strings.TrimSpace(src), width)
 }
 
-func ImageFixedSrcSet(src string, displayWidth int) string {
-	return currentImageLoader().FixedSrcSet(strings.TrimSpace(src), displayWidth)
-}
-
 func ImageResponsiveSrcSet(src string, maxWidth int) string {
-	return currentImageLoader().ResponsiveSrcSet(strings.TrimSpace(src), maxWidth)
+	srcset, err := currentImageLoader().ResponsiveSrcSet(strings.TrimSpace(src), maxWidth)
+
+	if nil != err {
+		return fmt.Sprintf("server_error:%s",err.Error())
+	}
+
+	return srcset
 }
 
 func ImageThumb(src string, originalWidth int, originalHeight int) (string, int, int) {

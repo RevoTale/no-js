@@ -27,7 +27,7 @@ templ Page(view appcore.NotePageView) {
 					for _, author := range view.Note.Authors {
 						<a href={ appcore.BuildAuthorURL(view.LocaleCode(), author.Slug, 1) } class="author-pill">
 							if author.Avatar != nil {
-								@components.ImageFixed("author-avatar", author.Avatar.URL, author.Avatar.Alt, "lazy", 24, 24)
+								@components.ImageResponsive("author-avatar", author.Avatar.URL, author.Avatar.Alt, "lazy", 24, 24)
 							} else {
 								<span class="author-avatar fallback">&#64;</span>
 							}

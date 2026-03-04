@@ -407,7 +407,7 @@ func renderImage(writer io.Writer, image *ast.Image, opts Options) {
 	}
 	altText := stdhtml.EscapeString(collectImageText(image))
 	titleText := stdhtml.EscapeString(strings.TrimSpace(string(image.Title)))
-	srcSet := opts.ImageLoader.ResponsiveSrcSet(rawSrc, 0)
+	srcSet, err := opts.ImageLoader.ResponsiveSrcSet(rawSrc, 0)
 
 	_, _ = io.WriteString(writer, `<img src="`)
 	_, _ = io.WriteString(writer, stdhtml.EscapeString(src))
@@ -417,6 +417,11 @@ func renderImage(writer io.Writer, image *ast.Image, opts Options) {
 	if titleText != "" {
 		_, _ = io.WriteString(writer, ` title="`)
 		_, _ = io.WriteString(writer, titleText)
+		_, _ = io.WriteString(writer, `"`)
+	}
+	if err != nil {
+		_, _ = io.WriteString(writer, ` data-server-error="`)
+		_, _ = io.WriteString(writer, err.Error())
 		_, _ = io.WriteString(writer, `"`)
 	}
 	if srcSet != "" {

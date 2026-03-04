@@ -150,7 +150,7 @@ func Page(view appcore.NotePageView) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				if author.Avatar != nil {
-					templ_7745c5c3_Err = components.ImageFixed("author-avatar", author.Avatar.URL, author.Avatar.Alt, "lazy", 24, 24).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.ImageResponsive("author-avatar", author.Avatar.URL, author.Avatar.Alt, "lazy", 24, 24).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

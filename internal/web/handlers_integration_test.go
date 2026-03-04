@@ -20,6 +20,7 @@ import (
 	"blog/internal/web/appcore"
 	webgen "blog/internal/web/gen"
 	webi18n "blog/internal/web/i18n"
+zZZ
 	"github.com/Khan/genqlient/graphql"
 )
 
@@ -905,7 +906,7 @@ func TestHandlerSEOMetadataAndHTMXPatchHeaders(t *testing.T) {
 	firstAuthor := objectFromAny(t, authors[0], "author[0]")
 	if got := stringField(t, firstAuthor, "url"); got != "https://revotale.com/blog/notes/uk/author/l-you" {
 		t.Fatalf("note JSON-LD author.url: expected localized author URL, got %q", got)
-	}
+	}	xq
 	datePublished := stringField(t, noteDoc, "datePublished")
 	if _, err := time.Parse(time.RFC3339, datePublished); err != nil {
 		t.Fatalf("note JSON-LD datePublished should be RFC3339/ISO timestamp, got %q", datePublished)
@@ -1063,10 +1064,6 @@ func TestHandlerImageLoaderEnabledTransformsTemplateAndSEOImages(t *testing.T) {
 	expectedLogoURL := imageloader.New(true).URL(rawLogoURL, 28)
 	if !strings.Contains(rootBody, `class="server-logo" src="`+expectedLogoURL+`"`) {
 		t.Fatalf("root page should rewrite server logo src when image loader is enabled")
-	}
-	expectedLogoSrcSet := `srcset="` + imageloader.New(true).FixedSrcSet(rawLogoURL, 28) + `"`
-	if !strings.Contains(rootBody, expectedLogoSrcSet) {
-		t.Fatalf("root page should include transformed fixed srcset for server logo")
 	}
 
 	recNote := performRequest(mux, http.MethodGet, "/uk/note/hello-world")

@@ -1,6 +1,7 @@
 package imageloader
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"regexp"
@@ -19,7 +20,9 @@ type Loader struct {
 }
 
 func New(enabled bool) Loader {
-	return Loader{enabled: enabled}
+	return Loader{
+		enabled: enabled,
+	}
 }
 
 func (l Loader) Enabled() bool {
@@ -47,27 +50,18 @@ func (l Loader) URL(src string, width int) string {
 	return fmt.Sprintf("/cdn/image/relative/%d/%s", targetWidth, relativePath)
 }
 
-func (l Loader) FixedSrcSet(src string, displayWidth int) string {
+func (l Loader) ResponsiveSrcSet(src string, maxWidth int) (string,error) {
 	if !l.enabled {
-		return ""
+		return "", errors.New("loader not enabled")
 	}
 
-	baseWidth := normalizeWidth(displayWidth)
-	oneX := l.URL(src, baseWidth)
-	twoX := l.URL(src, baseWidth*2)
-	if oneX == "" || twoX == "" {
-		return ""
+	widths, err := responsiveWidths(maxWidth)
+	if nil != err {
+		return "",err
 	}
-
-	return fmt.Sprintf("%s 1x, %s 2x", oneX, twoX)
-}
-
-func (l Loader) ResponsiveSrcSet(src string, maxWidth int) string {
-	if !l.enabled {
-		return ""
+	if len(widths) == 0 {
+		return src,nil
 	}
-
-	widths := responsiveWidths(maxWidth)
 	parts := make([]string, 0, len(widths))
 	for _, width := range widths {
 		url := l.URL(src, width)
@@ -77,7 +71,7 @@ func (l Loader) ResponsiveSrcSet(src string, maxWidth int) string {
 		parts = append(parts, fmt.Sprintf("%s %dw", url, width))
 	}
 
-	return strings.Join(parts, ", ")
+	return strings.Join(parts, ", "), nil
 }
 
 func (l Loader) Thumb(src string, originalWidth int, originalHeight int) (string, int, int) {
@@ -113,25 +107,33 @@ func normalizeWidth(width int) int {
 	return thumbWidth
 }
 
-func responsiveWidths(maxWidth int) []int {
-	if maxWidth <= 0 {
-		return append([]int(nil), deviceSizes...)
-	}
-
+func cutSmallerSizes(size int) []int  {
 	out := make([]int, 0, len(deviceSizes))
-	for _, width := range deviceSizes {
-		if width <= maxWidth {
-			out = append(out, width)
+	for _, ds := range deviceSizes {
+		if ds <= size {
+			out = append(out, ds)
 		}
-	}
-	if len(out) == 0 {
-		out = append(out, maxWidth)
-	}
-	if out[len(out)-1] != maxWidth {
-		out = append(out, maxWidth)
 	}
 
 	return out
+
+}
+
+func responsiveWidths(maxWidth int) ([]int,error) {
+	if maxWidth < 0 {
+		return nil, errors.New("width negative")
+	}
+	if maxWidth == 0 {
+		return append([]int(nil), deviceSizes...), nil
+	}
+	out := cutSmallerSizes(maxWidth)
+	if len(out) != 0 {
+ 		return out, nil
+	}
+	if len(deviceSizes) == 0 {
+		return  nil, errors.New("device sizes is null")
+	}
+	return append([]int{}, deviceSizes[0]) , nil
 }
 
 func positiveOrZero(value int) int {

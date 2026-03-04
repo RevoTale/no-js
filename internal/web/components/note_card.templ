@@ -10,7 +10,7 @@ templ NoteCard(locale string, messages map[webi18n.Key]string, note notes.NoteSu
 	<article class={ appcore.NoteCardClass(note.Attachment != nil) }>
 		<div class="message-avatar">
 			if appcore.HasFirstAuthorAvatar(note.Authors) {
-				@ImageFixed("author-avatar large", appcore.FirstAuthorAvatarURL(note.Authors), appcore.FirstAuthorAvatarAlt(note.Authors), "lazy", 40, 40)
+				@ImageResponsive("author-avatar large", appcore.FirstAuthorAvatarURL(note.Authors), appcore.FirstAuthorAvatarAlt(note.Authors), "lazy", 40, 40)
 			} else {
 				<span class="author-avatar large fallback">&#64;</span>
 			}

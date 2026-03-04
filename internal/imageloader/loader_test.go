@@ -34,22 +34,11 @@ func TestLoaderURL_BuildsRelativeEndpointAndEncodesSpaces(t *testing.T) {
 	}
 }
 
-func TestLoaderFixedSrcSet_EmitsOneXTwoX(t *testing.T) {
-	t.Parallel()
-
-	loader := New(true)
-	got := loader.FixedSrcSet("/cdn/image/s3/828/files/pic.webp", 40)
-	want := "/cdn/image/s3/40/files/pic.webp 1x, /cdn/image/s3/80/files/pic.webp 2x"
-	if got != want {
-		t.Fatalf("fixed srcset: expected %q, got %q", want, got)
-	}
-}
-
 func TestLoaderResponsiveSrcSet_UsesCMSDeviceWidths(t *testing.T) {
 	t.Parallel()
 
 	loader := New(true)
-	got := loader.ResponsiveSrcSet("/images/pic.webp", 1080)
+	got,_ := loader.ResponsiveSrcSet("/images/pic.webp", 1080)
 	want := "/cdn/image/relative/384/images/pic.webp 384w, " +
 		"/cdn/image/relative/450/images/pic.webp 450w, " +
 		"/cdn/image/relative/530/images/pic.webp 530w, " +
