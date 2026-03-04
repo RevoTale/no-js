@@ -8,6 +8,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"blog/internal/gql"
@@ -173,6 +174,9 @@ func (s *Service) ListNotes(
 	filter ListFilter,
 	options ListOptions,
 ) (NotesListResult, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	filter = normalizeFilter(filter)
 	result := NotesListResult{
 		ActiveFilter: filter,
@@ -183,25 +187,72 @@ func (s *Service) ListNotes(
 	gqlLocale := gql.LocaleInputFromCode(locale)
 	gqlFallbackLocale := gql.FallbackLocaleInputFromCode(s.defaultLocale())
 
-	authorsResponse, err := gql.AvailableAuthors(ctx, s.client, 200, gqlLocale, gqlFallbackLocale)
-	if err != nil {
-		return NotesListResult{}, err
+	var (
+		authorsResponse *gql.AvailableAuthorsResponse
+		tagsResponse    *gql.AvailableTagsByPostTypeResponse
+		authorsErr      error
+		tagsErr         error
+	)
+	var coreWG sync.WaitGroup
+	coreWG.Go(func() {
+		authorsResponse, authorsErr = gql.AvailableAuthors(ctx, s.client, 200, gqlLocale, gqlFallbackLocale)
+	})
+	coreWG.Go(func() {
+		tagsResponse, tagsErr = gql.AvailableTagsByPostType(
+			ctx,
+			s.client,
+			postTypeFilterArg(filter.Type),
+			gqlLocale,
+		)
+	})
+
+	var (
+		author    *Author
+		authorErr error
+		tag       *Tag
+		tagErr    error
+		tagIDs    []string
+		tagIDsErr error
+	)
+	var filterWG sync.WaitGroup
+	if filter.AuthorSlug != "" {
+		filterWG.Go(func() {
+			author, authorErr = s.GetAuthorBySlug(ctx, locale, filter.AuthorSlug)
+		})
+	}
+	if filter.TagName != "" {
+		filterWG.Go(func() {
+			tag, tagErr = s.GetTagByName(ctx, locale, filter.TagName)
+		})
+		filterWG.Go(func() {
+			tagIDs, tagIDsErr = s.findTagIDs(ctx, locale, []string{filter.TagName})
+		})
+	}
+
+	var (
+		notes      []NoteSummary
+		totalPages int
+		notesErr   error
+	)
+	var notesWG sync.WaitGroup
+	if filter.TagName == "" {
+		notesWG.Go(func() {
+			notes, totalPages, notesErr = s.listNotesByFilter(ctx, locale, filter, nil)
+		})
+	}
+
+	coreWG.Wait()
+	if authorsErr != nil {
+		return NotesListResult{}, authorsErr
+	}
+	if tagsErr != nil {
+		return NotesListResult{}, tagsErr
 	}
 	result.Authors = mapAvailableAuthors(authorsResponse)
-
-	tagsResponse, err := gql.AvailableTagsByPostType(
-		ctx,
-		s.client,
-		postTypeFilterArg(filter.Type),
-		gqlLocale,
-	)
-	if err != nil {
-		return NotesListResult{}, err
-	}
 	result.Tags = mapAvailableTags(tagsResponse)
 
+	filterWG.Wait()
 	if filter.AuthorSlug != "" {
-		author, authorErr := s.GetAuthorBySlug(ctx, locale, filter.AuthorSlug)
 		if authorErr != nil {
 			if errors.Is(authorErr, ErrNotFound) && !options.RequireAuthor {
 				result.Notes = []NoteSummary{}
@@ -214,10 +265,7 @@ func (s *Service) ListNotes(
 		result.ActiveAuthor = author
 		result.Authors = mergeAuthor(result.Authors, *author)
 	}
-
-	tagIDs := []string{}
 	if filter.TagName != "" {
-		tag, tagErr := s.GetTagByName(ctx, locale, filter.TagName)
 		if tagErr != nil {
 			if errors.Is(tagErr, ErrNotFound) && !options.RequireTag {
 				result.Notes = []NoteSummary{}
@@ -230,9 +278,8 @@ func (s *Service) ListNotes(
 		result.ActiveTag = tag
 		result.Tags = mergeTag(result.Tags, *tag)
 
-		tagIDs, err = s.findTagIDs(ctx, locale, []string{filter.TagName})
-		if err != nil {
-			return NotesListResult{}, err
+		if tagIDsErr != nil {
+			return NotesListResult{}, tagIDsErr
 		}
 		if len(tagIDs) == 0 {
 			if options.RequireTag {
@@ -243,11 +290,12 @@ func (s *Service) ListNotes(
 			result.TotalPages = 1
 			return result, nil
 		}
+		notes, totalPages, notesErr = s.listNotesByFilter(ctx, locale, filter, tagIDs)
+	} else {
+		notesWG.Wait()
 	}
-
-	notes, totalPages, err := s.listNotesByFilter(ctx, locale, filter, tagIDs)
-	if err != nil {
-		return NotesListResult{}, err
+	if notesErr != nil {
+		return NotesListResult{}, notesErr
 	}
 	if totalPages < 1 {
 		totalPages = 1
