@@ -350,6 +350,99 @@ func TestMetaGenRunsConcurrentlyWithLoad(t *testing.T) {
 	assert.False(t, serverErrCalled, "metagen/load should run concurrently without server error")
 }
 
+func TestMetaGenAndLoadShareRequestCachedLoader(t *testing.T) {
+	t.Parallel()
+
+	sharedStarted := make(chan struct{})
+	sharedRelease := make(chan struct{})
+	var sharedStartedOnce sync.Once
+
+	callCount := 0
+	var callCountMu sync.Mutex
+
+	loadShared := func(ctx context.Context) (string, error) {
+		return framework.CachedCall(ctx, "shared-loader", func(context.Context) (string, error) {
+			callCountMu.Lock()
+			callCount++
+			callCountMu.Unlock()
+
+			sharedStartedOnce.Do(func() { close(sharedStarted) })
+			<-sharedRelease
+			return "shared-data", nil
+		})
+	}
+
+	var rendered string
+	routeEngine, err := New(Config[*testAppContext]{
+		AppContext: &testAppContext{},
+		Handlers: []framework.RouteHandler[*testAppContext]{
+			framework.PageOnlyRouteHandler[*testAppContext, framework.EmptyParams, string]{
+				Page: framework.PageModule[*testAppContext, framework.EmptyParams, string]{
+					Pattern: "/notes",
+					ParseParams: func(path string) (framework.EmptyParams, bool) {
+						return framework.EmptyParams{}, path == "/notes"
+					},
+					MetaGen: func(
+						ctx context.Context,
+						_ *testAppContext,
+						_ *http.Request,
+						_ framework.EmptyParams,
+					) (metagen.Metadata, error) {
+						value, err := loadShared(ctx)
+						if err != nil {
+							return metagen.Metadata{}, err
+						}
+						return metagen.Metadata{Title: value}, nil
+					},
+					Load: func(ctx context.Context, _ *testAppContext, _ *http.Request, _ framework.EmptyParams) (string, error) {
+						return loadShared(ctx)
+					},
+					Render: func(view string) templ.Component {
+						return textComponent(view)
+					},
+				},
+			},
+		},
+		RenderPage: func(_ *http.Request, _ http.ResponseWriter, component templ.Component, _ metagen.Metadata) error {
+			var b bytes.Buffer
+			if err := component.Render(context.Background(), &b); err != nil {
+				return err
+			}
+			rendered = b.String()
+			return nil
+		},
+	})
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/notes", nil)
+	go func() {
+		_ = routeEngine.ServeRoute(rec, req)
+		close(done)
+	}()
+
+	select {
+	case <-sharedStarted:
+	case <-time.After(time.Second):
+		t.Fatal("shared loader did not start")
+	}
+
+	time.Sleep(50 * time.Millisecond)
+	callCountMu.Lock()
+	assert.Equal(t, 1, callCount, "expected shared loader to execute once for metagen + load")
+	callCountMu.Unlock()
+
+	close(sharedRelease)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("route did not complete")
+	}
+
+	assert.Equal(t, "shared-data", rendered)
+}
+
 func TestMetaGenErrorPrefersMetadataClassification(t *testing.T) {
 	t.Parallel()
 

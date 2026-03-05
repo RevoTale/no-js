@@ -26,20 +26,23 @@ func LoadNotesPage(
 ) (NotesPageView, error) {
 	locale := localeFromRequest(appCtx, r)
 	filter := listFilterFromQuery(r, notes.ListFilter{})
-	view, err := loadNotesListPage(
-		ctx,
-		appCtx,
-		locale,
-		filter,
-		notes.ListOptions{},
-		sidebarModeForFilter(filter),
-	)
-	if err != nil {
-		return NotesPageView{}, err
-	}
-	applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
-	view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyRoot)
-	return view, nil
+	cacheKey := loaderCacheKey("LoadNotesPage", locale, r)
+	return framework.CachedCall(ctx, cacheKey, func(runCtx context.Context) (NotesPageView, error) {
+		view, err := loadNotesListPage(
+			runCtx,
+			appCtx,
+			locale,
+			filter,
+			notes.ListOptions{},
+			sidebarModeForFilter(filter),
+		)
+		if err != nil {
+			return NotesPageView{}, err
+		}
+		applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
+		view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyRoot)
+		return view, nil
+	})
 }
 
 func LoadAuthorPage(
@@ -52,21 +55,23 @@ func LoadAuthorPage(
 	defaults := notes.ListFilter{AuthorSlug: params.Slug}
 	filter := listFilterFromQuery(r, defaults)
 	filter.AuthorSlug = strings.TrimSpace(params.Slug)
-
-	view, err := loadNotesListPage(
-		ctx,
-		appCtx,
-		locale,
-		filter,
-		notes.ListOptions{RequireAuthor: true},
-		SidebarModeFiltered,
-	)
-	if err != nil {
-		return AuthorPageView{}, err
-	}
-	applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
-	view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyAuthor)
-	return view, nil
+	cacheKey := loaderCacheKey("LoadAuthorPage", locale, r, filter.AuthorSlug)
+	return framework.CachedCall(ctx, cacheKey, func(runCtx context.Context) (AuthorPageView, error) {
+		view, err := loadNotesListPage(
+			runCtx,
+			appCtx,
+			locale,
+			filter,
+			notes.ListOptions{RequireAuthor: true},
+			SidebarModeFiltered,
+		)
+		if err != nil {
+			return AuthorPageView{}, err
+		}
+		applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
+		view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyAuthor)
+		return AuthorPageView(view), nil
+	})
 }
 
 func LoadTagPage(
@@ -79,21 +84,23 @@ func LoadTagPage(
 	defaults := notes.ListFilter{TagName: params.Slug}
 	filter := listFilterFromQuery(r, defaults)
 	filter.TagName = strings.TrimSpace(params.Slug)
-
-	view, err := loadNotesListPage(
-		ctx,
-		appCtx,
-		locale,
-		filter,
-		notes.ListOptions{RequireTag: true},
-		SidebarModeFiltered,
-	)
-	if err != nil {
-		return NotesPageView{}, err
-	}
-	applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
-	view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyTag)
-	return view, nil
+	cacheKey := loaderCacheKey("LoadTagPage", locale, r, filter.TagName)
+	return framework.CachedCall(ctx, cacheKey, func(runCtx context.Context) (NotesPageView, error) {
+		view, err := loadNotesListPage(
+			runCtx,
+			appCtx,
+			locale,
+			filter,
+			notes.ListOptions{RequireTag: true},
+			SidebarModeFiltered,
+		)
+		if err != nil {
+			return NotesPageView{}, err
+		}
+		applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
+		view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyTag)
+		return view, nil
+	})
 }
 
 func LoadNotesTalesPage(
@@ -106,14 +113,16 @@ func LoadNotesTalesPage(
 	defaults := notes.ListFilter{Type: notes.NoteTypeLong}
 	filter := listFilterFromQuery(r, defaults)
 	filter.Type = notes.NoteTypeLong
-
-	view, err := loadNotesListPage(ctx, appCtx, locale, filter, notes.ListOptions{}, SidebarModeFiltered)
-	if err != nil {
-		return NotesPageView{}, err
-	}
-	applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
-	view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyTales)
-	return view, nil
+	cacheKey := loaderCacheKey("LoadNotesTalesPage", locale, r)
+	return framework.CachedCall(ctx, cacheKey, func(runCtx context.Context) (NotesPageView, error) {
+		view, err := loadNotesListPage(runCtx, appCtx, locale, filter, notes.ListOptions{}, SidebarModeFiltered)
+		if err != nil {
+			return NotesPageView{}, err
+		}
+		applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
+		view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyTales)
+		return view, nil
+	})
 }
 
 func LoadNotesMicroTalesPage(
@@ -126,14 +135,16 @@ func LoadNotesMicroTalesPage(
 	defaults := notes.ListFilter{Type: notes.NoteTypeShort}
 	filter := listFilterFromQuery(r, defaults)
 	filter.Type = notes.NoteTypeShort
-
-	view, err := loadNotesListPage(ctx, appCtx, locale, filter, notes.ListOptions{}, SidebarModeFiltered)
-	if err != nil {
-		return NotesPageView{}, err
-	}
-	applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
-	view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyMicro)
-	return view, nil
+	cacheKey := loaderCacheKey("LoadNotesMicroTalesPage", locale, r)
+	return framework.CachedCall(ctx, cacheKey, func(runCtx context.Context) (NotesPageView, error) {
+		view, err := loadNotesListPage(runCtx, appCtx, locale, filter, notes.ListOptions{}, SidebarModeFiltered)
+		if err != nil {
+			return NotesPageView{}, err
+		}
+		applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
+		view.EmptyStateMessage = Message(view.Messages, webi18n.KeyEmptyMicro)
+		return view, nil
+	})
 }
 
 func LoadChannelsPage(
@@ -144,14 +155,17 @@ func LoadChannelsPage(
 ) (NotesPageView, error) {
 	locale := localeFromRequest(appCtx, r)
 	filter := listFilterFromQuery(r, notes.ListFilter{})
-	view, err := loadNotesListPage(ctx, appCtx, locale, filter, notes.ListOptions{}, sidebarModeForFilter(filter))
-	if err != nil {
-		return NotesPageView{}, err
-	}
-	applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
+	cacheKey := loaderCacheKey("LoadChannelsPage", locale, r)
+	return framework.CachedCall(ctx, cacheKey, func(runCtx context.Context) (NotesPageView, error) {
+		view, err := loadNotesListPage(runCtx, appCtx, locale, filter, notes.ListOptions{}, sidebarModeForFilter(filter))
+		if err != nil {
+			return NotesPageView{}, err
+		}
+		applyStructuredDataContextForNotesView(&view, appCtx, r, locale)
 
-	view.PageTitle = Message(view.Messages, webi18n.KeyChannelsPageTitle)
-	return view, nil
+		view.PageTitle = Message(view.Messages, webi18n.KeyChannelsPageTitle)
+		return view, nil
+	})
 }
 
 func loadNotesListPage(
@@ -182,32 +196,36 @@ func LoadNotePage(
 	params framework.SlugParams,
 ) (NotePageView, error) {
 	locale := localeFromRequest(appCtx, r)
-	service, err := notesService(appCtx)
-	if err != nil {
-		return NotePageView{}, err
-	}
+	slug := strings.TrimSpace(params.Slug)
+	cacheKey := loaderCacheKey("LoadNotePage", locale, r, slug)
+	return framework.CachedCall(ctx, cacheKey, func(runCtx context.Context) (NotePageView, error) {
+		service, err := notesService(appCtx)
+		if err != nil {
+			return NotePageView{}, err
+		}
 
-	note, err := service.GetNoteBySlug(ctx, locale, params.Slug)
-	if err != nil {
-		return NotePageView{}, err
-	}
-	messages := localizedMessages(appCtx, locale)
-	pageTitle := strings.TrimSpace(note.Title)
-	if pageTitle == "" {
-		pageTitle = Message(messages, webi18n.KeyNoteTitleFallback)
-	}
+		note, err := service.GetNoteBySlug(runCtx, locale, slug)
+		if err != nil {
+			return NotePageView{}, err
+		}
+		messages := localizedMessages(appCtx, locale)
+		pageTitle := strings.TrimSpace(note.Title)
+		if pageTitle == "" {
+			pageTitle = Message(messages, webi18n.KeyNoteTitleFallback)
+		}
 
-	return NotePageView{
-		Locale:                locale,
-		RootURL:               strings.TrimSpace(appCtx.RootURL()),
-		CanonicalURL:          canonicalURLFromRequest(appCtx, r, locale),
-		IncludeStructuredData: shouldIncludeStructuredData(r),
-		Messages:              messages,
-		PageTitle:             pageTitle,
-		Note:                  *note,
-		SidebarAuthorItems:    uniqueSortedAuthors(note.Authors),
-		SidebarTagItems:       uniqueSortedTags(note.Tags),
-	}, nil
+		return NotePageView{
+			Locale:                locale,
+			RootURL:               strings.TrimSpace(appCtx.RootURL()),
+			CanonicalURL:          canonicalURLFromRequest(appCtx, r, locale),
+			IncludeStructuredData: shouldIncludeStructuredData(r),
+			Messages:              messages,
+			PageTitle:             pageTitle,
+			Note:                  *note,
+			SidebarAuthorItems:    uniqueSortedAuthors(note.Authors),
+			SidebarTagItems:       uniqueSortedTags(note.Tags),
+		}, nil
+	})
 }
 
 func listFilterFromQuery(r *http.Request, defaults notes.ListFilter) notes.ListFilter {
@@ -585,4 +603,23 @@ func notesService(appCtx *Context) (*notes.Service, error) {
 		return nil, errNotesServiceUnavailable
 	}
 	return appCtx.service, nil
+}
+
+func loaderCacheKey(loaderName string, locale string, r *http.Request, fragments ...string) string {
+	pathValue := "/"
+	queryValue := ""
+	if r != nil && r.URL != nil {
+		pathValue = strings.TrimSpace(r.URL.Path)
+		if pathValue == "" {
+			pathValue = "/"
+		}
+		queryValue = strings.TrimSpace(r.URL.RawQuery)
+	}
+
+	keyParts := []string{"appcore", strings.TrimSpace(loaderName), strings.TrimSpace(locale), pathValue, queryValue}
+	for _, fragment := range fragments {
+		keyParts = append(keyParts, strings.TrimSpace(fragment))
+	}
+
+	return strings.Join(keyParts, "|")
 }

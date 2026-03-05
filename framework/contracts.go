@@ -148,6 +148,7 @@ func servePageModule[C interface{}, P interface{}, VM interface{}](
 	}
 
 	ctx, cancel := context.WithCancel(r.Context())
+	ctx = WithRequestCache(ctx)
 	defer cancel()
 	appCtx := runtime.AppContext()
 
