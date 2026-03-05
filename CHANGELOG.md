@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.0](https://github.com/RevoTale/blog/compare/v0.4.0...v0.5.0) (2026-03-05)
+
+
+### Features
+
+* auttocomplete for templ ([eb96b94](https://github.com/RevoTale/blog/commit/eb96b942ad1c2eb616c6a83c964e42a1ec7e4f58))
+* deduplicate data loading via NextJs-like per-rendering cache which deduplicates external api requesta and expensive work. ([9019852](https://github.com/RevoTale/blog/commit/90198524a28c883cf2b70606a0e85550234775c9))
+* do not highligh logo button due to contrast ([b74d267](https://github.com/RevoTale/blog/commit/b74d267daea739d7d47a11ad866d0a3546d33c57))
+* reduce the amount of device sizes because we do not need so much ([16582a6](https://github.com/RevoTale/blog/commit/16582a695bec3682c63f74b7d3359e15d970f480))
+
+
+### Bug Fixes
+
+* failing tests after reduce of the deviceSizes ([6e5e759](https://github.com/RevoTale/blog/commit/6e5e75998c3df34b28b33ec47b00182b89dabdeb))
+* unrelated data has been loading sequently ([2b596d9](https://github.com/RevoTale/blog/commit/2b596d9cfcd5f7cd3687bf9a51f6b70fa6ccd839))
+* unrelated data in the notes list has been loading sequently ([9019852](https://github.com/RevoTale/blog/commit/90198524a28c883cf2b70606a0e85550234775c9))
+
 ## [0.4.0](https://github.com/RevoTale/blog/compare/v0.3.3...v0.4.0) (2026-03-04)
 
 
