@@ -51,7 +51,7 @@ func TestLoaderURL_NormalizesToNearestAllowedWidth(t *testing.T) {
 	t.Parallel()
 
 	loader := New(true)
-	assert.Equal(t, blogImageURL(48, "images/pic.webp"), loader.URL("/images/pic.webp", 40))
+	assert.Equal(t, blogImageURL(64, "images/pic.webp"), loader.URL("/images/pic.webp", 40))
 	assert.Equal(t, blogImageURL(828, "images/pic.webp"), loader.URL("/images/pic.webp", 768))
 }
 
@@ -61,7 +61,7 @@ func TestLoaderResponsiveSrcSet_UsesCMSDeviceWidths(t *testing.T) {
 	loader := New(true)
 	got, err := loader.ResponsiveSrcSet("/images/pic.webp", 1080)
 	require.NoError(t, err)
-	want := blogSrcSet("images/pic.webp", 16, 32, 48, 64, 96, 128, 256, 384, 450, 530, 640, 750, 828, 1080)
+	want := blogSrcSet("images/pic.webp", 32, 64, 128, 256, 450, 530, 640, 828, 1080)
 	assert.Equal(t, want, got)
 }
 
@@ -71,7 +71,7 @@ func TestLoaderResponsiveSrcSet_SmallWidthUsesAllowedSizes(t *testing.T) {
 	loader := New(true)
 	got, err := loader.ResponsiveSrcSet("/images/pic.webp", 40)
 	require.NoError(t, err)
-	want := blogSrcSet("images/pic.webp", 16, 32, 48)
+	want := blogSrcSet("images/pic.webp", 32, 64)
 	assert.Equal(t, want, got)
 }
 
@@ -81,7 +81,7 @@ func TestLoaderResponsiveSrcSet_RoundsUpToAllowedTargetWidth(t *testing.T) {
 	loader := New(true)
 	got, err := loader.ResponsiveSrcSet("/images/pic.webp", 768)
 	require.NoError(t, err)
-	want := blogSrcSet("images/pic.webp", 16, 32, 48, 64, 96, 128, 256, 384, 450, 530, 640, 750, 828)
+	want := blogSrcSet("images/pic.webp", 32, 64, 128, 256, 450, 530, 640, 828)
 	assert.Equal(t, want, got)
 }
 
