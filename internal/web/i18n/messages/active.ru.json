@@ -18,6 +18,8 @@
   {"id":"layout.guild.blog","translation":"Блог"},
   {"id":"layout.footer.opensourcePrefix","translation":"код этого проекта разрабатывается публично:"},
   {"id":"layout.footer.opensourceLink","translation":"Посмотреть исходный код на GitHub"},
+  {"id":"layout.footer.analyticsPrefix","translation":"аналитика от:"},
+  {"id":"layout.footer.analyticsLink","translation":"репозиторий Lovely Eye"},
   {"id":"layout.footer.stackPrefix","translation":"стек:"},
   {"id":"channel.section.channels","translation":"каналы"},
   {"id":"channel.section.noteType","translation":"тип заметки"},

@@ -13,10 +13,12 @@ import (
 var errNotesServiceUnavailable = errors.New("notes service unavailable")
 
 type Context struct {
-	service     *notes.Service
-	rootURL     string
-	i18nConfig  frameworki18n.Config
-	i18nCatalog *frameworki18n.Catalog
+	service            *notes.Service
+	rootURL            string
+	lovelyEyeScriptURL string
+	lovelyEyeSiteID    string
+	i18nConfig         frameworki18n.Config
+	i18nCatalog        *frameworki18n.Catalog
 }
 
 func NewContext(
@@ -24,12 +26,16 @@ func NewContext(
 	i18nConfig frameworki18n.Config,
 	i18nCatalog *frameworki18n.Catalog,
 	rootURL string,
+	lovelyEyeScriptURL string,
+	lovelyEyeSiteID string,
 ) *Context {
 	return &Context{
-		service:     service,
-		rootURL:     strings.TrimSpace(rootURL),
-		i18nConfig:  i18nConfig,
-		i18nCatalog: i18nCatalog,
+		service:            service,
+		rootURL:            strings.TrimSpace(rootURL),
+		lovelyEyeScriptURL: strings.TrimSpace(lovelyEyeScriptURL),
+		lovelyEyeSiteID:    strings.TrimSpace(lovelyEyeSiteID),
+		i18nConfig:         i18nConfig,
+		i18nCatalog:        i18nCatalog,
 	}
 }
 
@@ -61,6 +67,27 @@ func (ctx *Context) RootURL() string {
 		return ""
 	}
 	return strings.TrimSpace(ctx.rootURL)
+}
+
+func (ctx *Context) LovelyEyeEnabled() bool {
+	return strings.TrimSpace(ctx.LovelyEyeScriptURL()) != "" &&
+		strings.TrimSpace(ctx.LovelyEyeSiteID()) != ""
+}
+
+func (ctx *Context) LovelyEyeScriptURL() string {
+	if ctx == nil {
+		return ""
+	}
+
+	return strings.TrimSpace(ctx.lovelyEyeScriptURL)
+}
+
+func (ctx *Context) LovelyEyeSiteID() string {
+	if ctx == nil {
+		return ""
+	}
+
+	return strings.TrimSpace(ctx.lovelyEyeSiteID)
 }
 
 func (ctx *Context) I18nConfig() frameworki18n.Config {

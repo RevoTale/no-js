@@ -24,6 +24,9 @@ templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) {
 			<link rel="stylesheet" href={ appcore.StaticAssetURL("tui.css") }/>
 			<script src={ appcore.StaticAssetURL("vendor/htmx.min.js") }></script>
 			<script src={ appcore.StaticAssetURL("app.js") }></script>
+			if appcore.LovelyEyeEnabled() {
+				<script defer src={ appcore.LovelyEyeScriptURL() } data-site-key={ appcore.LovelyEyeSiteID() }></script>
+			}
 		</head>
 		@templ.Flush()
 		<body>

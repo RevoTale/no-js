@@ -34,6 +34,8 @@ const (
 	KeyLayoutAriaUtility             Key = "layout.aria.utility"
 	KeyLayoutAriaWorkspaceNavigation Key = "layout.aria.workspaceNavigation"
 	KeyLayoutChannelsButton          Key = "layout.channelsButton"
+	KeyLayoutFooterAnalyticsLink     Key = "layout.footer.analyticsLink"
+	KeyLayoutFooterAnalyticsPrefix   Key = "layout.footer.analyticsPrefix"
 	KeyLayoutFooterOpensourceLink    Key = "layout.footer.opensourceLink"
 	KeyLayoutFooterOpensourcePrefix  Key = "layout.footer.opensourcePrefix"
 	KeyLayoutFooterStackPrefix       Key = "layout.footer.stackPrefix"
@@ -119,6 +121,8 @@ var AllKeys = []Key{
 	KeyLayoutAriaUtility,
 	KeyLayoutAriaWorkspaceNavigation,
 	KeyLayoutChannelsButton,
+	KeyLayoutFooterAnalyticsLink,
+	KeyLayoutFooterAnalyticsPrefix,
 	KeyLayoutFooterOpensourceLink,
 	KeyLayoutFooterOpensourcePrefix,
 	KeyLayoutFooterStackPrefix,
@@ -204,6 +208,8 @@ var DefaultMessages = map[Key]string{
 	KeyLayoutAriaUtility:             "utility",
 	KeyLayoutAriaWorkspaceNavigation: "workspace navigation",
 	KeyLayoutChannelsButton:          "Channels",
+	KeyLayoutFooterAnalyticsLink:     "Lovely Eye repo",
+	KeyLayoutFooterAnalyticsPrefix:   "analytics by:",
 	KeyLayoutFooterOpensourceLink:    "Browse the source on GitHub",
 	KeyLayoutFooterOpensourcePrefix:  "the code of this project is developed publicly:",
 	KeyLayoutFooterStackPrefix:       "stack:",

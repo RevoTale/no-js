@@ -16,6 +16,9 @@ type Config struct {
 
 	RootURL string
 
+	LovelyEyeScriptURL string
+	LovelyEyeSiteID    string
+
 	CacheLiveNavigation string
 	CachePublicFiles    string
 	EnableImageLoader   bool
@@ -43,6 +46,8 @@ func Load() Config {
 		StaticManifestPath: staticManifestPath,
 		PublicDir:          publicDir,
 		RootURL:            getEnv("BLOG_ROOT_URL", ""),
+		LovelyEyeScriptURL: strings.TrimSpace(os.Getenv("LOVELY_EYE_SCRIPT_URL")),
+		LovelyEyeSiteID:    strings.TrimSpace(os.Getenv("LOVELY_EYE_SITE_ID")),
 		CacheLiveNavigation: strings.TrimSpace(
 			os.Getenv("BLOG_CACHE_LIVE_NAV"),
 		),

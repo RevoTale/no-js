@@ -11,9 +11,9 @@ import (
 )
 
 func (Resolver) MetaGenRootLayout(
-	context.Context,
-	*appcore.Context,
-	*http.Request,
+	_ context.Context,
+	_ *appcore.Context,
+	_ *http.Request,
 ) (metagen.Metadata, error) {
 	return metagen.Metadata{
 		DangerRawHead: []string{appcore.ChromaStyleTag()},

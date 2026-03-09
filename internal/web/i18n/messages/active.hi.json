@@ -18,6 +18,8 @@
   {"id":"layout.guild.blog","translation":"ब्लॉग"},
   {"id":"layout.footer.opensourcePrefix","translation":"इस प्रोजेक्ट का कोड सार्वजनिक रूप से विकसित किया जाता है:"},
   {"id":"layout.footer.opensourceLink","translation":"GitHub पर स्रोत देखें"},
+  {"id":"layout.footer.analyticsPrefix","translation":"एनालिटिक्स:"},
+  {"id":"layout.footer.analyticsLink","translation":"Lovely Eye रिपॉजिटरी"},
   {"id":"layout.footer.stackPrefix","translation":"स्टैक:"},
   {"id":"channel.section.channels","translation":"चैनल"},
   {"id":"channel.section.noteType","translation":"नोट प्रकार"},

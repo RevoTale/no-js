@@ -109,6 +109,12 @@ templ Layout(meta metagen.Metadata, view appcore.RootLayoutView, child templ.Com
 							{ appcore.Message(view.MessagesMap(), webi18n.KeyLayoutFooterOpensourcePrefix) }
 							<a href="https://github.com/RevoTale/blog" target="_blank" rel="noopener noreferrer">{ appcore.Message(view.MessagesMap(), webi18n.KeyLayoutFooterOpensourceLink) }</a>
 						</p>
+						if view.LovelyEyeEnabled() {
+							<p>
+								{ appcore.Message(view.MessagesMap(), webi18n.KeyLayoutFooterAnalyticsPrefix) }
+								<a href="https://github.com/RevoTale/lovely-eye" target="_blank" rel="noopener noreferrer">{ appcore.Message(view.MessagesMap(), webi18n.KeyLayoutFooterAnalyticsLink) }</a>
+							</p>
+						}
 						<p>
 							{ appcore.Message(view.MessagesMap(), webi18n.KeyLayoutFooterStackPrefix) }
 							for idx, pkg := range techstack.Packages() {

@@ -62,6 +62,7 @@ func run() error {
 	appcore.SetLocalizationConfig(i18nConfig)
 	imageLoader := imageloader.New(cfg.EnableImageLoader)
 	appcore.SetImageLoader(imageLoader)
+	appcore.SetLovelyEye(cfg.LovelyEyeScriptURL, cfg.LovelyEyeSiteID)
 
 	graphqlClient := gql.NewClient(cfg)
 	noteService := notes.NewService(
@@ -99,7 +100,14 @@ func run() error {
 	)
 
 	handler, err := httpserver.New(httpserver.Config[*appcore.Context]{
-		AppContext:      appcore.NewContext(noteService, i18nConfig, i18nCatalog, rootURL),
+		AppContext: appcore.NewContext(
+			noteService,
+			i18nConfig,
+			i18nCatalog,
+			rootURL,
+			cfg.LovelyEyeScriptURL,
+			cfg.LovelyEyeSiteID,
+		),
 		Handlers:        webgen.Handlers(webgen.NewRouteResolvers()),
 		IsNotFoundError: appcore.IsNotFoundError,
 		NotFoundPage:    webgen.NotFoundPage,

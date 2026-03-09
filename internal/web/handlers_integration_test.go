@@ -24,6 +24,8 @@ import (
 )
 
 const testRootURL = "https://revotale.com/blog/notes"
+const testLovelyEyeTrackerURL = "https://analytics.example/tracker.js"
+const testLovelyEyeSiteID = "site-key-123"
 
 type fakeGraphQLClient struct{}
 
@@ -356,11 +358,32 @@ type testServer struct {
 	bundle  *staticassets.Bundle
 }
 
+type testServerOptions struct {
+	enableImageLoader  bool
+	lovelyEyeScriptURL string
+	lovelyEyeSiteID    string
+}
+
 func newTestServer(t *testing.T) testServer {
-	return newTestServerWithImageLoader(t, false)
+	return newTestServerWithOptions(t, testServerOptions{})
 }
 
 func newTestServerWithImageLoader(t *testing.T, enableImageLoader bool) testServer {
+	return newTestServerWithOptions(t, testServerOptions{
+		enableImageLoader: enableImageLoader,
+	})
+}
+
+func newTestServerWithLovelyEye(t *testing.T, scriptURL string, siteID string) testServer {
+	t.Helper()
+
+	return newTestServerWithOptions(t, testServerOptions{
+		lovelyEyeScriptURL: scriptURL,
+		lovelyEyeSiteID:    siteID,
+	})
+}
+
+func newTestServerWithOptions(t *testing.T, options testServerOptions) testServer {
 	t.Helper()
 
 	bundle, err := staticassets.Build(staticassets.BuildConfig{
@@ -377,7 +400,8 @@ func newTestServerWithImageLoader(t *testing.T, enableImageLoader bool) testServ
 	})
 
 	appcore.SetStaticAssetBasePath(bundle.URLPrefix())
-	appcore.SetImageLoader(imageloader.New(enableImageLoader))
+	appcore.SetImageLoader(imageloader.New(options.enableImageLoader))
+	appcore.SetLovelyEye(options.lovelyEyeScriptURL, options.lovelyEyeSiteID)
 	i18nConfig, err := frameworki18n.NormalizeConfig(webi18n.Config())
 	if err != nil {
 		t.Fatalf("normalize i18n config: %v", err)
@@ -392,9 +416,16 @@ func newTestServerWithImageLoader(t *testing.T, enableImageLoader bool) testServ
 	}
 	appcore.SetLocalizationConfig(i18nConfig)
 
-	svc := notes.NewService(fakeGraphQLClient{}, 12, testRootURL, imageloader.New(enableImageLoader))
+	svc := notes.NewService(fakeGraphQLClient{}, 12, testRootURL, imageloader.New(options.enableImageLoader))
 	handler, err := httpserver.New(httpserver.Config[*appcore.Context]{
-		AppContext:      appcore.NewContext(svc, i18nConfig, i18nCatalog, testRootURL),
+		AppContext: appcore.NewContext(
+			svc,
+			i18nConfig,
+			i18nCatalog,
+			testRootURL,
+			options.lovelyEyeScriptURL,
+			options.lovelyEyeSiteID,
+		),
 		Handlers:        webgen.Handlers(webgen.NewRouteResolvers()),
 		IsNotFoundError: appcore.IsNotFoundError,
 		NotFoundPage:    webgen.NotFoundPage,
@@ -1055,6 +1086,73 @@ func TestHandlerSEOMetadataAndHTMXPatchHeaders(t *testing.T) {
 	}
 	if strings.Contains(patchPayload.Head, `application/ld+json`) {
 		t.Fatalf("htmx metadata patch head should not include structured data scripts")
+	}
+}
+
+func TestHandlerLovelyEyeAnalyticsRendersWhenConfigured(t *testing.T) {
+	testSrv := newTestServerWithLovelyEye(t, testLovelyEyeTrackerURL, testLovelyEyeSiteID)
+	mux := testSrv.handler
+
+	recRoot := performRequest(mux, http.MethodGet, "/")
+	if recRoot.Code != http.StatusOK {
+		t.Fatalf("root status: expected %d, got %d", http.StatusOK, recRoot.Code)
+	}
+
+	rootBody := requireBody(t, recRoot.Body)
+	if !strings.Contains(rootBody, `src="`+testLovelyEyeTrackerURL+`"`) {
+		t.Fatalf("root page should include lovely eye tracker script")
+	}
+	if !strings.Contains(rootBody, `data-site-key="`+testLovelyEyeSiteID+`"`) {
+		t.Fatalf("root page should include lovely eye site key")
+	}
+	if !strings.Contains(rootBody, `href="https://github.com/RevoTale/lovely-eye"`) {
+		t.Fatalf("root page should include lovely eye footer note")
+	}
+
+	recHTMX := performRequestWithHeaders(mux, http.MethodGet, "/?__live=navigation", map[string]string{
+		"HX-Request": "true",
+	})
+	if recHTMX.Code != http.StatusOK {
+		t.Fatalf("htmx status: expected %d, got %d", http.StatusOK, recHTMX.Code)
+	}
+
+	patchHeader := strings.TrimSpace(recHTMX.Header().Get("HX-Trigger-After-Settle"))
+	if patchHeader == "" {
+		t.Fatalf("htmx response should include metadata patch header")
+	}
+	if strings.Contains(patchHeader, testLovelyEyeTrackerURL) {
+		t.Fatalf("htmx metadata patch should not include lovely eye tracker url")
+	}
+	if strings.Contains(patchHeader, testLovelyEyeSiteID) {
+		t.Fatalf("htmx metadata patch should not include lovely eye site id")
+	}
+}
+
+func TestHandlerLovelyEyeAnalyticsRequiresBothValues(t *testing.T) {
+	cases := []struct {
+		name      string
+		scriptURL string
+		siteID    string
+	}{
+		{name: "missing script url", siteID: testLovelyEyeSiteID},
+		{name: "missing site id", scriptURL: testLovelyEyeTrackerURL},
+		{name: "missing both"},
+	}
+
+	for _, tc := range cases {
+		testSrv := newTestServerWithLovelyEye(t, tc.scriptURL, tc.siteID)
+		recRoot := performRequest(testSrv.handler, http.MethodGet, "/")
+		if recRoot.Code != http.StatusOK {
+			t.Fatalf("%s status: expected %d, got %d", tc.name, http.StatusOK, recRoot.Code)
+		}
+
+		rootBody := requireBody(t, recRoot.Body)
+		if strings.Contains(rootBody, `src="`+testLovelyEyeTrackerURL+`"`) {
+			t.Fatalf("%s should not include lovely eye tracker script", tc.name)
+		}
+		if strings.Contains(rootBody, `href="https://github.com/RevoTale/lovely-eye"`) {
+			t.Fatalf("%s should not include lovely eye footer note", tc.name)
+		}
 	}
 }
 

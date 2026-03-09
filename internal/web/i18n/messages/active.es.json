@@ -18,6 +18,8 @@
   {"id":"layout.guild.blog","translation":"Blog"},
   {"id":"layout.footer.opensourcePrefix","translation":"el código de este proyecto se desarrolla públicamente:"},
   {"id":"layout.footer.opensourceLink","translation":"Ver el código fuente en GitHub"},
+  {"id":"layout.footer.analyticsPrefix","translation":"analítica por:"},
+  {"id":"layout.footer.analyticsLink","translation":"repo de Lovely Eye"},
   {"id":"layout.footer.stackPrefix","translation":"stack:"},
   {"id":"channel.section.channels","translation":"canales"},
   {"id":"channel.section.noteType","translation":"tipo de nota"},

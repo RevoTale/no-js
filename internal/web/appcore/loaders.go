@@ -224,6 +224,7 @@ func LoadNotePage(
 			Note:                  *note,
 			SidebarAuthorItems:    uniqueSortedAuthors(note.Authors),
 			SidebarTagItems:       uniqueSortedTags(note.Tags),
+			AnalyticsEnabled:      appCtx != nil && appCtx.LovelyEyeEnabled(),
 		}, nil
 	})
 }
@@ -500,6 +501,7 @@ func applyStructuredDataContextForNotesView(
 		rootURL = strings.TrimSpace(appCtx.RootURL())
 	}
 	view.RootURL = rootURL
+	view.AnalyticsEnabled = appCtx != nil && appCtx.LovelyEyeEnabled()
 	view.CanonicalURL = canonicalURLFromRequest(appCtx, r, locale)
 	view.IncludeStructuredData = shouldIncludeStructuredData(r)
 }

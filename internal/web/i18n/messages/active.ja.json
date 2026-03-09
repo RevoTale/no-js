@@ -18,6 +18,8 @@
   {"id":"layout.guild.blog","translation":"ブログ"},
   {"id":"layout.footer.opensourcePrefix","translation":"このプロジェクトのコードは公開で開発されています:"},
   {"id":"layout.footer.opensourceLink","translation":"GitHub でソースを見る"},
+  {"id":"layout.footer.analyticsPrefix","translation":"解析:"},
+  {"id":"layout.footer.analyticsLink","translation":"Lovely Eye リポジトリ"},
   {"id":"layout.footer.stackPrefix","translation":"スタック:"},
   {"id":"channel.section.channels","translation":"チャンネル"},
   {"id":"channel.section.noteType","translation":"ノート種別"},

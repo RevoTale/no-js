@@ -20,6 +20,7 @@ type RootLayoutView interface {
 	MessagesMap() map[webi18n.Key]string
 	LayoutPageTitle() string
 	LayoutSearchQuery() string
+	LovelyEyeEnabled() bool
 	RSSFeedURL() string
 	SidebarAuthors() []notes.Author
 	SidebarTags() []notes.Tag
@@ -70,6 +71,7 @@ type NotesPageView struct {
 	ContextSubtitle       string
 	ContextDescription    string
 	EmptyStateMessage     string
+	AnalyticsEnabled      bool
 }
 
 type AuthorPageView = NotesPageView
@@ -84,6 +86,7 @@ type NotePageView struct {
 	Note                  notes.NoteDetail
 	SidebarAuthorItems    []notes.Author
 	SidebarTagItems       []notes.Tag
+	AnalyticsEnabled      bool
 }
 
 func NewNotFoundLayoutView(locale string) RootLayoutView {
@@ -115,6 +118,10 @@ func (v NotesPageView) LayoutPageTitle() string {
 
 func (v NotesPageView) LayoutSearchQuery() string {
 	return strings.TrimSpace(v.Filter.Query)
+}
+
+func (v NotesPageView) LovelyEyeEnabled() bool {
+	return v.AnalyticsEnabled
 }
 
 func (v NotesPageView) RSSFeedURL() string {
@@ -239,6 +246,10 @@ func (v NotePageView) LayoutPageTitle() string {
 
 func (v NotePageView) LayoutSearchQuery() string {
 	return ""
+}
+
+func (v NotePageView) LovelyEyeEnabled() bool {
+	return v.AnalyticsEnabled
 }
 
 func (v NotePageView) RSSFeedURL() string {

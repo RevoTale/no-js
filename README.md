@@ -47,6 +47,15 @@ BLOG_GRAPHQL_ENDPOINT=http://localhost:3000/api/graphql \
 go run .
 ```
 
+Optional analytics:
+
+- `LOVELY_EYE_SCRIPT_URL`: full Lovely Eye tracker URL such as `https://s.example.com/tracker.js`
+- `LOVELY_EYE_SITE_ID`: Lovely Eye site key passed as `data-site-key`
+- Original tracker repo: `https://github.com/RevoTale/lovely-eye`
+
+When both variables are set, the blog injects the Lovely Eye tracking script and shows a footer note.
+If either value is missing, analytics stays disabled.
+
 Validation:
 
 ```bash
