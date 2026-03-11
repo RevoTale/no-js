@@ -10,8 +10,8 @@ require (
 	github.com/gomarkdown/markdown v0.0.0-20260217112301-37c66b85d6ab
 	github.com/nicksnyder/go-i18n/v2 v2.6.1
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/mod v0.33.0
-	golang.org/x/text v0.34.0
+	golang.org/x/mod v0.34.0
+	golang.org/x/text v0.35.0
 )
 
 require (
