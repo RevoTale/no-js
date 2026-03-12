@@ -130,6 +130,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("handler setup failed: %w", err)
 	}
+	handler = appcore.WithCanonicalNotesRedirects(handler)
 	handler = frameworki18n.Middleware(frameworki18n.MiddlewareConfig{
 		Resolver: i18nResolver,
 		BypassPrefixes: []string{

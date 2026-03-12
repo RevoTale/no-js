@@ -103,7 +103,7 @@ func MetaGenMicroTalesPage(
 		view.PageTitle,
 		description,
 		"website",
-		&metagen.Robots{Index: metagen.Bool(false), Follow: metagen.Bool(true)},
+		&metagen.Robots{Index: metagen.Bool(true), Follow: metagen.Bool(true)},
 		false,
 	)
 }
@@ -251,12 +251,16 @@ func MetaGenAuthorPage(
 		Title:       title,
 		Description: description,
 		Alternates:  alternates,
-		Robots:      robotsWithQueryNoIndex(r, &metagen.Robots{Index: metagen.Bool(true), Follow: metagen.Bool(true)}),
-		OpenGraph:   openGraph,
-		Twitter:     twitter,
-		Authors:     authors,
-		Publisher:   site.Publisher,
-		Pinterest:   &metagen.Pinterest{RichPin: metagen.Bool(true)},
+		Robots: notesListingRobots(
+			r,
+			view.Filter,
+			&metagen.Robots{Index: metagen.Bool(true), Follow: metagen.Bool(true)},
+		),
+		OpenGraph: openGraph,
+		Twitter:   twitter,
+		Authors:   authors,
+		Publisher: site.Publisher,
+		Pinterest: &metagen.Pinterest{RichPin: metagen.Bool(true)},
 	}), nil
 }
 
@@ -416,11 +420,67 @@ func notesListingMetadata(
 		Title:       title,
 		Description: description,
 		Alternates:  alternates,
-		Robots:      robotsWithQueryNoIndex(r, robots),
+		Robots:      notesListingRobots(r, view.Filter, robots),
 		OpenGraph:   openGraph,
 		Twitter:     twitter,
 		Publisher:   site.Publisher,
 	}), nil
+}
+
+func notesListingRobots(r *http.Request, filter notes.ListFilter, base *metagen.Robots) *metagen.Robots {
+	robots := base
+	if robots == nil {
+		robots = &metagen.Robots{}
+	}
+
+	if shouldNoIndexListingRequest(r, filter) {
+		robots.Index = metagen.Bool(false)
+		if robots.Follow == nil {
+			robots.Follow = metagen.Bool(true)
+		}
+	}
+
+	return robots
+}
+
+func shouldNoIndexListingRequest(r *http.Request, filter notes.ListFilter) bool {
+	if strings.TrimSpace(filter.Query) != "" || activeListingFilterCount(filter) > 1 {
+		return true
+	}
+
+	return requestHasUnknownListingQuery(r)
+}
+
+func activeListingFilterCount(filter notes.ListFilter) int {
+	count := 0
+	if strings.TrimSpace(filter.AuthorSlug) != "" {
+		count++
+	}
+	if strings.TrimSpace(filter.TagName) != "" {
+		count++
+	}
+	if notes.ParseNoteType(string(filter.Type)) != notes.NoteTypeAll {
+		count++
+	}
+
+	return count
+}
+
+func requestHasUnknownListingQuery(r *http.Request) bool {
+	if r == nil || r.URL == nil {
+		return false
+	}
+
+	for key := range r.URL.Query() {
+		switch strings.TrimSpace(key) {
+		case "", "page", "author", "tag", "type", "q":
+			continue
+		default:
+			return true
+		}
+	}
+
+	return false
 }
 
 func robotsWithQueryNoIndex(r *http.Request, base *metagen.Robots) *metagen.Robots {

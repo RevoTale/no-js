@@ -440,6 +440,7 @@ func newTestServerWithOptions(t *testing.T, options testServerOptions) testServe
 	if err != nil {
 		t.Fatalf("new handler: %v", err)
 	}
+	handler = appcore.WithCanonicalNotesRedirects(handler)
 	handler = frameworki18n.Middleware(frameworki18n.MiddlewareConfig{
 		Resolver: i18nResolver,
 		BypassPrefixes: []string{
@@ -602,11 +603,8 @@ func TestHandlerPageRoutesRenderHTML(t *testing.T) {
 		{path: "/?author=l-you&tag=go&type=short", mustContain: "<h1>L You</h1>"},
 		{path: "/note/hello-world", mustContain: "Hello World | RevoTale</title>"},
 		{path: "/author/l-you", mustContain: "L You | Author | RevoTale</title>"},
-		{path: "/author/l-you?author=zed", mustContain: "L You | Author | RevoTale</title>"},
 		{path: "/tag/go", mustContain: "#Go | RevoTale</title>"},
-		{path: "/tag/go?tag=rust", mustContain: "#Go | RevoTale</title>"},
 		{path: "/tales", mustContain: "Tales | RevoTale</title>"},
-		{path: "/tales?type=short", mustContain: "Tales | RevoTale</title>"},
 		{path: "/micro-tales", mustContain: "Micro-tales | RevoTale</title>"},
 	}
 
@@ -631,6 +629,37 @@ func TestHandlerPageRoutesRenderHTML(t *testing.T) {
 	}
 }
 
+func TestCanonicalListingQueryRedirects(t *testing.T) {
+	t.Parallel()
+	testSrv := newTestServer(t)
+	mux := testSrv.handler
+
+	cases := []struct {
+		path     string
+		location string
+	}{
+		{path: "/?author=l-you", location: "/author/l-you"},
+		{path: "/?tag=go", location: "/tag/go"},
+		{path: "/?type=long", location: "/tales"},
+		{path: "/?type=short", location: "/micro-tales"},
+		{path: "/?author=l-you&page=2", location: "/author/l-you?page=2"},
+		{path: "/author/l-you?author=zed", location: "/author/l-you"},
+		{path: "/tag/go?tag=rust", location: "/tag/go"},
+		{path: "/tales?type=short", location: "/tales"},
+		{path: "/uk?author=l-you", location: "/uk/author/l-you"},
+	}
+
+	for _, tc := range cases {
+		rec := performRequest(mux, http.MethodGet, tc.path)
+		if rec.Code != http.StatusPermanentRedirect {
+			t.Fatalf("%s status: expected %d, got %d", tc.path, http.StatusPermanentRedirect, rec.Code)
+		}
+		if location := rec.Header().Get("Location"); location != tc.location {
+			t.Fatalf("%s redirect: expected %q, got %q", tc.path, tc.location, location)
+		}
+	}
+}
+
 func TestRobotsRulesWithAndWithoutQuery(t *testing.T) {
 	t.Parallel()
 	testSrv := newTestServer(t)
@@ -642,12 +671,12 @@ func TestRobotsRulesWithAndWithoutQuery(t *testing.T) {
 	}{
 		{path: "/", expectedRobots: "index, follow"},
 		{path: "/tales", expectedRobots: "index, follow"},
+		{path: "/micro-tales", expectedRobots: "index, follow"},
 		{path: "/tag/go", expectedRobots: "index, follow"},
 		{path: "/author/l-you", expectedRobots: "index, follow"},
+		{path: "/author/l-you?page=2", expectedRobots: "index, follow"},
 		{path: "/?q=hello", expectedRobots: "noindex, follow"},
-		{path: "/tales?type=short", expectedRobots: "noindex, follow"},
-		{path: "/tag/go?tag=rust", expectedRobots: "noindex, follow"},
-		{path: "/author/l-you?author=zed", expectedRobots: "noindex, follow"},
+		{path: "/?author=l-you&tag=go", expectedRobots: "noindex, follow"},
 		{path: "/note/hello-world?utm_source=test", expectedRobots: "noindex, follow"},
 	}
 
@@ -660,6 +689,30 @@ func TestRobotsRulesWithAndWithoutQuery(t *testing.T) {
 		expectedTag := `name="robots" content="` + tc.expectedRobots + `"`
 		if !strings.Contains(body, expectedTag) {
 			t.Fatalf("%s should include robots tag %q", tc.path, expectedTag)
+		}
+	}
+}
+
+func TestUnknownListingQueryParamsStayNoIndexWithoutCanonicalRedirect(t *testing.T) {
+	t.Parallel()
+	testSrv := newTestServer(t)
+	mux := testSrv.handler
+
+	cases := []string{
+		"/?utm_source=test",
+		"/?author=l-you&utm_source=test",
+		"/tag/go?utm_source=test",
+	}
+
+	for _, path := range cases {
+		rec := performRequest(mux, http.MethodGet, path)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s status: expected %d, got %d", path, http.StatusOK, rec.Code)
+		}
+
+		body := requireBody(t, rec.Body)
+		if !strings.Contains(body, `name="robots" content="noindex, follow"`) {
+			t.Fatalf("%s should include noindex robots metadata", path)
 		}
 	}
 }
@@ -784,6 +837,12 @@ func TestSidebarLinkBehavior(t *testing.T) {
 	}
 	if !strings.Contains(channelsFilteredBody, `channels-mobile-panel`) {
 		t.Fatalf("channels page missing mobile panel block")
+	}
+
+	channelsSingle := performRequest(mux, http.MethodGet, "/channels?author=l-you")
+	channelsSingleBody := requireBody(t, channelsSingle.Body)
+	if !strings.Contains(channelsSingleBody, `class="back-link channels-back-button" href="/author/l-you"`) {
+		t.Fatalf("channels page back button should use canonical author landing for a single filter")
 	}
 }
 

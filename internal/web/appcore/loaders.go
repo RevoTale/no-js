@@ -239,6 +239,10 @@ func listFilterFromQuery(r *http.Request, defaults notes.ListFilter) notes.ListF
 		query = r.URL.Query()
 	}
 
+	return listFilterFromValues(query, defaults)
+}
+
+func listFilterFromValues(query url.Values, defaults notes.ListFilter) notes.ListFilter {
 	filter := notes.ListFilter{
 		Page:       parsePage(query.Get("page")),
 		AuthorSlug: strings.TrimSpace(query.Get("author")),
@@ -322,6 +326,17 @@ func BuildNotesFilterURL(
 	tagName = strings.TrimSpace(tagName)
 	searchQuery = strings.TrimSpace(searchQuery)
 
+	canonicalPath := canonicalNotesListingPath(authorSlug, tagName, noteType)
+	if canonicalPath != "" && searchQuery == "" {
+		if page == 1 {
+			return LocalizeAppPath(locale, canonicalPath)
+		}
+
+		q := make(url.Values)
+		q.Set("page", strconv.Itoa(page))
+		return buildLocalizedPathWithQuery(locale, canonicalPath, q)
+	}
+
 	q := make(url.Values)
 	if page > 1 {
 		q.Set("page", strconv.Itoa(page))
@@ -345,6 +360,25 @@ func BuildNotesFilterURL(
 	}
 
 	return buildLocalizedPathWithQuery(locale, "/", q)
+}
+
+func CanonicalNotesRedirectURL(locale string, strippedPath string, query url.Values) (string, bool) {
+	if !queryContainsOnlyCanonicalNotesParams(query) {
+		return "", false
+	}
+
+	defaults, ok := canonicalNotesDefaultsForPath(strippedPath)
+	if !ok {
+		return "", false
+	}
+
+	filter := listFilterFromValues(query, defaults)
+	enforceCanonicalNotesRouteFilters(strippedPath, &filter)
+	if strings.TrimSpace(filter.Query) != "" || activeNotesListingFilterCount(filter) > 1 {
+		return "", false
+	}
+
+	return BuildNotesFilterURL(locale, filter.Page, filter.AuthorSlug, filter.TagName, filter.Type, ""), true
 }
 
 func BuildChannelsURL(
@@ -467,6 +501,114 @@ func BuildMicroTalesURL(locale string, page int, authorSlug string, tagName stri
 	}
 
 	return buildLocalizedPathWithQuery(locale, "/micro-tales", q)
+}
+
+func canonicalNotesListingPath(authorSlug string, tagName string, noteType notes.NoteType) string {
+	authorSlug = strings.TrimSpace(authorSlug)
+	tagName = strings.TrimSpace(tagName)
+	noteType = notes.ParseNoteType(string(noteType))
+
+	if authorSlug != "" && tagName == "" && noteType == notes.NoteTypeAll {
+		return "/author/" + authorSlug
+	}
+	if tagName != "" && authorSlug == "" && noteType == notes.NoteTypeAll {
+		return "/tag/" + tagName
+	}
+	if noteType == notes.NoteTypeLong && authorSlug == "" && tagName == "" {
+		return "/tales"
+	}
+	if noteType == notes.NoteTypeShort && authorSlug == "" && tagName == "" {
+		return "/micro-tales"
+	}
+
+	return ""
+}
+
+func activeNotesListingFilterCount(filter notes.ListFilter) int {
+	count := 0
+	if strings.TrimSpace(filter.AuthorSlug) != "" {
+		count++
+	}
+	if strings.TrimSpace(filter.TagName) != "" {
+		count++
+	}
+	if notes.ParseNoteType(string(filter.Type)) != notes.NoteTypeAll {
+		count++
+	}
+
+	return count
+}
+
+func queryContainsOnlyCanonicalNotesParams(query url.Values) bool {
+	for key := range query {
+		switch strings.TrimSpace(key) {
+		case "page", "author", "tag", "type", "q":
+			continue
+		default:
+			return false
+		}
+	}
+
+	return true
+}
+
+func canonicalNotesDefaultsForPath(pathValue string) (notes.ListFilter, bool) {
+	normalizedPath := frameworki18n.NormalizePath(pathValue)
+
+	switch normalizedPath {
+	case "/":
+		return notes.ListFilter{}, true
+	case "/tales":
+		return notes.ListFilter{Type: notes.NoteTypeLong}, true
+	case "/micro-tales":
+		return notes.ListFilter{Type: notes.NoteTypeShort}, true
+	}
+
+	if slug, ok := canonicalNotesSlugForPath(normalizedPath, "/author/"); ok {
+		return notes.ListFilter{AuthorSlug: slug}, true
+	}
+	if slug, ok := canonicalNotesSlugForPath(normalizedPath, "/tag/"); ok {
+		return notes.ListFilter{TagName: slug}, true
+	}
+
+	return notes.ListFilter{}, false
+}
+
+func canonicalNotesSlugForPath(pathValue string, prefix string) (string, bool) {
+	if !strings.HasPrefix(pathValue, prefix) {
+		return "", false
+	}
+
+	slug := strings.TrimSpace(strings.TrimPrefix(pathValue, prefix))
+	if slug == "" || strings.Contains(slug, "/") {
+		return "", false
+	}
+
+	return slug, true
+}
+
+func enforceCanonicalNotesRouteFilters(pathValue string, filter *notes.ListFilter) {
+	if filter == nil {
+		return
+	}
+
+	normalizedPath := frameworki18n.NormalizePath(pathValue)
+	switch normalizedPath {
+	case "/tales":
+		filter.Type = notes.NoteTypeLong
+		return
+	case "/micro-tales":
+		filter.Type = notes.NoteTypeShort
+		return
+	}
+
+	if slug, ok := canonicalNotesSlugForPath(normalizedPath, "/author/"); ok {
+		filter.AuthorSlug = slug
+		return
+	}
+	if slug, ok := canonicalNotesSlugForPath(normalizedPath, "/tag/"); ok {
+		filter.TagName = slug
+	}
 }
 
 func normalizePageURL(pageURL string) (string, url.Values) {
