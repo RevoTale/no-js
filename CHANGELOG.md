@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/RevoTale/blog/compare/v0.6.3...v0.7.0) (2026-03-13)
+
+
+### Features
+
+* fix the micro note content displayed the seo fallbacke ([4bc0067](https://github.com/RevoTale/blog/commit/4bc006796a458d4b02b0c53fec0935e2668d0384))
+
 ## [0.6.3](https://github.com/RevoTale/blog/compare/v0.6.2...v0.6.3) (2026-03-12)
 
 
