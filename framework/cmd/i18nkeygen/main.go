@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"blog/framework/i18n/keygen"
+	"github.com/RevoTale/no-js/framework/i18n/keygen"
 )
 
 func main() {

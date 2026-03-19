@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"blog/framework"
-	"blog/framework/metagen"
+	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/framework/metagen"
 	"github.com/a-h/templ"
 )
 

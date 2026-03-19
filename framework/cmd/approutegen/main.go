@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"blog/framework/approutegen"
+	"github.com/RevoTale/no-js/framework/approutegen"
 )
 
 func main() {

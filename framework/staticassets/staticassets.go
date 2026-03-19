@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultURLPrefix = "/.revotale/"
+	defaultURLPrefix = "/_assets/"
 	hashLength       = 16
 )
 
@@ -54,7 +54,7 @@ func Build(cfg BuildConfig) (*Bundle, error) {
 		return nil, fmt.Errorf("collect source files: %w", err)
 	}
 
-	outDir, err := os.MkdirTemp("", "blog-static-assets-*")
+	outDir, err := os.MkdirTemp("", "no-js-static-assets-*")
 	if err != nil {
 		return nil, fmt.Errorf("create temp output dir: %w", err)
 	}

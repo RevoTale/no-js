@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"blog/framework/i18n/keygen"
+	"github.com/RevoTale/no-js/framework/i18n/keygen"
 )
 
 const MessagesDir = "messages"

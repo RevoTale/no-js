@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	frameworki18n "blog/framework/i18n"
-	"blog/framework/metagen"
+	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
+	"github.com/RevoTale/no-js/framework/metagen"
 	"github.com/a-h/templ"
 )
 

@@ -6,22 +6,6 @@ env:
   GOLANGCI_LINT_CACHE: /tmp/golangci-lint-cache
 
 tasks:
-  go:gen:
-    desc: Run Go code generation
-    cmds:
-      - go run ./framework/cmd/staticassetsgen -source internal/web/static -out internal/web/static-build -manifest internal/web/static-build/manifest.json -url-prefix /.revotale/
-      - go generate ./internal/gql
-      - go generate ./internal/web
-      - go run ./internal/cmd/techstackgen -in go.mod -out internal/techstack/generated.go
-
-  go:gen:code-diff:
-    desc: Verify generated outputs are committed
-    cmds:
-      - |
-        set -euo pipefail
-        templ_files="$(find internal/web -type f -name '*_templ.go' | sort)"
-        git diff --exit-code -- go.mod go.sum internal/gql/generated.go internal/techstack/generated.go internal/web/resolvers/generated.go internal/web/gen/registry_gen.go $templ_files
-
   go:fmt:
     desc: Format Go sources
     cmds:
@@ -57,21 +41,6 @@ tasks:
     desc: Run Go tests for all packages
     cmds:
       - go test ./...
-
-  gen:
-    desc: Run all code generation
-    cmds:
-      - task: go:gen
-
-  gen:check:
-    desc: Check code generation freshness (code diff)
-    cmds:
-      - task: go:gen:code-diff
-
-  gen:code-diff:
-    desc: CI fallback generation diff check
-    cmds:
-      - task: go:gen:code-diff
 
   fix:
     desc: Run auto-fixes

@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	frameworki18n "blog/framework/i18n"
+	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
 )
 
 func BuildAlternates(

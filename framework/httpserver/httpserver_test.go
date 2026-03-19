@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"blog/framework"
-	"blog/framework/metagen"
+	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/framework/metagen"
 	"github.com/a-h/templ"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -95,7 +95,7 @@ func TestHTTPServerCachePoliciesAndHTMX(t *testing.T) {
 			},
 		},
 		Static: StaticMount{
-			URLPrefix: "/.revotale/",
+			URLPrefix: "/_assets/",
 			Dir:       staticDir,
 		},
 		CachePolicies: CachePolicies{
@@ -161,7 +161,7 @@ func TestHTTPServerCachePoliciesAndHTMX(t *testing.T) {
 	}
 
 	recStatic := httptest.NewRecorder()
-	handler.ServeHTTP(recStatic, httptest.NewRequest(http.MethodGet, "/.revotale/file.txt", nil))
+	handler.ServeHTTP(recStatic, httptest.NewRequest(http.MethodGet, "/_assets/file.txt", nil))
 	if recStatic.Code != http.StatusOK {
 		t.Fatalf("static status: expected %d, got %d", http.StatusOK, recStatic.Code)
 	}
@@ -212,7 +212,7 @@ func TestHTTPServerGzipCompression(t *testing.T) {
 			},
 		},
 		Static: StaticMount{
-			URLPrefix: "/.revotale/",
+			URLPrefix: "/_assets/",
 			Dir:       staticDir,
 		},
 	})
@@ -238,7 +238,7 @@ func TestHTTPServerGzipCompression(t *testing.T) {
 		t.Fatalf("page body: expected layout-wrapped response, got %q", got)
 	}
 
-	reqStatic := httptest.NewRequest(http.MethodGet, "/.revotale/file.txt", nil)
+	reqStatic := httptest.NewRequest(http.MethodGet, "/_assets/file.txt", nil)
 	reqStatic.Header.Set("Accept-Encoding", "gzip")
 	recStatic := httptest.NewRecorder()
 	handler.ServeHTTP(recStatic, reqStatic)

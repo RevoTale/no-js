@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"blog/framework"
-	"blog/framework/metagen"
+	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/framework/metagen"
 	"github.com/a-h/templ"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

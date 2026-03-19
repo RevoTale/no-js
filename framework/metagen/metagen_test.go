@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	frameworki18n "blog/framework/i18n"
+	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
 )
 
 func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
@@ -42,7 +42,7 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 				"https://example.com/authors/b",
 				"https://example.com/authors/a",
 			},
-			Tags: []string{"seo", "blog", "seo"},
+			Tags: []string{"seo", "framework", "seo"},
 			Images: []OpenGraphImage{
 				{URL: "https://example.com/images/b.png"},
 				{URL: "https://example.com/images/a.png", Alt: "alt-a"},
@@ -60,7 +60,7 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 			{Name: "Zed", URL: "https://example.com/authors/zed"},
 			{Name: "Alice", URL: "https://example.com/authors/alice"},
 		},
-		Publisher: "RevoTale",
+		Publisher: "Example Publisher",
 		Pinterest: &Pinterest{RichPin: Bool(true)},
 	}
 
@@ -88,7 +88,7 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 				"https://example.com/authors/a",
 				"https://example.com/authors/b",
 			},
-			Tags: []string{"seo", "blog"},
+			Tags: []string{"seo", "framework"},
 			Images: []OpenGraphImage{
 				{URL: "https://example.com/images/a.png", Alt: "alt-a"},
 				{URL: "https://example.com/images/b.png"},
@@ -106,7 +106,7 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 			{Name: "Alice", URL: "https://example.com/authors/alice"},
 			{Name: "Zed", URL: "https://example.com/authors/zed"},
 		},
-		Publisher: "RevoTale",
+		Publisher: "Example Publisher",
 		Pinterest: &Pinterest{RichPin: Bool(true)},
 	}
 
@@ -125,7 +125,7 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 		`property="og:type" content="article"`,
 		`property="article:published_time" content="2026-03-03T08:00:00Z"`,
 		`property="article:author" content="https://example.com/authors/a"`,
-		`property="article:tag" content="blog"`,
+		`property="article:tag" content="framework"`,
 		`name="twitter:card" content="summary_large_image"`,
 		`name="robots" content="noindex, follow"`,
 		`name="author" content="Alice"`,
@@ -186,7 +186,7 @@ func TestBuildAlternatesPrefixAsNeeded(t *testing.T) {
 	t.Parallel()
 
 	alternates, err := BuildAlternates(
-		"https://example.com/blog",
+		"https://example.com/app",
 		frameworki18n.Config{
 			Locales:       []string{"en", "de"},
 			DefaultLocale: "en",
@@ -203,17 +203,17 @@ func TestBuildAlternatesPrefixAsNeeded(t *testing.T) {
 		t.Fatalf("build alternates: %v", err)
 	}
 
-	if alternates.Canonical != "https://example.com/blog/de/note/hello?tag=go" {
-		t.Fatalf("canonical: expected %q, got %q", "https://example.com/blog/de/note/hello?tag=go", alternates.Canonical)
+	if alternates.Canonical != "https://example.com/app/de/note/hello?tag=go" {
+		t.Fatalf("canonical: expected %q, got %q", "https://example.com/app/de/note/hello?tag=go", alternates.Canonical)
 	}
-	if got := alternates.Languages["en"]; got != "https://example.com/blog/note/hello?tag=go" {
-		t.Fatalf("en alternate: expected %q, got %q", "https://example.com/blog/note/hello?tag=go", got)
+	if got := alternates.Languages["en"]; got != "https://example.com/app/note/hello?tag=go" {
+		t.Fatalf("en alternate: expected %q, got %q", "https://example.com/app/note/hello?tag=go", got)
 	}
-	if got := alternates.Languages["de"]; got != "https://example.com/blog/de/note/hello?tag=go" {
-		t.Fatalf("de alternate: expected %q, got %q", "https://example.com/blog/de/note/hello?tag=go", got)
+	if got := alternates.Languages["de"]; got != "https://example.com/app/de/note/hello?tag=go" {
+		t.Fatalf("de alternate: expected %q, got %q", "https://example.com/app/de/note/hello?tag=go", got)
 	}
-	if got := alternates.Types["application/rss+xml"]; got != "https://example.com/blog/feed.xml" {
-		t.Fatalf("rss alternate: expected %q, got %q", "https://example.com/blog/feed.xml", got)
+	if got := alternates.Types["application/rss+xml"]; got != "https://example.com/app/feed.xml" {
+		t.Fatalf("rss alternate: expected %q, got %q", "https://example.com/app/feed.xml", got)
 	}
 	if got := alternates.Types["application/atom+xml"]; got != "https://cdn.example.com/feed.atom" {
 		t.Fatalf("atom alternate: expected %q, got %q", "https://cdn.example.com/feed.atom", got)

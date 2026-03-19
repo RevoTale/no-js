@@ -21,7 +21,7 @@ func TestBuild_MinifiesAndCopiesAssets(t *testing.T) {
 
 	bundle, err := Build(BuildConfig{
 		SourceDir: sourceDir,
-		URLPrefix: "/.revotale/",
+		URLPrefix: "/_assets/",
 	})
 	if err != nil {
 		t.Fatalf("build bundle: %v", err)
@@ -32,7 +32,7 @@ func TestBuild_MinifiesAndCopiesAssets(t *testing.T) {
 		}
 	})
 
-	prefixPattern := regexp.MustCompile(`^/\.revotale/[0-9a-f]{16}/$`)
+	prefixPattern := regexp.MustCompile(`^/_assets/[0-9a-f]{16}/$`)
 	if !prefixPattern.MatchString(bundle.URLPrefix()) {
 		t.Fatalf("unexpected url prefix %q", bundle.URLPrefix())
 	}
@@ -73,7 +73,7 @@ func TestBuild_HashDeterministicForSameSource(t *testing.T) {
 	writeTestFile(t, filepath.Join(sourceDir, "styles.css"), "body { color: blue; }\n")
 	writeTestFile(t, filepath.Join(sourceDir, "logo.svg"), "<svg><circle cx=\"5\" cy=\"5\" r=\"2\" /></svg>\n")
 
-	first, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/.revotale/"})
+	first, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/_assets/"})
 	if err != nil {
 		t.Fatalf("build first bundle: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestBuild_HashDeterministicForSameSource(t *testing.T) {
 		}
 	})
 
-	second, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/.revotale/"})
+	second, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/_assets/"})
 	if err != nil {
 		t.Fatalf("build second bundle: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestBuild_HashChangesWhenContentChanges(t *testing.T) {
 	sourceDir := t.TempDir()
 	writeTestFile(t, filepath.Join(sourceDir, "app.js"), "console.log('a')\n")
 
-	first, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/.revotale/"})
+	first, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/_assets/"})
 	if err != nil {
 		t.Fatalf("build first bundle: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestBuild_HashChangesWhenContentChanges(t *testing.T) {
 	})
 
 	writeTestFile(t, filepath.Join(sourceDir, "app.js"), "console.log('b')\n")
-	second, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/.revotale/"})
+	second, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/_assets/"})
 	if err != nil {
 		t.Fatalf("build second bundle: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestBuild_HashChangesWhenRelativePathChanges(t *testing.T) {
 	writeTestFile(t, filepath.Join(firstDir, "a.js"), "console.log('same')\n")
 	writeTestFile(t, filepath.Join(secondDir, "nested", "a.js"), "console.log('same')\n")
 
-	first, err := Build(BuildConfig{SourceDir: firstDir, URLPrefix: "/.revotale/"})
+	first, err := Build(BuildConfig{SourceDir: firstDir, URLPrefix: "/_assets/"})
 	if err != nil {
 		t.Fatalf("build first bundle: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestBuild_HashChangesWhenRelativePathChanges(t *testing.T) {
 		}
 	})
 
-	second, err := Build(BuildConfig{SourceDir: secondDir, URLPrefix: "/.revotale/"})
+	second, err := Build(BuildConfig{SourceDir: secondDir, URLPrefix: "/_assets/"})
 	if err != nil {
 		t.Fatalf("build second bundle: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestBundleCleanupRemovesOutputDir(t *testing.T) {
 	sourceDir := t.TempDir()
 	writeTestFile(t, filepath.Join(sourceDir, "app.js"), "console.log('x')\n")
 
-	bundle, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/.revotale/"})
+	bundle, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/_assets/"})
 	if err != nil {
 		t.Fatalf("build bundle: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestManifestWriteAndRead(t *testing.T) {
 	manifestPath := filepath.Join(t.TempDir(), "manifest.json")
 	expected := Manifest{
 		Hash:      "abc123",
-		URLPrefix: "/.revotale/abc123/",
+		URLPrefix: "/_assets/abc123/",
 	}
 
 	if err := WriteManifest(manifestPath, expected); err != nil {

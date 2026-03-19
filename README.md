@@ -1,64 +1,30 @@
-# RevoTale Blog
+# no-js
 
-Fast, server-rendered blog for RevoTale, built with Go.
+`no-js` is an opinionated Go framework for server-rendered web applications.
 
-Live:
-- https://blog.revotale.com
-- https://revotale.com/blog (legacy entrypoint; redirected; was built with NextJs + ShadCN)
+It includes:
+- a route execution engine for SSR pages
+- metadata and HTML head composition
+- locale resolution and i18n middleware
+- static asset fingerprinting and manifest generation
+- code generators for route wiring, `templ`, and i18n keys
 
-Source:
-- https://github.com/RevoTale/blog
+The reusable code lives under `framework/`.
 
-## What This Is
+## Conventions
 
-This project is a public app that renders internal CMS in the form of blog (notes, authors, tags, RSS, sitemap, robots). Internally in RevoTale infrastructure it is a submodule which is separated from the `cms` runtime.
-Content is fetched by this app through GraphQL.
+The route generator is intentionally opinionated. It expects the consuming app to keep route templates and resolver code under:
 
-## Why This Exists
+- `internal/web/app`
+- `internal/web/appcore`
+- `internal/web/resolvers`
 
-This project was migrated from the older Next.js + RSC + ShadCN blog path to reduce server/runtime overhead and improve perceived performance (especially RAM usage) for a read-heavy blog.
+Generated code imports framework packages from `github.com/RevoTale/no-js/framework`.
 
-The `cms` app now redirects legacy `/blog/*` routes to this dedicated blog runtime.
-
-## Stack
-
-- Go HTTP server + custom lightweight framework layer ( Im trying framework APIs similar to NextJs experience)
-- [`templ`](https://templ.guide/) for SSR components/layouts
-- [`htmx`](https://htmx.org/) for partial/live navigation updates
-- [`go-i18n`](https://github.com/nicksnyder/go-i18n) for localization
-- [`esbuild`](https://esbuild.github.io/) for static asset bundling/fingerprints
-
-
-
-## What This Project Optimizes For
-
-- Low-overhead SSR with predictable caching behavior
-- Early document streaming (head-first) and faster first bytes
-- SEO completeness (metadata, canonical, alternates, feeds, sitemaps, robots)
-- Strong i18n support across routes
-- Simple, inspectable architecture suitable for low resource self-hosted infrastructure
-
-## Local Development (Minimal)
+## Development
 
 ```bash
-task gen
-BLOG_ROOT_URL=http://localhost:8080 \
-BLOG_GRAPHQL_ENDPOINT=http://localhost:3000/api/graphql \
-go run .
-```
-
-Optional analytics:
-
-- `LOVELY_EYE_SCRIPT_URL`: full Lovely Eye tracker URL such as `https://s.example.com/tracker.js`
-- `LOVELY_EYE_SITE_ID`: Lovely Eye site key passed as `data-site-key`
-- Original tracker repo: `https://github.com/RevoTale/lovely-eye`
-
-When both variables are set, the blog injects the Lovely Eye tracking script and shows a footer note.
-If either value is missing, analytics stays disabled.
-
-Validation:
-
-```bash
+task fix
 task validate
 task test
 ```

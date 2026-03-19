@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+const testAppModulePath = "example.com/app"
+
 func TestDiscoverRouteFilesStaticAndDynamic(t *testing.T) {
 	root := t.TempDir()
 	appRoot := filepath.Join(root, "app")
@@ -92,7 +94,7 @@ func TestDiscoverRouteFilesCollectsNotFoundTemplates(t *testing.T) {
 		filepath.Join(appRoot, "404.templ"),
 		`package appsrc
 
-import "blog/internal/web/appcore"
+import "example.com/app/internal/web/appcore"
 
 templ Page(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
 `,
@@ -102,7 +104,7 @@ templ Page(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
 		filepath.Join(appRoot, "author", "[slug]", "404.templ"),
 		`package appsrc
 
-import "blog/internal/web/appcore"
+import "example.com/app/internal/web/appcore"
 
 templ Page(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
 `,
@@ -112,7 +114,7 @@ templ Page(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
 		filepath.Join(appRoot, "author", "[slug]", "page.templ"),
 		`package appsrc
 
-import "blog/internal/web/appcore"
+import "example.com/app/internal/web/appcore"
 
 templ Page(view appcore.AuthorPageView) { <div id="notes-content"></div> }
 `,
@@ -139,7 +141,7 @@ func TestParsePageViewType(t *testing.T) {
 		pagePath,
 		`package appsrc
 
-import "blog/internal/web/appcore"
+import "example.com/app/internal/web/appcore"
 
 templ Page(view appcore.NotePageView) { <div/> }
 `,
@@ -180,8 +182,8 @@ func TestValidateLayoutTemplateSignature(t *testing.T) {
 		`package appsrc
 
 import (
-  "blog/framework/metagen"
-  "blog/internal/web/appcore"
+  "github.com/RevoTale/no-js/framework/metagen"
+  "example.com/app/internal/web/appcore"
 )
 
 templ Layout(meta metagen.Metadata, view appcore.RootLayoutView, child templ.Component) { @child }
@@ -193,8 +195,8 @@ templ Layout(meta metagen.Metadata, view appcore.RootLayoutView, child templ.Com
 		`package appsrc
 
 import (
-  "blog/framework/metagen"
-  "blog/internal/web/appcore"
+  "github.com/RevoTale/no-js/framework/metagen"
+  "example.com/app/internal/web/appcore"
 )
 
 templ Layout(meta metagen.Metadata, view appcore.NotesPageView, child templ.Component) { @child }
@@ -205,7 +207,7 @@ templ Layout(meta metagen.Metadata, view appcore.NotesPageView, child templ.Comp
 		childValidPath,
 		`package appsrc
 
-import "blog/internal/web/appcore"
+import "example.com/app/internal/web/appcore"
 
 templ Layout(view appcore.RootLayoutView, child templ.Component) { @child }
 `,
@@ -216,8 +218,8 @@ templ Layout(view appcore.RootLayoutView, child templ.Component) { @child }
 		`package appsrc
 
 import (
-  "blog/framework/metagen"
-  "blog/internal/web/appcore"
+  "github.com/RevoTale/no-js/framework/metagen"
+  "example.com/app/internal/web/appcore"
 )
 
 templ Layout(meta metagen.Metadata, view appcore.RootLayoutView, child templ.Component) { @child }
@@ -249,7 +251,7 @@ func TestValidateNotFoundTemplateSignature(t *testing.T) {
 		validPath,
 		`package appsrc
 
-import "blog/internal/web/appcore"
+import "example.com/app/internal/web/appcore"
 
 templ Page(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
 `,
@@ -259,7 +261,7 @@ templ Page(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
 		invalidPath,
 		`package appsrc
 
-import "blog/internal/web/appcore"
+import "example.com/app/internal/web/appcore"
 
 templ Page(view appcore.NotesPageView, path string) { <div>{ path }</div> }
 `,
@@ -282,7 +284,7 @@ func TestValidateRootTemplateSignature(t *testing.T) {
 		validPath,
 		`package appsrc
 
-import "blog/framework/metagen"
+import "github.com/RevoTale/no-js/framework/metagen"
 
 templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { @child }
 `,
@@ -313,7 +315,7 @@ func TestValidateErrorTemplateSignature(t *testing.T) {
 		validPath,
 		`package appsrc
 
-import "blog/internal/web/appcore"
+import "example.com/app/internal/web/appcore"
 
 templ Error(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
 `,
@@ -323,7 +325,7 @@ templ Error(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
 		invalidPath,
 		`package appsrc
 
-import "blog/internal/web/appcore"
+import "example.com/app/internal/web/appcore"
 
 templ Error(view appcore.NotePageView, path string) { <div>{ path }</div> }
 `,
@@ -377,13 +379,13 @@ func TestBuildRouteMetasPageOnly(t *testing.T) {
 
 	rootTemplate := `package appsrc
 
-import "blog/internal/web/appcore"
+import "example.com/app/internal/web/appcore"
 
 templ Page(view appcore.NotesPageView) { <div id="notes-content"></div> }
 `
 	authorTemplate := `package appsrc
 
-import "blog/internal/web/appcore"
+import "example.com/app/internal/web/appcore"
 
 templ Page(view appcore.AuthorPageView) { <div id="notes-content"></div> }
 `
@@ -429,7 +431,7 @@ func TestBuildRouteMetasAllowsNonPageViewSuffix(t *testing.T) {
 
 	pageTemplate := `package appsrc
 
-import "blog/internal/web/appcore"
+import "example.com/app/internal/web/appcore"
 
 templ Page(view appcore.NoteView) { <div id="note-content"></div> }
 `
@@ -469,11 +471,19 @@ func TestResolverNamespaceGenerationDeterministic(t *testing.T) {
 		},
 	}
 
-	first, err := generateResolverNamespaceSource(metas, map[string]templateDef{})
+	first, err := generateResolverNamespaceSource(
+		generationPaths{AppModulePath: testAppModulePath},
+		metas,
+		map[string]templateDef{},
+	)
 	if err != nil {
 		t.Fatalf("first generation failed: %v", err)
 	}
-	second, err := generateResolverNamespaceSource(metas, map[string]templateDef{})
+	second, err := generateResolverNamespaceSource(
+		generationPaths{AppModulePath: testAppModulePath},
+		metas,
+		map[string]templateDef{},
+	)
 	if err != nil {
 		t.Fatalf("second generation failed: %v", err)
 	}
@@ -505,7 +515,7 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 	}
 
 	registry, err := generateRegistrySource(
-		generationPaths{GenImportRoot: "internal/web/gen"},
+		generationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
 		metas,
 		templateDef{
 			Kind:       rootTemplate,
@@ -533,7 +543,7 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 	}
 
 	text := string(registry)
-	if !strings.Contains(text, "route_resolvers \"blog/internal/web/resolvers\"") {
+	if !strings.Contains(text, "route_resolvers \"example.com/app/internal/web/resolvers\"") {
 		t.Fatalf("expected unified resolver namespace import in registry:\n%s", text)
 	}
 	if strings.Contains(text, "rr_") {
@@ -583,7 +593,7 @@ func TestRegistryGenerationRequiresRootNotFoundTemplate(t *testing.T) {
 	}
 
 	_, err := generateRegistrySource(
-		generationPaths{GenImportRoot: "internal/web/gen"},
+		generationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
 		metas,
 		templateDef{
 			Kind:       rootTemplate,
@@ -620,7 +630,7 @@ func TestRegistryGenerationRequiresRootErrorTemplate(t *testing.T) {
 	}
 
 	_, err := generateRegistrySource(
-		generationPaths{GenImportRoot: "internal/web/gen"},
+		generationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
 		metas,
 		templateDef{
 			Kind:       rootTemplate,
@@ -661,7 +671,7 @@ func TestRegistryGenerationWiresNearestErrorTemplate(t *testing.T) {
 	}
 
 	registry, err := generateRegistrySource(
-		generationPaths{GenImportRoot: "internal/web/gen"},
+		generationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
 		metas,
 		templateDef{
 			Kind:       rootTemplate,

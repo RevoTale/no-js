@@ -9,17 +9,17 @@ import (
 	"strconv"
 	"strings"
 
-	"blog/framework"
-	"blog/framework/engine"
-	frameworki18n "blog/framework/i18n"
-	"blog/framework/metagen"
+	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/framework/engine"
+	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
+	"github.com/RevoTale/no-js/framework/metagen"
 	"github.com/a-h/templ"
 )
 
 const defaultCacheControlPolicy = "public, max-age=3600, s-maxage=3600"
 const defaultHealthPath = "/healthz"
 const defaultHealthBody = "ok"
-const defaultStaticPrefix = "/.revotale/"
+const defaultStaticPrefix = "/_assets/"
 const liveNavigationMarkerKey = "__live"
 const liveNavigationMarkerValue = "navigation"
 

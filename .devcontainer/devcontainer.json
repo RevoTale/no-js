@@ -1,12 +1,6 @@
 {
-	"name": "Go",
+	"name": "no-js",
 	"build": {
-		"dockerfile": "Dockerfile" // Path to your Dockerfile
-	},
-	"portsAttributes": {
-		"8080": {
-			"label": "Default app",
-			"onAutoForward": "notify"
-		}
+		"dockerfile": "Dockerfile"
 	}
 }
