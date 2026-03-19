@@ -1,6 +1,10 @@
 # no-js
 
+[![Status: Work in Progress](https://img.shields.io/badge/status-work%20in%20progress-orange)](#)
+
 `no-js` is an opinionated Go framework for server-rendered web applications.
+
+It originated as the framework layer extracted from [RevoTale/blog](https://github.com/RevoTale/blog).
 
 It includes:
 - a route execution engine for SSR pages
