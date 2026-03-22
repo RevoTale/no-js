@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"golang.org/x/mod/modfile"
+	"github.com/RevoTale/no-js/bundler"
 )
 
 var dynamicSegmentNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
@@ -54,13 +54,7 @@ const (
 	frameworkModulePath       = "github.com/RevoTale/no-js"
 )
 
-type generationPaths struct {
-	AppRoot       string
-	GenRoot       string
-	GenImportRoot string
-	ResolverRoot  string
-	AppModulePath string
-}
+
 
 type routeSegment struct {
 	StaticName string
@@ -128,7 +122,7 @@ type routeFiles struct {
 }
 
 func Run() error {
-	paths, err := resolvePaths()
+	paths, err := bundler.ResolvePaths()
 	if err != nil {
 		return err
 	}
@@ -224,65 +218,6 @@ func Run() error {
 	return nil
 }
 
-func resolvePaths() (generationPaths, error) {
-	moduleRoot, err := findModuleRoot()
-	if err != nil {
-		return generationPaths{}, err
-	}
-	appModulePath, err := readModulePath(moduleRoot)
-	if err != nil {
-		return generationPaths{}, err
-	}
-
-	return generationPaths{
-		AppRoot:       filepath.ToSlash(filepath.Join(moduleRoot, "internal/web/app")),
-		GenRoot:       filepath.ToSlash(filepath.Join(moduleRoot, "internal/web/gen")),
-		GenImportRoot: "internal/web/gen",
-		ResolverRoot:  filepath.ToSlash(filepath.Join(moduleRoot, "internal/web/resolvers")),
-		AppModulePath: appModulePath,
-	}, nil
-}
-
-func findModuleRoot() (string, error) {
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("resolve working directory: %w", err)
-	}
-
-	for {
-		if pathExists(filepath.Join(currentDir, "internal/web/app")) {
-			return currentDir, nil
-		}
-
-		parentDir := filepath.Dir(currentDir)
-		if parentDir == currentDir {
-			break
-		}
-		currentDir = parentDir
-	}
-
-	return "", errors.New("strict app root missing: expected internal/web/app")
-}
-
-func pathExists(target string) bool {
-	_, err := os.Stat(target)
-	return err == nil
-}
-
-func readModulePath(moduleRoot string) (string, error) {
-	goModPath := filepath.Join(moduleRoot, "go.mod")
-	data, err := os.ReadFile(goModPath)
-	if err != nil {
-		return "", fmt.Errorf("read %q: %w", filepath.ToSlash(goModPath), err)
-	}
-
-	modulePath := strings.TrimSpace(modfile.ModulePath(data))
-	if modulePath == "" {
-		return "", fmt.Errorf("module path missing in %q", filepath.ToSlash(goModPath))
-	}
-
-	return modulePath, nil
-}
 
 func appImportPath(modulePath string, relativePath string) string {
 	trimmedModulePath := strings.TrimSpace(modulePath)
@@ -499,7 +434,7 @@ func templateOutputFileName(kind templateKind) string {
 	return string(kind) + ".templ"
 }
 
-func buildRouteMetas(pages []templateDef, paths generationPaths) ([]routeMeta, error) {
+func buildRouteMetas(pages []templateDef, paths bundler.GenerationPaths) ([]routeMeta, error) {
 	_ = paths
 	metas := make([]routeMeta, 0, len(pages))
 
@@ -862,7 +797,7 @@ func contractsByRouteID(contracts []routeContractDef) map[string]routeContractDe
 }
 
 func generateResolverNamespaceSource(
-	paths generationPaths,
+	paths bundler.GenerationPaths,
 	metas []routeMeta,
 	layouts map[string]templateDef,
 ) ([]byte, error) {
@@ -941,7 +876,7 @@ func generateResolverNamespaceSource(
 }
 
 func generateRegistrySource(
-	paths generationPaths,
+	paths bundler.GenerationPaths,
 	metas []routeMeta,
 	root templateDef,
 	layouts map[string]templateDef,

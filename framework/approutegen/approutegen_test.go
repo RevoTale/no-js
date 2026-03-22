@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/RevoTale/no-js/bundler"
 )
 
 const testAppModulePath = "example.com/app"
@@ -397,7 +399,7 @@ templ Page(view appcore.AuthorPageView) { <div id="notes-content"></div> }
 		t.Fatalf("discover routes: %v", err)
 	}
 
-	metas, err := buildRouteMetas(routes.Pages, generationPaths{})
+	metas, err := buildRouteMetas(routes.Pages, bundler.GenerationPaths{})
 	if err != nil {
 		t.Fatalf("build route metas: %v", err)
 	}
@@ -442,7 +444,7 @@ templ Page(view appcore.NoteView) { <div id="note-content"></div> }
 		t.Fatalf("discover routes: %v", err)
 	}
 
-	metas, err := buildRouteMetas(routes.Pages, generationPaths{})
+	metas, err := buildRouteMetas(routes.Pages, bundler.GenerationPaths{})
 	if err != nil {
 		t.Fatalf("build route metas: %v", err)
 	}
@@ -472,7 +474,7 @@ func TestResolverNamespaceGenerationDeterministic(t *testing.T) {
 	}
 
 	first, err := generateResolverNamespaceSource(
-		generationPaths{AppModulePath: testAppModulePath},
+		bundler.GenerationPaths{AppModulePath: testAppModulePath},
 		metas,
 		map[string]templateDef{},
 	)
@@ -480,7 +482,7 @@ func TestResolverNamespaceGenerationDeterministic(t *testing.T) {
 		t.Fatalf("first generation failed: %v", err)
 	}
 	second, err := generateResolverNamespaceSource(
-		generationPaths{AppModulePath: testAppModulePath},
+		bundler.GenerationPaths{AppModulePath: testAppModulePath},
 		metas,
 		map[string]templateDef{},
 	)
@@ -515,7 +517,7 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 	}
 
 	registry, err := generateRegistrySource(
-		generationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
+		bundler.GenerationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
 		metas,
 		templateDef{
 			Kind:       rootTemplate,
@@ -593,7 +595,7 @@ func TestRegistryGenerationRequiresRootNotFoundTemplate(t *testing.T) {
 	}
 
 	_, err := generateRegistrySource(
-		generationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
+		bundler.GenerationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
 		metas,
 		templateDef{
 			Kind:       rootTemplate,
@@ -630,7 +632,7 @@ func TestRegistryGenerationRequiresRootErrorTemplate(t *testing.T) {
 	}
 
 	_, err := generateRegistrySource(
-		generationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
+		bundler.GenerationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
 		metas,
 		templateDef{
 			Kind:       rootTemplate,
@@ -671,7 +673,7 @@ func TestRegistryGenerationWiresNearestErrorTemplate(t *testing.T) {
 	}
 
 	registry, err := generateRegistrySource(
-		generationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
+		bundler.GenerationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
 		metas,
 		templateDef{
 			Kind:       rootTemplate,
