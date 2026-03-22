@@ -1,24 +1,31 @@
 # AGENTS.md
 
 ## Overview
-`no-js` is an opinionated Go framework for server-rendered web applications. The repository is framework-first: reusable
-runtime packages and generator CLIs live under `framework/`.
+`no-js` is an opinionated Go framework for server-rendered web applications. Runtime packages live under
+`framework/`, build-time packages live under `bundler/`, and CLI entrypoints live under `cmd/`.
 
 ## Project Structure
 ```text
 <go-repo-root>/
   AGENTS.md
   Taskfile.yml
-  framework/
+  bundler/
     approutegen/
-    cmd/
+    i18nkeygen/
+    staticassets/
+    templgen/
+  cmd/
+    approutegen/
+    i18nkeygen/
+    staticassetsgen/
+    templgen/
+  framework/
     engine/
     httpserver/
     i18n/
     metagen/
     router/
     staticassets/
-    templgen/
 ```
 
 ## Strict Rules
@@ -26,6 +33,7 @@ runtime packages and generator CLIs live under `framework/`.
 - MUST enforce a maximum line length of 120 through `.golangci.yml`.
 - MUST run validation and tests through `Taskfile.yml`.
 - MUST keep this repository library-focused; do not reintroduce product-specific app code under the root module.
+- MUST keep runtime packages free of imports from `bundler/*`.
 - MUST keep generator output module-aware: framework imports come from `github.com/RevoTale/no-js`, while consuming-app
   imports must be derived from the target app module.
 

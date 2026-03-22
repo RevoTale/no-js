@@ -399,7 +399,7 @@ templ Page(view appcore.AuthorPageView) { <div id="notes-content"></div> }
 		t.Fatalf("discover routes: %v", err)
 	}
 
-	metas, err := buildRouteMetas(routes.Pages, bundler.GenerationPaths{})
+	metas, err := buildRouteMetas(routes.Pages, bundler.ProjectLayout{})
 	if err != nil {
 		t.Fatalf("build route metas: %v", err)
 	}
@@ -444,7 +444,7 @@ templ Page(view appcore.NoteView) { <div id="note-content"></div> }
 		t.Fatalf("discover routes: %v", err)
 	}
 
-	metas, err := buildRouteMetas(routes.Pages, bundler.GenerationPaths{})
+	metas, err := buildRouteMetas(routes.Pages, bundler.ProjectLayout{})
 	if err != nil {
 		t.Fatalf("build route metas: %v", err)
 	}
@@ -474,7 +474,7 @@ func TestResolverNamespaceGenerationDeterministic(t *testing.T) {
 	}
 
 	first, err := generateResolverNamespaceSource(
-		bundler.GenerationPaths{AppModulePath: testAppModulePath},
+		bundler.ProjectLayout{AppModulePath: testAppModulePath},
 		metas,
 		map[string]templateDef{},
 	)
@@ -482,7 +482,7 @@ func TestResolverNamespaceGenerationDeterministic(t *testing.T) {
 		t.Fatalf("first generation failed: %v", err)
 	}
 	second, err := generateResolverNamespaceSource(
-		bundler.GenerationPaths{AppModulePath: testAppModulePath},
+		bundler.ProjectLayout{AppModulePath: testAppModulePath},
 		metas,
 		map[string]templateDef{},
 	)
@@ -517,7 +517,7 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 	}
 
 	registry, err := generateRegistrySource(
-		bundler.GenerationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
+		bundler.ProjectLayout{GeneratedImport: "internal/web/gen", AppModulePath: testAppModulePath},
 		metas,
 		templateDef{
 			Kind:       rootTemplate,
@@ -595,7 +595,7 @@ func TestRegistryGenerationRequiresRootNotFoundTemplate(t *testing.T) {
 	}
 
 	_, err := generateRegistrySource(
-		bundler.GenerationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
+		bundler.ProjectLayout{GeneratedImport: "internal/web/gen", AppModulePath: testAppModulePath},
 		metas,
 		templateDef{
 			Kind:       rootTemplate,
@@ -632,7 +632,7 @@ func TestRegistryGenerationRequiresRootErrorTemplate(t *testing.T) {
 	}
 
 	_, err := generateRegistrySource(
-		bundler.GenerationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
+		bundler.ProjectLayout{GeneratedImport: "internal/web/gen", AppModulePath: testAppModulePath},
 		metas,
 		templateDef{
 			Kind:       rootTemplate,
@@ -673,7 +673,7 @@ func TestRegistryGenerationWiresNearestErrorTemplate(t *testing.T) {
 	}
 
 	registry, err := generateRegistrySource(
-		bundler.GenerationPaths{GenImportRoot: "internal/web/gen", AppModulePath: testAppModulePath},
+		bundler.ProjectLayout{GeneratedImport: "internal/web/gen", AppModulePath: testAppModulePath},
 		metas,
 		templateDef{
 			Kind:       rootTemplate,
@@ -742,6 +742,61 @@ func TestRewritePackageDeclarationKeepsSingleGeneratedMarker(t *testing.T) {
 	}
 	if !strings.HasPrefix(text, "package r_page_root\n") {
 		t.Fatalf("expected package rename to be applied, got:\n%s", text)
+	}
+}
+
+func TestRunUsesExplicitProjectLayout(t *testing.T) {
+	rootDir := t.TempDir()
+	appDir := filepath.Join(rootDir, "internal", "web", "app")
+	genDir := filepath.Join(rootDir, "internal", "web", "gen")
+	resolverDir := filepath.Join(rootDir, "internal", "web", "resolvers")
+
+	writeTestFile(t, filepath.Join(appDir, "root.templ"), `package appsrc
+
+import "github.com/RevoTale/no-js/framework/metagen"
+
+templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { @child }
+`)
+	writeTestFile(t, filepath.Join(appDir, "404.templ"), `package appsrc
+
+import "example.com/app/internal/web/appcore"
+
+templ Page(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
+`)
+	writeTestFile(t, filepath.Join(appDir, "error.templ"), `package appsrc
+
+import "example.com/app/internal/web/appcore"
+
+templ Error(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
+`)
+	writeTestFile(t, filepath.Join(appDir, "page.templ"), `package appsrc
+
+import "example.com/app/internal/web/appcore"
+
+templ Page(view appcore.NotesPageView) { <div>notes</div> }
+`)
+
+	err := Run(Config{
+		Layout: bundler.ProjectLayout{
+			RootDir:                 rootDir,
+			AppDir:                  appDir,
+			GeneratedDir:            genDir,
+			GeneratedImport:         "internal/web/gen",
+			ResolverDir:             resolverDir,
+			AppModulePath:           testAppModulePath,
+			PublicDir:               filepath.Join(rootDir, "public"),
+			PublicRequestPathPrefix: "/",
+		},
+	})
+	if err != nil {
+		t.Fatalf("run approutegen: %v", err)
+	}
+
+	if _, statErr := os.Stat(filepath.Join(genDir, "registry_gen.go")); statErr != nil {
+		t.Fatalf("expected generated registry file: %v", statErr)
+	}
+	if _, statErr := os.Stat(filepath.Join(resolverDir, generatedResolverFileName)); statErr != nil {
+		t.Fatalf("expected generated resolver namespace: %v", statErr)
 	}
 }
 

@@ -1,16 +1,20 @@
 package i18n
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"path"
 	"sort"
 	"strings"
-
-	"github.com/RevoTale/no-js/framework/i18n/keygen"
 )
 
 const MessagesDir = "messages"
+
+type Message struct {
+	ID          string `json:"id"`
+	Translation string `json:"translation"`
+}
 
 func DiscoverMessageFiles(fsys fs.FS) ([]string, error) {
 	entries, err := fs.ReadDir(fsys, MessagesDir)
@@ -58,7 +62,7 @@ func ValidateMessageKeyParity(fsys fs.FS, files []string, expectedKeys []string)
 			return fmt.Errorf("read locale file %q: %w", file, err)
 		}
 
-		messages, err := keygen.ParseCanonical(content)
+		messages, err := ParseCanonicalMessages(content)
 		if err != nil {
 			return fmt.Errorf("parse locale file %q: %w", file, err)
 		}
@@ -95,6 +99,35 @@ func ValidateMessageKeyParity(fsys fs.FS, files []string, expectedKeys []string)
 	}
 
 	return nil
+}
+
+func ParseCanonicalMessages(data []byte) ([]Message, error) {
+	var entries []Message
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return nil, fmt.Errorf("parse canonical messages json: %w", err)
+	}
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("canonical messages are empty")
+	}
+
+	seenIDs := make(map[string]struct{}, len(entries))
+	out := make([]Message, 0, len(entries))
+	for index, entry := range entries {
+		entry.ID = strings.TrimSpace(entry.ID)
+		if entry.ID == "" {
+			return nil, fmt.Errorf("entry %d has empty id", index)
+		}
+		if _, exists := seenIDs[entry.ID]; exists {
+			return nil, fmt.Errorf("duplicate message id %q", entry.ID)
+		}
+		seenIDs[entry.ID] = struct{}{}
+		out = append(out, entry)
+	}
+
+	sort.Slice(out, func(i int, j int) bool {
+		return out[i].ID < out[j].ID
+	})
+	return out, nil
 }
 
 func buildExpectedKeySet(keys []string) map[string]struct{} {

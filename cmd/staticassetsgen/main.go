@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/RevoTale/no-js/framework/staticassets"
+	"github.com/RevoTale/no-js/bundler/staticassets"
 )
 
 func main() {

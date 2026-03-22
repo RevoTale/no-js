@@ -1,4 +1,4 @@
-package keygen
+package i18nkeygen
 
 import (
 	"strings"
@@ -37,21 +37,6 @@ func TestBuildKeyDefsDeterministicNames(t *testing.T) {
 		if def.Name != expectedName {
 			t.Fatalf("const name for %q: expected %q, got %q", def.ID, expectedName, def.Name)
 		}
-	}
-}
-
-func TestParseCanonicalRejectsDuplicateIDs(t *testing.T) {
-	t.Parallel()
-
-	_, err := ParseCanonical([]byte(`[
-		{"id":"a.b","translation":"x"},
-		{"id":"a.b","translation":"y"}
-	]`))
-	if err == nil {
-		t.Fatal("expected duplicate id error")
-	}
-	if !strings.Contains(err.Error(), "duplicate message id") {
-		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

@@ -139,6 +139,21 @@ func TestValidateMessageKeyParityRejectsDuplicateIDs(t *testing.T) {
 	}
 }
 
+func TestParseCanonicalMessagesRejectsDuplicateIDs(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParseCanonicalMessages([]byte(`[
+		{"id":"a.b","translation":"x"},
+		{"id":"a.b","translation":"y"}
+	]`))
+	if err == nil {
+		t.Fatal("expected duplicate id error")
+	}
+	if !strings.Contains(err.Error(), "duplicate message id") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func buildLocalePayload(t *testing.T, keys []string) []byte {
 	t.Helper()
 

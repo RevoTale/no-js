@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/RevoTale/no-js/framework/i18n/keygen"
+	"github.com/RevoTale/no-js/bundler/i18nkeygen"
 )
 
 func main() {
@@ -34,7 +34,7 @@ func main() {
 		exitf("read %q: %v", inputPath, err)
 	}
 
-	generatedSource, err := keygen.GenerateFromJSON(packageName, source)
+	generatedSource, err := i18nkeygen.GenerateFromJSON(packageName, source)
 	if err != nil {
 		exitf("generate keys: %v", err)
 	}

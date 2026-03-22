@@ -67,6 +67,7 @@ These are not suggestions. They are current framework contracts.
 
 ## What We Support
 
+- Runtime packages under `framework/*`
 - `framework/engine`
   Route execution, concurrent metadata and page loading, layout composition, and streaming root-layout rendering.
 - `framework/httpserver`
@@ -76,12 +77,20 @@ These are not suggestions. They are current framework contracts.
 - `framework/i18n`
   Locale config, locale-aware path handling, request locale context, and routing prefix modes: `always`, `as-needed`, `never`.
 - `framework/staticassets`
-  Minification, hashing, manifest generation, and versioned asset URLs under `/_assets/`.
-- `framework/approutegen`
+  Runtime manifest loading and runtime asset URL composition.
+
+- Build-time packages under `bundler/*`
+- `bundler/approutegen`
   Route discovery and generated registry/resolver contracts from the file tree.
-- `framework/templgen`
+- `bundler/i18nkeygen`
+  Go key generation from canonical locale message definitions.
+- `bundler/staticassets`
+  Minification, hashing, manifest generation, and versioned asset bundle assembly under `/_assets/`.
+- `bundler/templgen`
   `templ` generation for selected files or paths.
-- `framework/cmd/*`
+
+- CLI entrypoints under `cmd/*`
+- `cmd/*`
   CLI entrypoints for route generation, `templ` generation, i18n key generation, and static asset building.
 
 ## Nuances
@@ -90,6 +99,7 @@ These are not suggestions. They are current framework contracts.
 - The generator is module-aware: framework imports point to `github.com/RevoTale/no-js`, but generated app imports are resolved from the consuming app's `go.mod`.
 - i18n locales are currently normalized to two-letter lowercase codes.
 - HTMX support is request-driven. Partial requests are detected through `HX-Request`, and metadata patches are emitted through response headers.
+- Build-time packages may import runtime-owned shared types, but runtime packages must not import bundler packages.
 - Static assets and public files are separate concerns:
   `/_assets/` is for fingerprinted build output, while public files are served as fixed root-level paths.
 
