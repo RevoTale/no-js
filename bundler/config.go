@@ -1,55 +1,40 @@
+package bundler
 
-// Config defines build-time framework inputs.
+import frameworki18n "github.com/RevoTale/no-js/framework/i18n"
+
+const (
+	defaultAppDir                  = "internal/web/app"
+	defaultGeneratedDir            = "internal/web/gen"
+	defaultResolverDir             = "internal/web/resolvers"
+	defaultPublicDirName           = "public"
+	defaultPublicRequestPathPrefix = "/"
+)
+
+// Config defines build-time inputs for project layout resolution and code generation.
 // It must not be used as application runtime configuration.
 type Config struct {
+	// I18n carries the consuming application's locale configuration for generators that need it.
 	I18n frameworki18n.Config
 
-	AppDir   string
-	GenDir   string
-	Resolver string
-
-	PublicDirName              string
-	PublicDirRequestPathPrefix string
-}
-
-// ProjectLayout describes the resolved application layout on disk and in module space.
-type ProjectLayout struct {
-	RootDir string
-
-	AppDir          string
-	GeneratedDir    string
-	GeneratedImport string
-	ResolverDir     string
-
-	PublicDir               string
-	PublicRequestPathPrefix string
-
-	AppModulePath string
-}
-// Config defines build-time framework inputs.
-// It must not be used as application runtime configuration.
-type Config struct {
-	// I18n carries the runtime-owned locale configuration used during build-time generation.
-	I18n frameworki18n.Config
-
-	// AppDir is the route tree directory relative to the app root.
+	// AppDir is the route tree directory relative to the application root.
 	// When empty, internal/web/app is used.
 	AppDir string
 
-	// GenDir is the generated route output directory relative to the app root.
+	// GenDir is the generated route output directory relative to the application root.
 	// When empty, internal/web/gen is used.
 	GenDir string
 
-	// Resolver is the handwritten resolver directory relative to the app root.
+	// Resolver is the handwritten resolver directory relative to the application root.
 	// When empty, internal/web/resolvers is used.
 	Resolver string
 
-	// PublicDirName is the public files directory relative to the app root.
+	// PublicDirName is the public files directory relative to the application root.
+	// Files in this directory are served as-is rather than fingerprinted as bundled assets.
 	// When empty, public is used.
 	PublicDirName string
 
-	// PublicDirRequestPathPrefix is the URL prefix used when serving public files.
-	// When empty, / is used.
+	// PublicDirRequestPathPrefix is the request-path prefix used when serving PublicDirName.
+	// Empty values resolve to /. Non-root trailing slashes are trimmed during normalization.
 	PublicDirRequestPathPrefix string
 }
 
@@ -64,7 +49,7 @@ type ProjectLayout struct {
 	// GeneratedDir is the absolute filesystem path where generated route code is written.
 	GeneratedDir string
 
-	// GeneratedImport is the module-relative import path for GeneratedDir.
+	// GeneratedImport is the module-relative import path that corresponds to GeneratedDir.
 	GeneratedImport string
 
 	// ResolverDir is the absolute filesystem path to the handwritten resolver directory.
@@ -73,7 +58,7 @@ type ProjectLayout struct {
 	// PublicDir is the absolute filesystem path to the public files directory.
 	PublicDir string
 
-	// PublicRequestPathPrefix is the normalized request-path prefix for PublicDir.
+	// PublicRequestPathPrefix is the normalized request-path prefix used when serving PublicDir.
 	PublicRequestPathPrefix string
 
 	// AppModulePath is the Go module path declared in the consuming application's go.mod.
