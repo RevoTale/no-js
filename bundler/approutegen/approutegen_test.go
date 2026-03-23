@@ -96,9 +96,9 @@ func TestDiscoverRouteFilesCollectsNotFoundTemplates(t *testing.T) {
 		filepath.Join(appRoot, "404.templ"),
 		`package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Page(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
+templ Page(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 `,
 	)
 	writeTestFile(
@@ -106,9 +106,9 @@ templ Page(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
 		filepath.Join(appRoot, "author", "[slug]", "404.templ"),
 		`package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Page(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
+templ Page(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 `,
 	)
 	writeTestFile(
@@ -116,9 +116,9 @@ templ Page(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
 		filepath.Join(appRoot, "author", "[slug]", "page.templ"),
 		`package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Page(view appcore.AuthorPageView) { <div id="notes-content"></div> }
+templ Page(view runtime.AuthorPageView) { <div id="notes-content"></div> }
 `,
 	)
 
@@ -143,9 +143,9 @@ func TestParsePageViewType(t *testing.T) {
 		pagePath,
 		`package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Page(view appcore.NotePageView) { <div/> }
+templ Page(view runtime.NotePageView) { <div/> }
 `,
 	)
 
@@ -153,21 +153,21 @@ templ Page(view appcore.NotePageView) { <div/> }
 	if err != nil {
 		t.Fatalf("parse page view type: %v", err)
 	}
-	if viewType != "appcore.NotePageView" {
-		t.Fatalf("expected appcore.NotePageView, got %q", viewType)
+	if viewType != "runtime.NotePageView" {
+		t.Fatalf("expected runtime.NotePageView, got %q", viewType)
 	}
 }
 
-func TestParsePageViewTypeRejectsNonAppcoreType(t *testing.T) {
+func TestParsePageViewTypeRejectsNonRuntimeType(t *testing.T) {
 	root := t.TempDir()
 	pagePath := filepath.Join(root, "page.templ")
 	writeTestFile(t, pagePath, "package appsrc\n\ntempl Page(view note.NotePageView) { <div/> }\n")
 
 	_, err := parsePageViewType(pagePath)
 	if err == nil {
-		t.Fatal("expected appcore-qualified type error")
+		t.Fatal("expected runtime-qualified type error")
 	}
-	if !strings.Contains(err.Error(), "appcore-qualified") {
+	if !strings.Contains(err.Error(), "runtime-qualified") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -185,10 +185,10 @@ func TestValidateLayoutTemplateSignature(t *testing.T) {
 
 import (
   "github.com/RevoTale/no-js/framework/metagen"
-  "example.com/app/internal/web/appcore"
+  "example.com/app/internal/web/runtime"
 )
 
-templ Layout(meta metagen.Metadata, view appcore.RootLayoutView, child templ.Component) { @child }
+templ Layout(meta metagen.Metadata, view runtime.RootLayoutView, child templ.Component) { @child }
 `,
 	)
 	writeTestFile(
@@ -198,10 +198,10 @@ templ Layout(meta metagen.Metadata, view appcore.RootLayoutView, child templ.Com
 
 import (
   "github.com/RevoTale/no-js/framework/metagen"
-  "example.com/app/internal/web/appcore"
+  "example.com/app/internal/web/runtime"
 )
 
-templ Layout(meta metagen.Metadata, view appcore.NotesPageView, child templ.Component) { @child }
+templ Layout(meta metagen.Metadata, view runtime.NotesPageView, child templ.Component) { @child }
 `,
 	)
 	writeTestFile(
@@ -209,9 +209,9 @@ templ Layout(meta metagen.Metadata, view appcore.NotesPageView, child templ.Comp
 		childValidPath,
 		`package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Layout(view appcore.RootLayoutView, child templ.Component) { @child }
+templ Layout(view runtime.RootLayoutView, child templ.Component) { @child }
 `,
 	)
 	writeTestFile(
@@ -221,10 +221,10 @@ templ Layout(view appcore.RootLayoutView, child templ.Component) { @child }
 
 import (
   "github.com/RevoTale/no-js/framework/metagen"
-  "example.com/app/internal/web/appcore"
+  "example.com/app/internal/web/runtime"
 )
 
-templ Layout(meta metagen.Metadata, view appcore.RootLayoutView, child templ.Component) { @child }
+templ Layout(meta metagen.Metadata, view runtime.RootLayoutView, child templ.Component) { @child }
 `,
 	)
 
@@ -253,9 +253,9 @@ func TestValidateNotFoundTemplateSignature(t *testing.T) {
 		validPath,
 		`package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Page(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
+templ Page(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 `,
 	)
 	writeTestFile(
@@ -263,9 +263,9 @@ templ Page(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
 		invalidPath,
 		`package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Page(view appcore.NotesPageView, path string) { <div>{ path }</div> }
+templ Page(view runtime.NotesPageView, path string) { <div>{ path }</div> }
 `,
 	)
 
@@ -317,9 +317,9 @@ func TestValidateErrorTemplateSignature(t *testing.T) {
 		validPath,
 		`package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Error(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
+templ Error(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 `,
 	)
 	writeTestFile(
@@ -327,9 +327,9 @@ templ Error(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
 		invalidPath,
 		`package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Error(view appcore.NotePageView, path string) { <div>{ path }</div> }
+templ Error(view runtime.NotePageView, path string) { <div>{ path }</div> }
 `,
 	)
 
@@ -381,15 +381,15 @@ func TestBuildRouteMetasPageOnly(t *testing.T) {
 
 	rootTemplate := `package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Page(view appcore.NotesPageView) { <div id="notes-content"></div> }
+templ Page(view runtime.NotesPageView) { <div id="notes-content"></div> }
 `
 	authorTemplate := `package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Page(view appcore.AuthorPageView) { <div id="notes-content"></div> }
+templ Page(view runtime.AuthorPageView) { <div id="notes-content"></div> }
 `
 	writeTestFile(t, filepath.Join(appRoot, "page.templ"), rootTemplate)
 	writeTestFile(t, filepath.Join(appRoot, "author", "[slug]", "page.templ"), authorTemplate)
@@ -413,7 +413,7 @@ templ Page(view appcore.AuthorPageView) { <div id="notes-content"></div> }
 	if !ok {
 		t.Fatalf("missing root route meta: %#v", byRoute)
 	}
-	if rootMeta.PageViewType != "appcore.NotesPageView" {
+	if rootMeta.PageViewType != "runtime.NotesPageView" {
 		t.Fatalf("expected root page view type, got %q", rootMeta.PageViewType)
 	}
 
@@ -421,7 +421,7 @@ templ Page(view appcore.AuthorPageView) { <div id="notes-content"></div> }
 	if !ok {
 		t.Fatalf("missing author route meta: %#v", byRoute)
 	}
-	if authorMeta.PageViewType != "appcore.AuthorPageView" {
+	if authorMeta.PageViewType != "runtime.AuthorPageView" {
 		t.Fatalf("expected author page view type, got %q", authorMeta.PageViewType)
 	}
 }
@@ -433,9 +433,9 @@ func TestBuildRouteMetasAllowsNonPageViewSuffix(t *testing.T) {
 
 	pageTemplate := `package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Page(view appcore.NoteView) { <div id="note-content"></div> }
+templ Page(view runtime.NoteView) { <div id="note-content"></div> }
 `
 	writeTestFile(t, filepath.Join(appRoot, "note", "[slug]", "page.templ"), pageTemplate)
 
@@ -451,8 +451,8 @@ templ Page(view appcore.NoteView) { <div id="note-content"></div> }
 	if len(metas) != 1 {
 		t.Fatalf("expected 1 route meta, got %d", len(metas))
 	}
-	if metas[0].PageViewType != "appcore.NoteView" {
-		t.Fatalf("expected appcore.NoteView, got %q", metas[0].PageViewType)
+	if metas[0].PageViewType != "runtime.NoteView" {
+		t.Fatalf("expected runtime.NoteView, got %q", metas[0].PageViewType)
 	}
 }
 
@@ -462,14 +462,14 @@ func TestResolverNamespaceGenerationDeterministic(t *testing.T) {
 			RouteID:        "",
 			RouteName:      "Root",
 			ParamsTypeName: "RootParams",
-			PageViewType:   "appcore.NotesPageView",
+			PageViewType:   "runtime.NotesPageView",
 		},
 		{
 			RouteID:        "author/[slug]",
 			RouteName:      "AuthorParamSlug",
 			ParamsTypeName: "AuthorParamSlugParams",
 			Params:         []routeParamDef{{Name: "slug", FieldName: "Slug"}},
-			PageViewType:   "appcore.AuthorPageView",
+			PageViewType:   "runtime.AuthorPageView",
 		},
 	}
 
@@ -503,7 +503,7 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 			RouteID:        "",
 			RouteName:      "Root",
 			ParamsTypeName: "RootParams",
-			PageViewType:   "appcore.NotesPageView",
+			PageViewType:   "runtime.NotesPageView",
 			Page:           templateDef{ModuleName: "r_page_root"},
 		},
 		{
@@ -511,7 +511,7 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 			RouteName:      "AuthorParamSlug",
 			ParamsTypeName: "AuthorParamSlugParams",
 			Params:         []routeParamDef{{Name: "slug", FieldName: "Slug"}},
-			PageViewType:   "appcore.AuthorPageView",
+			PageViewType:   "runtime.AuthorPageView",
 			Page:           templateDef{ModuleName: "r_page_author_param_slug"},
 		},
 	}
@@ -589,7 +589,7 @@ func TestRegistryGenerationRequiresRootNotFoundTemplate(t *testing.T) {
 			RouteID:        "",
 			RouteName:      "Root",
 			ParamsTypeName: "RootParams",
-			PageViewType:   "appcore.NotesPageView",
+			PageViewType:   "runtime.NotesPageView",
 			Page:           templateDef{ModuleName: "r_page_root"},
 		},
 	}
@@ -626,7 +626,7 @@ func TestRegistryGenerationRequiresRootErrorTemplate(t *testing.T) {
 			RouteID:        "",
 			RouteName:      "Root",
 			ParamsTypeName: "RootParams",
-			PageViewType:   "appcore.NotesPageView",
+			PageViewType:   "runtime.NotesPageView",
 			Page:           templateDef{ModuleName: "r_page_root"},
 		},
 	}
@@ -667,7 +667,7 @@ func TestRegistryGenerationWiresNearestErrorTemplate(t *testing.T) {
 				{Name: "slug", FieldName: "Slug"},
 				{Name: "noteSlug", FieldName: "Noteslug"},
 			},
-			PageViewType: "appcore.NotePageView",
+			PageViewType: "runtime.NotePageView",
 			Page:         templateDef{ModuleName: "r_page_author_param_slug_note_param_noteslug"},
 		},
 	}
@@ -759,21 +759,21 @@ templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { 
 `)
 	writeTestFile(t, filepath.Join(appDir, "404.templ"), `package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Page(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
+templ Page(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 `)
 	writeTestFile(t, filepath.Join(appDir, "error.templ"), `package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Error(view appcore.RootLayoutView, path string) { <div>{ path }</div> }
+templ Error(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 `)
 	writeTestFile(t, filepath.Join(appDir, "page.templ"), `package appsrc
 
-import "example.com/app/internal/web/appcore"
+import "example.com/app/internal/web/runtime"
 
-templ Page(view appcore.NotesPageView) { <div>notes</div> }
+templ Page(view runtime.NotesPageView) { <div>notes</div> }
 `)
 
 	err := Run(Config{
@@ -795,8 +795,97 @@ templ Page(view appcore.NotesPageView) { <div>notes</div> }
 	if _, statErr := os.Stat(filepath.Join(genDir, "registry_gen.go")); statErr != nil {
 		t.Fatalf("expected generated registry file: %v", statErr)
 	}
+	serverSourcePath := filepath.Join(genDir, generatedServerFileName)
+	if _, statErr := os.Stat(serverSourcePath); statErr != nil {
+		t.Fatalf("expected generated server bootstrap: %v", statErr)
+	}
+	serverSource, err := os.ReadFile(serverSourcePath)
+	if err != nil {
+		t.Fatalf("read generated server bootstrap: %v", err)
+	}
+	serverText := string(serverSource)
+	if strings.Contains(serverText, "appcore") {
+		t.Fatalf("generated server bootstrap should not reference appcore:\n%s", serverText)
+	}
+	if !strings.Contains(serverText, `"example.com/app/internal/web/runtime"`) {
+		t.Fatalf("generated server bootstrap should import runtime package:\n%s", serverText)
+	}
+	if !strings.Contains(serverText, "func NewHandler(cfg ServerConfig) (http.Handler, error)") {
+		t.Fatalf("generated server bootstrap should expose NewHandler:\n%s", serverText)
+	}
+	if !strings.Contains(serverText, "func MountRoutes(mux *http.ServeMux, cfg ServerConfig) error") {
+		t.Fatalf("generated server bootstrap should expose MountRoutes:\n%s", serverText)
+	}
 	if _, statErr := os.Stat(filepath.Join(resolverDir, generatedResolverFileName)); statErr != nil {
 		t.Fatalf("expected generated resolver namespace: %v", statErr)
+	}
+}
+
+func TestGenerateServerSourceHonorsFeatureFlags(t *testing.T) {
+	disabledSource, err := generateServerSource(bundler.ProjectLayout{
+		AppModulePath:           testAppModulePath,
+		PublicRequestPathPrefix: "/public",
+		ServerFeatures: bundler.ServerFeatures{
+			I18nRouting:  false,
+			StaticAssets: false,
+			PublicFiles:  false,
+		},
+	})
+	if err != nil {
+		t.Fatalf("generate disabled server source: %v", err)
+	}
+
+	disabledText := string(disabledSource)
+	if strings.Contains(disabledText, "frameworki18n") {
+		t.Fatalf("disabled server source should omit i18n middleware wiring:\n%s", disabledText)
+	}
+	if strings.Contains(disabledText, "StaticManifestPath") {
+		t.Fatalf("disabled server source should omit static manifest config:\n%s", disabledText)
+	}
+	if strings.Contains(disabledText, "loadStaticMount(") {
+		t.Fatalf("disabled server source should omit static loader helper:\n%s", disabledText)
+	}
+	if strings.Contains(disabledText, "PublicFilesCachePolicy") {
+		t.Fatalf("disabled server source should omit public files config:\n%s", disabledText)
+	}
+	if strings.Contains(disabledText, "WithPublicFiles") {
+		t.Fatalf("disabled server source should omit public files middleware:\n%s", disabledText)
+	}
+
+	enabledSource, err := generateServerSource(bundler.ProjectLayout{
+		AppModulePath:           testAppModulePath,
+		PublicRequestPathPrefix: "/public",
+		ServerFeatures: bundler.ServerFeatures{
+			I18nRouting:  true,
+			StaticAssets: true,
+			PublicFiles:  true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("generate enabled server source: %v", err)
+	}
+
+	enabledText := string(enabledSource)
+	if strings.Contains(enabledText, "appcore") {
+		t.Fatalf("enabled server source should not reference appcore:\n%s", enabledText)
+	}
+	if !strings.Contains(enabledText, `"example.com/app/internal/web/runtime"`) {
+		t.Fatalf("enabled server source should import runtime package:\n%s", enabledText)
+	}
+	if !strings.Contains(enabledText, "frameworki18n.Middleware") {
+		t.Fatalf("enabled server source should include i18n middleware:\n%s", enabledText)
+	}
+	if !strings.Contains(enabledText, "StaticManifestPath") {
+		t.Fatalf("enabled server source should include static manifest config:\n%s", enabledText)
+	}
+	if !strings.Contains(enabledText, "func loadStaticMount(manifestPath string)") {
+		t.Fatalf("enabled server source should include static loader helper:\n%s", enabledText)
+	}
+	if !strings.Contains(enabledText, "PublicRequestPathPrefix string") {
+		t.Fatalf("enabled server source should include public path prefix config:\n%s", enabledText)
+	}
+	if !strings.Contains(enabledText, "httpserver.WithPublicFiles") {
+		t.Fatalf("enabled server source should include public files middleware:\n%s", enabledText)
 	}
 }
 

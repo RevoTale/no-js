@@ -34,9 +34,9 @@ your-app/                             # provides the app root; required
         note/                         # provides a static route segment; optional
           [slug]/                     # provides a dynamic route segment; optional, but [param] syntax is required
             page.templ                # provides the /note/:slug page; required for this route
-      appcore/                        # provides app-specific contracts for generated code; required today
-        context.go                    # provides appcore.Context; required today
-        view_models.go                # provides appcore page view types and RootLayoutView; required today
+      runtime/                        # provides app-specific contracts for generated code; required today
+        context.go                    # provides runtime.Context; required today
+        view_models.go                # provides runtime page view types and RootLayoutView; required today
         loaders.go                    # provides page loaders and metadata helpers; usually required
       resolvers/                      # provides handwritten route resolver methods; required
         root.go                       # provides resolver methods for the root route; optional per route
@@ -59,9 +59,9 @@ These are not suggestions. They are current framework contracts.
 - Route templates must use the exact file names `root.templ`, `layout.templ`, `page.templ`, `404.templ`, and `error.templ`.
 - `root.templ` is required at `internal/web/app/root.templ`.
 - Root `404.templ` and root `error.templ` are required.
-- `page.templ` view types must be `appcore.*`.
-- Layout and error/not-found contracts currently depend on `appcore.RootLayoutView`.
-- Generated code imports `internal/web/appcore` and `internal/web/resolvers` from the consuming module.
+- `page.templ` view types must be `runtime.*`.
+- Layout and error/not-found contracts currently depend on `runtime.RootLayoutView`.
+- Generated code imports `internal/web/runtime` and `internal/web/resolvers` from the consuming module.
 - Route-local `components/` directories are rejected by the generator.
 - Only `root.templ` may contain document-level tags like `<html>`, `<head>`, and `<body>`.
 
@@ -95,7 +95,7 @@ These are not suggestions. They are current framework contracts.
 
 ## Nuances
 
-- This framework is intentionally not generic yet. The generator still assumes an `appcore` package and specific template signatures.
+- This framework is intentionally not generic yet. The generator still assumes an `runtime` package and specific template signatures.
 - The generator is module-aware: framework imports point to `github.com/RevoTale/no-js`, but generated app imports are resolved from the consuming app's `go.mod`.
 - i18n locales are currently normalized to two-letter lowercase codes.
 - HTMX support is request-driven. Partial requests are detected through `HX-Request`, and metadata patches are emitted through response headers.

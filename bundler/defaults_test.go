@@ -13,6 +13,8 @@ func TestResolveProjectLayout(t *testing.T) {
 	rootDir := t.TempDir()
 	writeBundlerTestFile(t, filepath.Join(rootDir, "go.mod"), "module example.com/app\n\ngo 1.25.0\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "internal", "web", "app", "page.templ"), "package appsrc\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "internal", "web", "runtime", "context.go"), "package runtime\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "internal", "web", "i18n", "doc.go"), "package i18n\n")
 
 	layout, err := ResolveProjectLayout(rootDir, Config{})
 	if err != nil {
@@ -24,6 +26,15 @@ func TestResolveProjectLayout(t *testing.T) {
 	}
 	if got := filepath.ToSlash(layout.AppDir); got != filepath.ToSlash(filepath.Join(rootDir, defaultAppDir)) {
 		t.Fatalf("unexpected app dir: %q", got)
+	}
+	if got := filepath.ToSlash(layout.RuntimeDir); got != filepath.ToSlash(filepath.Join(rootDir, defaultRuntimeDir)) {
+		t.Fatalf("unexpected runtime dir: %q", got)
+	}
+	if layout.RuntimeImport != defaultRuntimeDir {
+		t.Fatalf("unexpected runtime import: %q", layout.RuntimeImport)
+	}
+	if got := filepath.ToSlash(layout.I18nDir); got != filepath.ToSlash(filepath.Join(rootDir, defaultI18nDir)) {
+		t.Fatalf("unexpected i18n dir: %q", got)
 	}
 	if layout.GeneratedImport != defaultGeneratedDir {
 		t.Fatalf("unexpected generated import: %q", layout.GeneratedImport)
@@ -60,6 +71,8 @@ func TestResolveProjectLayoutRejectsEscapeDir(t *testing.T) {
 	rootDir := t.TempDir()
 	writeBundlerTestFile(t, filepath.Join(rootDir, "go.mod"), "module example.com/app\n\ngo 1.25.0\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "internal", "web", "app", "page.templ"), "package appsrc\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "internal", "web", "runtime", "context.go"), "package runtime\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "internal", "web", "i18n", "doc.go"), "package i18n\n")
 
 	_, err := ResolveProjectLayout(rootDir, Config{
 		AppDir: "../outside",

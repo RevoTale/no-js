@@ -94,6 +94,34 @@ func TestWithPublicFiles(t *testing.T) {
 		}
 	})
 
+	t.Run("serves files under configured request path prefix only", func(t *testing.T) {
+		next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusAccepted)
+		})
+		cfg := PublicFilesConfig{Dir: publicDir}.WithRequestPathPrefix("site/")
+		middleware, err := WithPublicFiles(cfg)
+		if err != nil {
+			t.Fatalf("build public middleware: %v", err)
+		}
+
+		handler := middleware(next)
+
+		recPrefixed := httptest.NewRecorder()
+		handler.ServeHTTP(recPrefixed, httptest.NewRequest(http.MethodGet, "/site/favicon.svg", nil))
+		if recPrefixed.Code != http.StatusOK {
+			t.Fatalf("prefixed public file status: expected %d, got %d", http.StatusOK, recPrefixed.Code)
+		}
+		if got := recPrefixed.Body.String(); got != "<svg/>" {
+			t.Fatalf("prefixed public file body: expected %q, got %q", "<svg/>", got)
+		}
+
+		recUnprefixed := httptest.NewRecorder()
+		handler.ServeHTTP(recUnprefixed, httptest.NewRequest(http.MethodGet, "/favicon.svg", nil))
+		if recUnprefixed.Code != http.StatusAccepted {
+			t.Fatalf("unprefixed request should delegate: expected %d, got %d", http.StatusAccepted, recUnprefixed.Code)
+		}
+	})
+
 	t.Run("delegates unknown paths", func(t *testing.T) {
 		nextCalled := false
 		next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

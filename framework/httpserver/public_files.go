@@ -12,12 +12,18 @@ import (
 const defaultPublicFilesCachePolicy = "public, max-age=0"
 
 type PublicFilesConfig struct {
-	Dir         string
-	CachePolicy string
+	Dir               string
+	RequestPathPrefix string
+	CachePolicy       string
 }
 
 func (cfg PublicFilesConfig) WithPublicFileCachePolicy(policy string) PublicFilesConfig {
 	cfg.CachePolicy = strings.TrimSpace(policy)
+	return cfg
+}
+
+func (cfg PublicFilesConfig) WithRequestPathPrefix(prefix string) PublicFilesConfig {
+	cfg.RequestPathPrefix = strings.TrimSpace(prefix)
 	return cfg
 }
 
@@ -35,7 +41,7 @@ func WithPublicFiles(cfg PublicFilesConfig) (func(http.Handler) http.Handler, er
 		return nil, fmt.Errorf("public dir %q is not a directory", publicDir)
 	}
 
-	index, err := buildPublicFilesIndex(publicDir)
+	index, err := buildPublicFilesIndex(publicDir, normalizePublicFilesRequestPathPrefix(cfg.RequestPathPrefix))
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +81,7 @@ func WithPublicFiles(cfg PublicFilesConfig) (func(http.Handler) http.Handler, er
 	}, nil
 }
 
-func buildPublicFilesIndex(publicDir string) (map[string]string, error) {
+func buildPublicFilesIndex(publicDir string, requestPathPrefix string) (map[string]string, error) {
 	index := make(map[string]string)
 	err := filepath.WalkDir(publicDir, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -100,7 +106,7 @@ func buildPublicFilesIndex(publicDir string) (map[string]string, error) {
 			return fmt.Errorf("invalid public file path %q", relPath)
 		}
 
-		publicPath := "/" + normalizedRel
+		publicPath := joinPublicRequestPath(requestPathPrefix, normalizedRel)
 		index[publicPath] = path
 		return nil
 	})
@@ -108,6 +114,34 @@ func buildPublicFilesIndex(publicDir string) (map[string]string, error) {
 		return nil, fmt.Errorf("index public dir %q: %w", publicDir, err)
 	}
 	return index, nil
+}
+
+func normalizePublicFilesRequestPathPrefix(pathValue string) string {
+	trimmed := strings.TrimSpace(pathValue)
+	if trimmed == "" {
+		return "/"
+	}
+	if !strings.HasPrefix(trimmed, "/") {
+		trimmed = "/" + trimmed
+	}
+	if trimmed != "/" && strings.HasSuffix(trimmed, "/") {
+		trimmed = strings.TrimRight(trimmed, "/")
+	}
+	return trimmed
+}
+
+func joinPublicRequestPath(prefix string, relativePath string) string {
+	trimmedRelative := strings.Trim(strings.TrimSpace(relativePath), "/")
+	if trimmedRelative == "" {
+		return normalizePublicFilesRequestPathPrefix(prefix)
+	}
+
+	normalizedPrefix := normalizePublicFilesRequestPathPrefix(prefix)
+	if normalizedPrefix == "/" {
+		return "/" + trimmedRelative
+	}
+
+	return normalizedPrefix + "/" + trimmedRelative
 }
 
 func normalizePublicRequestPath(pathValue string) string {
