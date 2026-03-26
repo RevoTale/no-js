@@ -198,8 +198,8 @@ func TestWriteManifest(t *testing.T) {
 
 	manifestPath := filepath.Join(t.TempDir(), "manifest.json")
 	expected := frameworkstaticassets.Manifest{
-		Hash:      "abc123",
-		URLPrefix: "/_assets/abc123/",
+		Version: frameworkstaticassets.CurrentManifestVersion,
+		Hash:    "abc123",
 	}
 
 	if err := WriteManifest(manifestPath, expected); err != nil {
@@ -214,8 +214,8 @@ func TestWriteManifest(t *testing.T) {
 	if actual.Hash != expected.Hash {
 		t.Fatalf("hash mismatch: expected %q, got %q", expected.Hash, actual.Hash)
 	}
-	if actual.URLPrefix != expected.URLPrefix {
-		t.Fatalf("prefix mismatch: expected %q, got %q", expected.URLPrefix, actual.URLPrefix)
+	if actual.Version != expected.Version {
+		t.Fatalf("version mismatch: expected %d, got %d", expected.Version, actual.Version)
 	}
 }
 

@@ -254,6 +254,31 @@ func TestHTTPServerGzipCompression(t *testing.T) {
 	}
 }
 
+func TestHTTPServerCanDisableHealthEndpoint(t *testing.T) {
+	t.Parallel()
+
+	handler, err := New(Config[*struct{}]{
+		AppContext:     &struct{}{},
+		DisableHealth:  true,
+		NotFoundPage:   func(framework.NotFoundContext) templ.Component { return textComponent("not-found") },
+		CachePolicies:  DefaultCachePolicies(),
+		LogServerError: func(error) {},
+	})
+	if err != nil {
+		t.Fatalf("new http server: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("healthz status: expected %d, got %d", http.StatusNotFound, rec.Code)
+	}
+	if body := strings.TrimSpace(rec.Body.String()); body != "not-found" {
+		t.Fatalf("healthz body: expected not-found page, got %q", body)
+	}
+}
+
 func TestHTTPServerDoesNotCompressWithoutGzipAcceptEncoding(t *testing.T) {
 	t.Parallel()
 

@@ -61,8 +61,9 @@ type Config[C interface{}] struct {
 	LogResolverTiming   func(event framework.ResolverTiming)
 	EnableResolverDebug bool
 
-	HealthPath string
-	HealthBody string
+	DisableHealth bool
+	HealthPath    string
+	HealthBody    string
 }
 
 type server[C interface{}] struct {
@@ -80,6 +81,9 @@ type server[C interface{}] struct {
 func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 	cachePolicies := withDefaultPolicies(cfg.CachePolicies)
 	healthPath := normalizeHealthPath(cfg.HealthPath)
+	if cfg.DisableHealth {
+		healthPath = ""
+	}
 	healthBody := strings.TrimSpace(cfg.HealthBody)
 	if healthBody == "" {
 		healthBody = defaultHealthBody
@@ -123,7 +127,7 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 }
 
 func (s *server[C]) handleRoute(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == s.healthPath {
+	if strings.TrimSpace(s.healthPath) != "" && r.URL.Path == s.healthPath {
 		s.handleHealth(w)
 		return
 	}

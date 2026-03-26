@@ -8,19 +8,24 @@ import (
 )
 
 const defaultURLPrefix = "/_assets/"
+const CurrentManifestVersion = 1
 
 type Manifest struct {
+	Version   int    `json:"version,omitempty"`
 	Hash      string `json:"hash"`
-	URLPrefix string `json:"url_prefix"`
+	URLPrefix string `json:"url_prefix,omitempty"`
 }
 
 func (manifest Manifest) URL(assetPath string) string {
-	manifest = normalizeManifest(manifest)
-
 	trimmed := strings.TrimSpace(assetPath)
 	trimmed = strings.ReplaceAll(trimmed, `\`, `/`)
 	trimmed = strings.TrimPrefix(trimmed, "/")
-	return manifest.URLPrefix + trimmed
+	return manifest.VersionedURLPrefix(defaultURLPrefix) + trimmed
+}
+
+func (manifest Manifest) VersionedURLPrefix(basePrefix string) string {
+	normalized := normalizeManifest(manifest)
+	return joinVersionedPrefix(basePrefix, normalized.Hash)
 }
 
 func ReadManifest(path string) (Manifest, error) {
@@ -47,7 +52,7 @@ func ReadManifest(path string) (Manifest, error) {
 	return manifest, nil
 }
 
-func normalizeURLPrefix(prefix string) string {
+func NormalizeURLPrefix(prefix string) string {
 	trimmed := strings.TrimSpace(prefix)
 	if trimmed == "" {
 		trimmed = defaultURLPrefix
@@ -62,18 +67,48 @@ func normalizeURLPrefix(prefix string) string {
 	return trimmed
 }
 
+func joinVersionedPrefix(basePrefix string, hash string) string {
+	normalizedPrefix := NormalizeURLPrefix(basePrefix)
+	trimmedHash := strings.Trim(strings.TrimSpace(hash), "/")
+	if trimmedHash == "" {
+		return normalizedPrefix
+	}
+
+	return normalizedPrefix + trimmedHash + "/"
+}
+
 func normalizeManifest(manifest Manifest) Manifest {
 	manifest.Hash = strings.TrimSpace(manifest.Hash)
-	manifest.URLPrefix = normalizeURLPrefix(manifest.URLPrefix)
+	manifest.URLPrefix = strings.TrimSpace(manifest.URLPrefix)
+	if manifest.Hash == "" && manifest.URLPrefix != "" {
+		manifest.Hash = hashFromURLPrefix(manifest.URLPrefix)
+	}
+	if manifest.Version == 0 && manifest.Hash != "" {
+		manifest.Version = CurrentManifestVersion
+	}
 	return manifest
 }
 
 func validateManifest(manifest Manifest) error {
+	if manifest.Version != CurrentManifestVersion {
+		return fmt.Errorf("manifest version must be %d", CurrentManifestVersion)
+	}
 	if strings.TrimSpace(manifest.Hash) == "" {
 		return fmt.Errorf("manifest hash is required")
 	}
-	if strings.TrimSpace(manifest.URLPrefix) == "" {
-		return fmt.Errorf("manifest url prefix is required")
-	}
 	return nil
+}
+
+func hashFromURLPrefix(prefix string) string {
+	normalized := NormalizeURLPrefix(prefix)
+	trimmed := strings.Trim(normalized, "/")
+	if trimmed == "" {
+		return ""
+	}
+
+	segments := strings.Split(trimmed, "/")
+	if len(segments) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(segments[len(segments)-1])
 }

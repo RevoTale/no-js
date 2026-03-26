@@ -23,7 +23,7 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 		return ProjectLayout{}, fmt.Errorf("go.mod is missing in %s", resolvedRoot)
 	}
 
-	appDir, appImportPath, err := resolveModuleDir(resolvedRoot, cfg.AppDir, defaultAppDir)
+	appDir, appImportPath, err := resolveModuleDir(resolvedRoot, cfg.Project.AppDir, defaultAppDir)
 	if err != nil {
 		return ProjectLayout{}, fmt.Errorf("resolve app dir: %w", err)
 	}
@@ -31,33 +31,62 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 		return ProjectLayout{}, fmt.Errorf("strict app root missing: expected %s", appImportPath)
 	}
 
-	generatedDir, generatedImport, err := resolveModuleDir(resolvedRoot, cfg.GenDir, defaultGeneratedDir)
+	generatedDir, generatedImport, err := resolveModuleDir(resolvedRoot, cfg.Project.GenDir, defaultGeneratedDir)
 	if err != nil {
 		return ProjectLayout{}, fmt.Errorf("resolve generated dir: %w", err)
 	}
-	resolverDir, resolverImport, err := resolveModuleDir(resolvedRoot, cfg.Resolver, defaultResolverDir)
+	resolverDir, resolverImport, err := resolveModuleDir(resolvedRoot, cfg.Project.ResolverDir, defaultResolverDir)
 	if err != nil {
 		return ProjectLayout{}, fmt.Errorf("resolve resolver dir: %w", err)
 	}
-	runtimeDir, runtimeImport, err := resolveModuleDir(resolvedRoot, cfg.Server.RuntimeDir, defaultRuntimeDir)
+	runtimeDir, runtimeImport, err := resolveModuleDir(resolvedRoot, cfg.Project.RuntimeDir, defaultRuntimeDir)
 	if err != nil {
 		return ProjectLayout{}, fmt.Errorf("resolve runtime dir: %w", err)
 	}
 	if !filesystem.PathExists(runtimeDir) {
 		return ProjectLayout{}, fmt.Errorf("strict runtime root missing: expected %s", runtimeImport)
 	}
-	i18nDir, i18nImport, err := resolveModuleDir(resolvedRoot, cfg.Server.I18nDir, defaultI18nDir)
+	bootstrapDir, bootstrapImport, err := resolveModuleDir(resolvedRoot, cfg.Project.BootstrapDir, defaultBootstrapDir)
+	if err != nil {
+		return ProjectLayout{}, fmt.Errorf("resolve bootstrap dir: %w", err)
+	}
+	i18nDir, i18nImport, err := resolveModuleDir(resolvedRoot, cfg.Project.I18nDir, defaultI18nDir)
 	if err != nil {
 		return ProjectLayout{}, fmt.Errorf("resolve i18n dir: %w", err)
 	}
-	publicDir, _, err := resolveModuleDir(resolvedRoot, cfg.PublicDirName, defaultPublicDirName)
+	publicDir, _, err := resolveModuleDir(resolvedRoot, cfg.Project.PublicDir, defaultPublicDirName)
 	if err != nil {
 		return ProjectLayout{}, fmt.Errorf("resolve public dir: %w", err)
 	}
+	staticSourceDir, _, err := resolveModuleDir(resolvedRoot, cfg.StaticAssets.SourceDir, defaultStaticSourceDir)
+	if err != nil {
+		return ProjectLayout{}, fmt.Errorf("resolve static source dir: %w", err)
+	}
+	staticOutDir, _, err := resolveModuleDir(resolvedRoot, cfg.StaticAssets.OutDir, defaultStaticOutDir)
+	if err != nil {
+		return ProjectLayout{}, fmt.Errorf("resolve static out dir: %w", err)
+	}
+	staticManifestDefault := path.Join(
+		strings.Trim(strings.TrimSpace(cfg.StaticAssets.OutDir), "/"),
+		defaultStaticManifestFileName,
+	)
+	if strings.TrimSpace(staticManifestDefault) == defaultStaticManifestFileName {
+		staticManifestDefault = path.Join(defaultStaticOutDir, defaultStaticManifestFileName)
+	}
+	staticManifestPath, err := resolveRelativePath(
+		resolvedRoot,
+		cfg.StaticAssets.ManifestPath,
+		staticManifestDefault,
+	)
+	if err != nil {
+		return ProjectLayout{}, fmt.Errorf("resolve static manifest path: %w", err)
+	}
+
 	serverFeatures := ServerFeatures{
-		I18nRouting:  cfg.Server.Features.I18nRouting.EnabledByDefault(true),
-		StaticAssets: cfg.Server.Features.StaticAssets.EnabledByDefault(true),
-		PublicFiles:  cfg.Server.Features.PublicFiles.EnabledByDefault(true),
+		I18nRouting:    cfg.Server.Features.I18nRouting.Resolve(filesystem.PathExists(i18nDir)),
+		StaticAssets:   cfg.Server.Features.StaticAssets.Resolve(filesystem.PathExists(staticSourceDir)),
+		PublicFiles:    cfg.Server.Features.PublicFiles.Resolve(filesystem.PathExists(publicDir)),
+		HealthEndpoint: cfg.Server.Features.HealthEndpoint.Resolve(true),
 	}
 	if serverFeatures.I18nRouting && !filesystem.PathExists(i18nDir) {
 		return ProjectLayout{}, fmt.Errorf("strict i18n root missing: expected %s", i18nImport)
@@ -78,19 +107,26 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 		ResolverImport:  resolverImport,
 		RuntimeDir:      runtimeDir,
 		RuntimeImport:   runtimeImport,
+		BootstrapDir:    bootstrapDir,
+		BootstrapImport: bootstrapImport,
 		I18nDir:         i18nDir,
 		I18nImport:      i18nImport,
 
 		PublicDir:               publicDir,
-		PublicRequestPathPrefix: normalizeRequestPathPrefix(cfg.PublicDirRequestPathPrefix),
-		ServerFeatures:          serverFeatures,
+		PublicRequestPathPrefix: normalizeRequestPathPrefix(cfg.PublicFiles.RequestPathPrefix),
+		StaticAssets: StaticAssetsLayout{
+			SourceDir:    staticSourceDir,
+			OutDir:       staticOutDir,
+			ManifestPath: staticManifestPath,
+		},
+		ServerFeatures: serverFeatures,
 
 		AppModulePath: appModulePath,
 	}, nil
 }
 
 func resolveModuleDir(rootDir string, value string, defaultValue string) (string, string, error) {
-	moduleDir, err := normalizeModuleDir(value, defaultValue)
+	moduleDir, err := normalizeRelativePath(value, defaultValue)
 	if err != nil {
 		return "", "", err
 	}
@@ -98,7 +134,16 @@ func resolveModuleDir(rootDir string, value string, defaultValue string) (string
 	return filepath.ToSlash(filepath.Join(rootDir, moduleDir)), moduleDir, nil
 }
 
-func normalizeModuleDir(value string, defaultValue string) (string, error) {
+func resolveRelativePath(rootDir string, value string, defaultValue string) (string, error) {
+	relativePath, err := normalizeRelativePath(value, defaultValue)
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.ToSlash(filepath.Join(rootDir, relativePath)), nil
+}
+
+func normalizeRelativePath(value string, defaultValue string) (string, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		trimmed = defaultValue
@@ -106,13 +151,13 @@ func normalizeModuleDir(value string, defaultValue string) (string, error) {
 
 	normalized := filepath.ToSlash(filepath.Clean(trimmed))
 	if normalized == "." {
-		return "", fmt.Errorf("module dir cannot be current directory")
+		return "", fmt.Errorf("path cannot be current directory")
 	}
 	if path.IsAbs(normalized) {
-		return "", fmt.Errorf("module dir %q must be relative", trimmed)
+		return "", fmt.Errorf("path %q must be relative", trimmed)
 	}
 	if strings.HasPrefix(normalized, "../") || normalized == ".." {
-		return "", fmt.Errorf("module dir %q must stay inside the app root", trimmed)
+		return "", fmt.Errorf("path %q must stay inside the app root", trimmed)
 	}
 
 	return normalized, nil

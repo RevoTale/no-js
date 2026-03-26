@@ -839,13 +839,13 @@ func TestGenerateServerSourceHonorsFeatureFlags(t *testing.T) {
 	if strings.Contains(disabledText, "frameworki18n") {
 		t.Fatalf("disabled server source should omit i18n middleware wiring:\n%s", disabledText)
 	}
-	if strings.Contains(disabledText, "StaticManifestPath") {
+	if strings.Contains(disabledText, "type StaticAssetsConfig struct") {
 		t.Fatalf("disabled server source should omit static manifest config:\n%s", disabledText)
 	}
 	if strings.Contains(disabledText, "loadStaticMount(") {
 		t.Fatalf("disabled server source should omit static loader helper:\n%s", disabledText)
 	}
-	if strings.Contains(disabledText, "PublicFilesCachePolicy") {
+	if strings.Contains(disabledText, "type PublicFilesConfig struct") {
 		t.Fatalf("disabled server source should omit public files config:\n%s", disabledText)
 	}
 	if strings.Contains(disabledText, "WithPublicFiles") {
@@ -856,9 +856,10 @@ func TestGenerateServerSourceHonorsFeatureFlags(t *testing.T) {
 		AppModulePath:           testAppModulePath,
 		PublicRequestPathPrefix: "/public",
 		ServerFeatures: bundler.ServerFeatures{
-			I18nRouting:  true,
-			StaticAssets: true,
-			PublicFiles:  true,
+			I18nRouting:    true,
+			StaticAssets:   true,
+			PublicFiles:    true,
+			HealthEndpoint: true,
 		},
 	})
 	if err != nil {
@@ -875,17 +876,46 @@ func TestGenerateServerSourceHonorsFeatureFlags(t *testing.T) {
 	if !strings.Contains(enabledText, "frameworki18n.Middleware") {
 		t.Fatalf("enabled server source should include i18n middleware:\n%s", enabledText)
 	}
-	if !strings.Contains(enabledText, "StaticManifestPath") {
+	if !strings.Contains(enabledText, "type RuntimeConfig struct") {
+		t.Fatalf("enabled server source should include grouped runtime config:\n%s", enabledText)
+	}
+	if !strings.Contains(enabledText, "type Hooks struct") {
+		t.Fatalf("enabled server source should include hook config:\n%s", enabledText)
+	}
+	if !strings.Contains(enabledText, "type StaticAssetsConfig struct") {
 		t.Fatalf("enabled server source should include static manifest config:\n%s", enabledText)
 	}
-	if !strings.Contains(enabledText, "func loadStaticMount(manifestPath string)") {
+	if !strings.Contains(enabledText, "func loadStaticMount(manifestPath string, basePrefix string)") {
 		t.Fatalf("enabled server source should include static loader helper:\n%s", enabledText)
 	}
-	if !strings.Contains(enabledText, "PublicRequestPathPrefix string") {
+	if !strings.Contains(enabledText, "RequestPathPrefix string") {
 		t.Fatalf("enabled server source should include public path prefix config:\n%s", enabledText)
 	}
 	if !strings.Contains(enabledText, "httpserver.WithPublicFiles") {
 		t.Fatalf("enabled server source should include public files middleware:\n%s", enabledText)
+	}
+	if !strings.Contains(enabledText, "for idx := len(cfg.Hooks.Middleware) - 1; idx >= 0; idx--") {
+		t.Fatalf(
+			"enabled server source should wrap middleware hooks in reverse for request-order stability:\n%s",
+			enabledText,
+		)
+	}
+	if !strings.Contains(enabledText, "for _, mount := range cfg.Hooks.Mount") {
+		t.Fatalf("enabled server source should include mount hooks:\n%s", enabledText)
+	}
+	if !strings.Contains(enabledText, "handler = frameworki18n.Middleware") {
+		t.Fatalf("enabled server source should apply i18n after middleware hooks:\n%s", enabledText)
+	}
+	if !strings.Contains(enabledText, "versionedPrefix := manifest.VersionedURLPrefix(basePrefix)") {
+		t.Fatalf("enabled server source should compose runtime static prefix from manifest hash:\n%s", enabledText)
+	}
+	if strings.Index(enabledText, "for idx := len(cfg.Hooks.Middleware) - 1; idx >= 0; idx--") >
+		strings.Index(enabledText, "handler = frameworki18n.Middleware") {
+		t.Fatalf("middleware hook wrapping should occur before i18n middleware:\n%s", enabledText)
+	}
+	if strings.Index(enabledText, "handler = frameworki18n.Middleware") >
+		strings.Index(enabledText, "httpserver.WithPublicFiles") {
+		t.Fatalf("public files middleware should be applied after i18n middleware:\n%s", enabledText)
 	}
 }
 

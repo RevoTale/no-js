@@ -1086,10 +1086,13 @@ func generateServerSource(paths bundler.ProjectLayout) ([]byte, error) {
 	importLines := []string{
 		"\"fmt\"",
 		"\"net/http\"",
-		"\"strings\"",
 		fmt.Sprintf("%q", frameworkModulePath+"/framework"),
 		fmt.Sprintf("%q", frameworkModulePath+"/framework/httpserver"),
 		fmt.Sprintf("%q", runtimeImportPath(paths)),
+	}
+	if paths.ServerFeatures.I18nRouting || paths.ServerFeatures.StaticAssets ||
+		paths.ServerFeatures.PublicFiles || paths.ServerFeatures.HealthEndpoint {
+		importLines = append(importLines, "\"strings\"")
 	}
 	if paths.ServerFeatures.I18nRouting {
 		importLines = append(importLines, fmt.Sprintf("frameworki18n %q", frameworkModulePath+"/framework/i18n"))
@@ -1113,24 +1116,60 @@ func generateServerSource(paths bundler.ProjectLayout) ([]byte, error) {
 	}
 	buffer.WriteString(")\n\n")
 
-	buffer.WriteString("type ServerConfig struct {\n")
+	buffer.WriteString("type RuntimeConfig struct {\n")
 	buffer.WriteString("\tAppContext *runtime.Context\n")
-	buffer.WriteString("\tRuntime    runtime.BootstrapConfig\n")
+	buffer.WriteString("\tBootstrap  runtime.BootstrapConfig\n")
 	buffer.WriteString("\tResolvers  RouteResolvers\n")
+	buffer.WriteString("}\n\n")
+
 	if paths.ServerFeatures.StaticAssets {
-		buffer.WriteString("\tStaticManifestPath string\n")
+		buffer.WriteString("type StaticAssetsConfig struct {\n")
+		buffer.WriteString("\tManifestPath string\n")
+		buffer.WriteString("\tURLPrefix    string\n")
+		buffer.WriteString("}\n\n")
 	}
 	if paths.ServerFeatures.PublicFiles {
-		buffer.WriteString("\tPublicDir               string\n")
-		buffer.WriteString("\tPublicRequestPathPrefix string\n")
-		buffer.WriteString("\tPublicFilesCachePolicy  string\n")
+		buffer.WriteString("type PublicFilesConfig struct {\n")
+		buffer.WriteString("\tDir               string\n")
+		buffer.WriteString("\tRequestPathPrefix string\n")
+		buffer.WriteString("\tCachePolicy       string\n")
+		buffer.WriteString("}\n\n")
 	}
+	if paths.ServerFeatures.HealthEndpoint {
+		buffer.WriteString("type HealthConfig struct {\n")
+		buffer.WriteString("\tPath string\n")
+		buffer.WriteString("\tBody string\n")
+		buffer.WriteString("}\n\n")
+	}
+	buffer.WriteString("type FeatureConfig struct {\n")
+	if paths.ServerFeatures.StaticAssets {
+		buffer.WriteString("\tStaticAssets StaticAssetsConfig\n")
+	}
+	if paths.ServerFeatures.PublicFiles {
+		buffer.WriteString("\tPublicFiles PublicFilesConfig\n")
+	}
+	if paths.ServerFeatures.HealthEndpoint {
+		buffer.WriteString("\tHealth HealthConfig\n")
+	}
+	buffer.WriteString("}\n\n")
+
+	buffer.WriteString("type Hooks struct {\n")
+	buffer.WriteString("\tMiddleware []func(http.Handler) http.Handler\n")
+	buffer.WriteString("\tMount      []func(*http.ServeMux) error\n")
+	buffer.WriteString("}\n\n")
+
+	buffer.WriteString("type Observability struct {\n")
 	buffer.WriteString("\tCachePolicies       httpserver.CachePolicies\n")
 	buffer.WriteString("\tLogServerError      func(error)\n")
 	buffer.WriteString("\tLogResolverTiming   func(event framework.ResolverTiming)\n")
 	buffer.WriteString("\tEnableResolverDebug bool\n")
-	buffer.WriteString("\tHealthPath          string\n")
-	buffer.WriteString("\tHealthBody          string\n")
+	buffer.WriteString("}\n\n")
+
+	buffer.WriteString("type ServerConfig struct {\n")
+	buffer.WriteString("\tRuntime       RuntimeConfig\n")
+	buffer.WriteString("\tFeatures      FeatureConfig\n")
+	buffer.WriteString("\tHooks         Hooks\n")
+	buffer.WriteString("\tObservability Observability\n")
 	buffer.WriteString("}\n\n")
 
 	buffer.WriteString("func NewHandler(cfg ServerConfig) (http.Handler, error) {\n")
@@ -1145,13 +1184,16 @@ func generateServerSource(paths bundler.ProjectLayout) ([]byte, error) {
 	buffer.WriteString("\tif mux == nil {\n")
 	buffer.WriteString("\t\treturn fmt.Errorf(\"mux is required\")\n")
 	buffer.WriteString("\t}\n")
-	buffer.WriteString("\tresolvers := cfg.Resolvers\n")
+	buffer.WriteString("\tresolvers := cfg.Runtime.Resolvers\n")
 	buffer.WriteString("\tif resolvers == nil {\n")
 	buffer.WriteString("\t\tresolvers = NewRouteResolvers()\n")
 	buffer.WriteString("\t}\n")
-	buffer.WriteString("\truntimeCfg := cfg.Runtime\n")
+	buffer.WriteString("\truntimeCfg := cfg.Runtime.Bootstrap\n")
 	if paths.ServerFeatures.StaticAssets {
-		buffer.WriteString("\tstaticMount, err := loadStaticMount(cfg.StaticManifestPath)\n")
+		buffer.WriteString("\tstaticMount, err := loadStaticMount(\n")
+		buffer.WriteString("\t\tcfg.Features.StaticAssets.ManifestPath,\n")
+		buffer.WriteString("\t\tcfg.Features.StaticAssets.URLPrefix,\n")
+		buffer.WriteString("\t)\n")
 		buffer.WriteString("\tif err != nil {\n")
 		buffer.WriteString("\t\treturn err\n")
 		buffer.WriteString("\t}\n")
@@ -1163,20 +1205,31 @@ func generateServerSource(paths bundler.ProjectLayout) ([]byte, error) {
 	}
 	buffer.WriteString("\truntime.Initialize(runtimeCfg)\n")
 	buffer.WriteString("\thandler, err := httpserver.New(httpserver.Config[*runtime.Context]{\n")
-	buffer.WriteString("\t\tAppContext:          cfg.AppContext,\n")
+	buffer.WriteString("\t\tAppContext:          cfg.Runtime.AppContext,\n")
 	buffer.WriteString("\t\tHandlers:            Handlers(resolvers),\n")
 	buffer.WriteString("\t\tIsNotFoundError:     runtime.IsNotFoundError,\n")
 	buffer.WriteString("\t\tNotFoundPage:        NotFoundPage,\n")
 	buffer.WriteString("\t\tStatic:              staticMount,\n")
-	buffer.WriteString("\t\tCachePolicies:       cfg.CachePolicies,\n")
-	buffer.WriteString("\t\tLogServerError:      cfg.LogServerError,\n")
-	buffer.WriteString("\t\tLogResolverTiming:   cfg.LogResolverTiming,\n")
-	buffer.WriteString("\t\tEnableResolverDebug: cfg.EnableResolverDebug,\n")
-	buffer.WriteString("\t\tHealthPath:          cfg.HealthPath,\n")
-	buffer.WriteString("\t\tHealthBody:          cfg.HealthBody,\n")
+	buffer.WriteString("\t\tCachePolicies:       cfg.Observability.CachePolicies,\n")
+	buffer.WriteString("\t\tLogServerError:      cfg.Observability.LogServerError,\n")
+	buffer.WriteString("\t\tLogResolverTiming:   cfg.Observability.LogResolverTiming,\n")
+	buffer.WriteString("\t\tEnableResolverDebug: cfg.Observability.EnableResolverDebug,\n")
+	if paths.ServerFeatures.HealthEndpoint {
+		buffer.WriteString("\t\tHealthPath:          cfg.Features.Health.Path,\n")
+		buffer.WriteString("\t\tHealthBody:          cfg.Features.Health.Body,\n")
+	} else {
+		buffer.WriteString("\t\tDisableHealth:       true,\n")
+	}
 	buffer.WriteString("\t})\n")
 	buffer.WriteString("\tif err != nil {\n")
 	buffer.WriteString("\t\treturn fmt.Errorf(\"build generated handler: %w\", err)\n")
+	buffer.WriteString("\t}\n")
+	buffer.WriteString("\tfor idx := len(cfg.Hooks.Middleware) - 1; idx >= 0; idx-- {\n")
+	buffer.WriteString("\t\thook := cfg.Hooks.Middleware[idx]\n")
+	buffer.WriteString("\t\tif hook == nil {\n")
+	buffer.WriteString("\t\t\tcontinue\n")
+	buffer.WriteString("\t\t}\n")
+	buffer.WriteString("\t\thandler = hook(handler)\n")
 	buffer.WriteString("\t}\n")
 	if paths.ServerFeatures.I18nRouting {
 		buffer.WriteString("\ti18nResolver, err := frameworki18n.NewResolver(runtimeCfg.LocalizationConfig)\n")
@@ -1187,23 +1240,30 @@ func generateServerSource(paths bundler.ProjectLayout) ([]byte, error) {
 		buffer.WriteString("\tif strings.TrimSpace(staticMount.URLPrefix) != \"\" {\n")
 		buffer.WriteString("\t\tbypassPrefixes = append(bypassPrefixes, staticMount.URLPrefix)\n")
 		buffer.WriteString("\t}\n")
-		buffer.WriteString("\thandler = frameworki18n.Middleware(frameworki18n.MiddlewareConfig{\n")
-		buffer.WriteString("\t\tResolver:       i18nResolver,\n")
-		buffer.WriteString("\t\tBypassPrefixes: bypassPrefixes,\n")
-		buffer.WriteString("\t\tBypassExact:    []string{normalizeHealthPath(cfg.HealthPath)},\n")
-		buffer.WriteString("\t})(handler)\n")
+		if paths.ServerFeatures.HealthEndpoint {
+			buffer.WriteString("\thandler = frameworki18n.Middleware(frameworki18n.MiddlewareConfig{\n")
+			buffer.WriteString("\t\tResolver:       i18nResolver,\n")
+			buffer.WriteString("\t\tBypassPrefixes: bypassPrefixes,\n")
+			buffer.WriteString("\t\tBypassExact:    []string{normalizeHealthPath(cfg.Features.Health.Path)},\n")
+			buffer.WriteString("\t})(handler)\n")
+		} else {
+			buffer.WriteString("\thandler = frameworki18n.Middleware(frameworki18n.MiddlewareConfig{\n")
+			buffer.WriteString("\t\tResolver:       i18nResolver,\n")
+			buffer.WriteString("\t\tBypassPrefixes: bypassPrefixes,\n")
+			buffer.WriteString("\t})(handler)\n")
+		}
 	}
 	if paths.ServerFeatures.PublicFiles {
-		buffer.WriteString("\tpublicDir := strings.TrimSpace(cfg.PublicDir)\n")
+		buffer.WriteString("\tpublicDir := strings.TrimSpace(cfg.Features.PublicFiles.Dir)\n")
 		buffer.WriteString("\tif publicDir != \"\" {\n")
 		writef(buffer, "\t\tpublicPrefix := strings.TrimSpace(%q)\n", paths.PublicRequestPathPrefix)
-		buffer.WriteString("\t\tif strings.TrimSpace(cfg.PublicRequestPathPrefix) != \"\" {\n")
-		buffer.WriteString("\t\t\tpublicPrefix = strings.TrimSpace(cfg.PublicRequestPathPrefix)\n")
+		buffer.WriteString("\t\tif strings.TrimSpace(cfg.Features.PublicFiles.RequestPathPrefix) != \"\" {\n")
+		buffer.WriteString("\t\t\tpublicPrefix = strings.TrimSpace(cfg.Features.PublicFiles.RequestPathPrefix)\n")
 		buffer.WriteString("\t\t}\n")
 		buffer.WriteString("\t\tpublicConfig := httpserver.PublicFilesConfig{\n")
 		buffer.WriteString("\t\t\tDir:               publicDir,\n")
 		buffer.WriteString("\t\t\tRequestPathPrefix: publicPrefix,\n")
-		buffer.WriteString("\t\t\tCachePolicy:       strings.TrimSpace(cfg.PublicFilesCachePolicy),\n")
+		buffer.WriteString("\t\t\tCachePolicy:       strings.TrimSpace(cfg.Features.PublicFiles.CachePolicy),\n")
 		buffer.WriteString("\t\t}\n")
 		buffer.WriteString("\t\tpublicMiddleware, err := httpserver.WithPublicFiles(publicConfig)\n")
 		buffer.WriteString("\t\tif err != nil {\n")
@@ -1213,22 +1273,32 @@ func generateServerSource(paths bundler.ProjectLayout) ([]byte, error) {
 		buffer.WriteString("\t}\n")
 	}
 	buffer.WriteString("\tmux.Handle(\"/\", handler)\n")
+	buffer.WriteString("\tfor _, mount := range cfg.Hooks.Mount {\n")
+	buffer.WriteString("\t\tif mount == nil {\n")
+	buffer.WriteString("\t\t\tcontinue\n")
+	buffer.WriteString("\t\t}\n")
+	buffer.WriteString("\t\tif err := mount(mux); err != nil {\n")
+	buffer.WriteString("\t\t\treturn fmt.Errorf(\"mount hook: %w\", err)\n")
+	buffer.WriteString("\t\t}\n")
+	buffer.WriteString("\t}\n")
 	buffer.WriteString("\treturn nil\n")
 	buffer.WriteString("}\n\n")
 
-	buffer.WriteString("func normalizeHealthPath(pathValue string) string {\n")
-	buffer.WriteString("\ttrimmed := strings.TrimSpace(pathValue)\n")
-	buffer.WriteString("\tif trimmed == \"\" {\n")
-	buffer.WriteString("\t\treturn \"/healthz\"\n")
-	buffer.WriteString("\t}\n")
-	buffer.WriteString("\tif !strings.HasPrefix(trimmed, \"/\") {\n")
-	buffer.WriteString("\t\ttrimmed = \"/\" + trimmed\n")
-	buffer.WriteString("\t}\n")
-	buffer.WriteString("\treturn trimmed\n")
-	buffer.WriteString("}\n\n")
+	if paths.ServerFeatures.HealthEndpoint {
+		buffer.WriteString("func normalizeHealthPath(pathValue string) string {\n")
+		buffer.WriteString("\ttrimmed := strings.TrimSpace(pathValue)\n")
+		buffer.WriteString("\tif trimmed == \"\" {\n")
+		buffer.WriteString("\t\treturn \"/healthz\"\n")
+		buffer.WriteString("\t}\n")
+		buffer.WriteString("\tif !strings.HasPrefix(trimmed, \"/\") {\n")
+		buffer.WriteString("\t\ttrimmed = \"/\" + trimmed\n")
+		buffer.WriteString("\t}\n")
+		buffer.WriteString("\treturn trimmed\n")
+		buffer.WriteString("}\n\n")
+	}
 
 	if paths.ServerFeatures.StaticAssets {
-		buffer.WriteString("func loadStaticMount(manifestPath string) (httpserver.StaticMount, error) {\n")
+		buffer.WriteString("func loadStaticMount(manifestPath string, basePrefix string) (httpserver.StaticMount, error) {\n")
 		buffer.WriteString("\ttrimmedManifestPath := strings.TrimSpace(manifestPath)\n")
 		buffer.WriteString("\tif trimmedManifestPath == \"\" {\n")
 		buffer.WriteString("\t\treturn httpserver.StaticMount{}, nil\n")
@@ -1254,7 +1324,8 @@ func generateServerSource(paths bundler.ProjectLayout) ([]byte, error) {
 				"fmt.Errorf(\"static build dir %q is not a directory\", staticDir)\n",
 		)
 		buffer.WriteString("\t}\n")
-		buffer.WriteString("\treturn httpserver.StaticMount{URLPrefix: manifest.URLPrefix, Dir: staticDir}, nil\n")
+		buffer.WriteString("\tversionedPrefix := manifest.VersionedURLPrefix(basePrefix)\n")
+		buffer.WriteString("\treturn httpserver.StaticMount{URLPrefix: versionedPrefix, Dir: staticDir}, nil\n")
 		buffer.WriteString("}\n")
 	}
 

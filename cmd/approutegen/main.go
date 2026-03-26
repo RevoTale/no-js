@@ -15,7 +15,7 @@ func main() {
 	flag.StringVar(&rootDir, "root", ".", "application root directory")
 	flag.Parse()
 
-	layout, err := bundler.ResolveProjectLayout(rootDir, bundler.Config{})
+	layout, err := bundler.ResolveProjectLayoutFromRoot(rootDir)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "approutegen: %v\n", err)
 		os.Exit(1)

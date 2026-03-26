@@ -92,8 +92,7 @@ func Build(cfg BuildConfig) (*Bundle, error) {
 		shortHash = shortHash[:hashLength]
 	}
 
-	normalizedPrefix := normalizeURLPrefix(cfg.URLPrefix)
-	versionedPrefix := normalizedPrefix + shortHash + "/"
+	versionedPrefix := frameworkstaticassets.NormalizeURLPrefix(cfg.URLPrefix) + shortHash + "/"
 
 	return &Bundle{
 		hash:      shortHash,
@@ -127,7 +126,14 @@ func (bundle *Bundle) Dir() string {
 }
 
 func (bundle *Bundle) URL(path string) string {
-	return bundle.Manifest().URL(path)
+	if bundle == nil {
+		return ""
+	}
+
+	trimmed := strings.TrimSpace(path)
+	trimmed = strings.ReplaceAll(trimmed, `\`, `/`)
+	trimmed = strings.TrimPrefix(trimmed, "/")
+	return bundle.urlPrefix + trimmed
 }
 
 func (bundle *Bundle) Cleanup() error {
@@ -144,18 +150,18 @@ func (bundle *Bundle) Manifest() frameworkstaticassets.Manifest {
 	}
 
 	return frameworkstaticassets.Manifest{
-		Hash:      bundle.hash,
-		URLPrefix: bundle.urlPrefix,
+		Version: frameworkstaticassets.CurrentManifestVersion,
+		Hash:    bundle.hash,
 	}
 }
 
 func WriteManifest(path string, manifest frameworkstaticassets.Manifest) error {
-	manifest = normalizeManifest(manifest)
-	if err := validateManifest(manifest); err != nil {
+	normalized, err := normalizeManifestForWrite(manifest)
+	if err != nil {
 		return err
 	}
 
-	encoded, err := json.MarshalIndent(manifest, "", "  ")
+	encoded, err := json.MarshalIndent(normalized, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal manifest: %w", err)
 	}
@@ -233,33 +239,39 @@ func transformWithEsbuild(relativePath string, content []byte, loader api.Loader
 	return result.Code, nil
 }
 
-func normalizeURLPrefix(prefix string) string {
-	trimmed := strings.TrimSpace(prefix)
+func normalizeManifestForWrite(manifest frameworkstaticassets.Manifest) (frameworkstaticassets.Manifest, error) {
+	normalized := frameworkstaticassets.Manifest{
+		Version: manifest.Version,
+		Hash:    strings.TrimSpace(manifest.Hash),
+	}
+	if normalized.Hash == "" && strings.TrimSpace(manifest.URLPrefix) != "" {
+		normalized.Hash = hashFromURLPrefix(manifest.URLPrefix)
+	}
+	if normalized.Version == 0 && normalized.Hash != "" {
+		normalized.Version = frameworkstaticassets.CurrentManifestVersion
+	}
+	if normalized.Version != frameworkstaticassets.CurrentManifestVersion {
+		return frameworkstaticassets.Manifest{}, fmt.Errorf(
+			"manifest version must be %d",
+			frameworkstaticassets.CurrentManifestVersion,
+		)
+	}
+	if normalized.Hash == "" {
+		return frameworkstaticassets.Manifest{}, fmt.Errorf("manifest hash is required")
+	}
+	return normalized, nil
+}
+
+func hashFromURLPrefix(prefix string) string {
+	normalized := frameworkstaticassets.NormalizeURLPrefix(prefix)
+	trimmed := strings.Trim(normalized, "/")
 	if trimmed == "" {
-		trimmed = defaultURLPrefix
-	}
-	if !strings.HasPrefix(trimmed, "/") {
-		trimmed = "/" + trimmed
-	}
-	if !strings.HasSuffix(trimmed, "/") {
-		trimmed += "/"
+		return ""
 	}
 
-	return trimmed
-}
-
-func normalizeManifest(manifest frameworkstaticassets.Manifest) frameworkstaticassets.Manifest {
-	manifest.Hash = strings.TrimSpace(manifest.Hash)
-	manifest.URLPrefix = normalizeURLPrefix(manifest.URLPrefix)
-	return manifest
-}
-
-func validateManifest(manifest frameworkstaticassets.Manifest) error {
-	if strings.TrimSpace(manifest.Hash) == "" {
-		return fmt.Errorf("manifest hash is required")
+	segments := strings.Split(trimmed, "/")
+	if len(segments) == 0 {
+		return ""
 	}
-	if strings.TrimSpace(manifest.URLPrefix) == "" {
-		return fmt.Errorf("manifest url prefix is required")
-	}
-	return nil
+	return strings.TrimSpace(segments[len(segments)-1])
 }
