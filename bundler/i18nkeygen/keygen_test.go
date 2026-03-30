@@ -1,8 +1,9 @@
 package i18nkeygen
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuildKeyDefsDeterministicNames(t *testing.T) {
@@ -16,12 +17,8 @@ func TestBuildKeyDefsDeterministicNames(t *testing.T) {
 	}
 
 	defs, err := BuildKeyDefs(messages)
-	if err != nil {
-		t.Fatalf("build key defs: %v", err)
-	}
-	if len(defs) != len(messages) {
-		t.Fatalf("defs length: expected %d, got %d", len(messages), len(defs))
-	}
+	require.NoError(t, err)
+	require.Len(t, defs, len(messages))
 
 	expectedByID := map[string]string{
 		"composer.readOnly":     "KeyComposerReadOnly",
@@ -31,12 +28,8 @@ func TestBuildKeyDefsDeterministicNames(t *testing.T) {
 	}
 	for _, def := range defs {
 		expectedName, ok := expectedByID[def.ID]
-		if !ok {
-			t.Fatalf("unexpected id in defs: %q", def.ID)
-		}
-		if def.Name != expectedName {
-			t.Fatalf("const name for %q: expected %q, got %q", def.ID, expectedName, def.Name)
-		}
+		require.True(t, ok)
+		require.Equal(t, expectedName, def.Name)
 	}
 }
 
@@ -47,12 +40,8 @@ func TestBuildKeyDefsDetectsConstNameCollision(t *testing.T) {
 		{ID: "a.bC", Translation: "first"},
 		{ID: "aB.c", Translation: "second"},
 	})
-	if err == nil {
-		t.Fatal("expected key constant collision error")
-	}
-	if !strings.Contains(err.Error(), "collide") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "collide")
 }
 
 func TestGenerateFromJSONStableOutput(t *testing.T) {
@@ -64,21 +53,11 @@ func TestGenerateFromJSONStableOutput(t *testing.T) {
 	]`)
 
 	first, err := GenerateFromJSON("i18n", source)
-	if err != nil {
-		t.Fatalf("first generation failed: %v", err)
-	}
+	require.NoError(t, err)
 	second, err := GenerateFromJSON("i18n", source)
-	if err != nil {
-		t.Fatalf("second generation failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if string(first) != string(second) {
-		t.Fatalf("generated output should be deterministic")
-	}
-	if !strings.Contains(string(first), "type Key string") {
-		t.Fatalf("generated output missing Key type")
-	}
-	if !strings.Contains(string(first), "var DefaultMessages = map[Key]string") {
-		t.Fatalf("generated output missing DefaultMessages map")
-	}
+	require.Equal(t, string(first), string(second))
+	require.Contains(t, string(first), "type Key string")
+	require.Contains(t, string(first), "var DefaultMessages = map[Key]string")
 }

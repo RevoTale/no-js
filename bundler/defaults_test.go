@@ -3,8 +3,9 @@ package bundler
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolveProjectLayoutDefaults(t *testing.T) {
@@ -19,69 +20,31 @@ func TestResolveProjectLayoutDefaults(t *testing.T) {
 	writeBundlerTestFile(t, filepath.Join(rootDir, "public", "robots.txt"), "User-agent: *\n")
 
 	layout, err := ResolveProjectLayout(rootDir, Config{})
-	if err != nil {
-		t.Fatalf("resolve project layout: %v", err)
-	}
+	require.NoError(t, err)
 
-	if layout.RootDir != filepath.Clean(rootDir) {
-		t.Fatalf("unexpected root dir: %q", layout.RootDir)
-	}
-	if got := filepath.ToSlash(layout.AppDir); got != filepath.ToSlash(filepath.Join(rootDir, defaultAppDir)) {
-		t.Fatalf("unexpected app dir: %q", got)
-	}
-	if got := filepath.ToSlash(layout.RuntimeDir); got != filepath.ToSlash(filepath.Join(rootDir, defaultRuntimeDir)) {
-		t.Fatalf("unexpected runtime dir: %q", got)
-	}
-	if layout.RuntimeImport != defaultRuntimeDir {
-		t.Fatalf("unexpected runtime import: %q", layout.RuntimeImport)
-	}
-	if got := filepath.ToSlash(layout.BootstrapDir); got != filepath.ToSlash(filepath.Join(rootDir, defaultBootstrapDir)) {
-		t.Fatalf("unexpected bootstrap dir: %q", got)
-	}
-	if layout.BootstrapImport != defaultBootstrapDir {
-		t.Fatalf("unexpected bootstrap import: %q", layout.BootstrapImport)
-	}
-	if got := filepath.ToSlash(layout.I18nDir); got != filepath.ToSlash(filepath.Join(rootDir, defaultI18nDir)) {
-		t.Fatalf("unexpected i18n dir: %q", got)
-	}
-	if layout.GeneratedImport != defaultGeneratedDir {
-		t.Fatalf("unexpected generated import: %q", layout.GeneratedImport)
-	}
-	if layout.AppModulePath != "example.com/app" {
-		t.Fatalf("unexpected app module path: %q", layout.AppModulePath)
-	}
-	if got := filepath.ToSlash(layout.PublicDir); got != filepath.ToSlash(filepath.Join(rootDir, defaultPublicDirName)) {
-		t.Fatalf("unexpected public dir: %q", got)
-	}
-	if layout.PublicRequestPathPrefix != "/" {
-		t.Fatalf("unexpected public request path prefix: %q", layout.PublicRequestPathPrefix)
-	}
+	require.Equal(t, filepath.Clean(rootDir), layout.RootDir)
+	require.Equal(t, filepath.ToSlash(filepath.Join(rootDir, defaultAppDir)), filepath.ToSlash(layout.AppDir))
+	require.Equal(t, filepath.ToSlash(filepath.Join(rootDir, defaultRuntimeDir)), filepath.ToSlash(layout.RuntimeDir))
+	require.Equal(t, defaultRuntimeDir, layout.RuntimeImport)
+	require.Equal(t, filepath.ToSlash(filepath.Join(rootDir, defaultBootstrapDir)), filepath.ToSlash(layout.BootstrapDir))
+	require.Equal(t, defaultBootstrapDir, layout.BootstrapImport)
+	require.Equal(t, filepath.ToSlash(filepath.Join(rootDir, defaultI18nDir)), filepath.ToSlash(layout.I18nDir))
+	require.Equal(t, defaultGeneratedDir, layout.GeneratedImport)
+	require.Equal(t, "example.com/app", layout.AppModulePath)
+	require.Equal(t, filepath.ToSlash(filepath.Join(rootDir, defaultPublicDirName)), filepath.ToSlash(layout.PublicDir))
+	require.Equal(t, "/", layout.PublicRequestPathPrefix)
 	expectedStaticSourceDir := filepath.ToSlash(filepath.Join(rootDir, defaultStaticSourceDir))
-	if got := filepath.ToSlash(layout.StaticAssets.SourceDir); got != expectedStaticSourceDir {
-		t.Fatalf("unexpected static source dir: %q", got)
-	}
+	require.Equal(t, expectedStaticSourceDir, filepath.ToSlash(layout.StaticAssets.SourceDir))
 	expectedStaticOutDir := filepath.ToSlash(filepath.Join(rootDir, defaultStaticOutDir))
-	if got := filepath.ToSlash(layout.StaticAssets.OutDir); got != expectedStaticOutDir {
-		t.Fatalf("unexpected static out dir: %q", got)
-	}
+	require.Equal(t, expectedStaticOutDir, filepath.ToSlash(layout.StaticAssets.OutDir))
 	expectedManifestPath := filepath.ToSlash(
 		filepath.Join(rootDir, defaultStaticOutDir, defaultStaticManifestFileName),
 	)
-	if got := filepath.ToSlash(layout.StaticAssets.ManifestPath); got != expectedManifestPath {
-		t.Fatalf("unexpected static manifest path: %q", got)
-	}
-	if !layout.ServerFeatures.I18nRouting {
-		t.Fatalf("expected i18n routing to auto-enable")
-	}
-	if !layout.ServerFeatures.StaticAssets {
-		t.Fatalf("expected static assets to auto-enable")
-	}
-	if !layout.ServerFeatures.PublicFiles {
-		t.Fatalf("expected public files to auto-enable")
-	}
-	if !layout.ServerFeatures.HealthEndpoint {
-		t.Fatalf("expected health endpoint to auto-enable")
-	}
+	require.Equal(t, expectedManifestPath, filepath.ToSlash(layout.StaticAssets.ManifestPath))
+	require.True(t, layout.ServerFeatures.I18nRouting)
+	require.True(t, layout.ServerFeatures.StaticAssets)
+	require.True(t, layout.ServerFeatures.PublicFiles)
+	require.True(t, layout.ServerFeatures.HealthEndpoint)
 }
 
 func TestResolveProjectLayoutRejectsMissingAppDir(t *testing.T) {
@@ -91,12 +54,8 @@ func TestResolveProjectLayoutRejectsMissingAppDir(t *testing.T) {
 	writeBundlerTestFile(t, filepath.Join(rootDir, "go.mod"), "module example.com/app\n\ngo 1.25.0\n")
 
 	_, err := ResolveProjectLayout(rootDir, Config{})
-	if err == nil {
-		t.Fatal("expected missing app dir error")
-	}
-	if !strings.Contains(err.Error(), "strict app root missing") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "strict app root missing")
 }
 
 func TestResolveProjectLayoutRejectsEscapeDir(t *testing.T) {
@@ -113,12 +72,8 @@ func TestResolveProjectLayoutRejectsEscapeDir(t *testing.T) {
 			AppDir: "../outside",
 		},
 	})
-	if err == nil {
-		t.Fatal("expected relative escape error")
-	}
-	if !strings.Contains(err.Error(), "must stay inside the app root") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must stay inside the app root")
 }
 
 func TestResolveProjectLayoutDisablesPresenceBasedFeaturesWhenPathsAreMissing(t *testing.T) {
@@ -130,22 +85,12 @@ func TestResolveProjectLayoutDisablesPresenceBasedFeaturesWhenPathsAreMissing(t 
 	writeBundlerTestFile(t, filepath.Join(rootDir, "internal", "web", "runtime", "context.go"), "package runtime\n")
 
 	layout, err := ResolveProjectLayout(rootDir, Config{})
-	if err != nil {
-		t.Fatalf("resolve project layout: %v", err)
-	}
+	require.NoError(t, err)
 
-	if layout.ServerFeatures.I18nRouting {
-		t.Fatalf("expected i18n routing to stay disabled when i18n dir is missing")
-	}
-	if layout.ServerFeatures.StaticAssets {
-		t.Fatalf("expected static assets to stay disabled when static dir is missing")
-	}
-	if layout.ServerFeatures.PublicFiles {
-		t.Fatalf("expected public files to stay disabled when public dir is missing")
-	}
-	if !layout.ServerFeatures.HealthEndpoint {
-		t.Fatalf("expected health endpoint to remain enabled")
-	}
+	require.False(t, layout.ServerFeatures.I18nRouting)
+	require.False(t, layout.ServerFeatures.StaticAssets)
+	require.False(t, layout.ServerFeatures.PublicFiles)
+	require.True(t, layout.ServerFeatures.HealthEndpoint)
 }
 
 func TestResolveProjectLayoutRespectsExplicitFeatureOverrides(t *testing.T) {
@@ -170,22 +115,12 @@ func TestResolveProjectLayoutRespectsExplicitFeatureOverrides(t *testing.T) {
 			RequestPathPrefix: "site/",
 		},
 	})
-	if err != nil {
-		t.Fatalf("resolve project layout: %v", err)
-	}
+	require.NoError(t, err)
 
-	if layout.ServerFeatures.I18nRouting {
-		t.Fatalf("expected explicit i18n disable to win over presence-based auto")
-	}
-	if layout.ServerFeatures.PublicFiles {
-		t.Fatalf("expected explicit public files disable to win over presence-based auto")
-	}
-	if layout.ServerFeatures.HealthEndpoint {
-		t.Fatalf("expected explicit health disable to win over default auto")
-	}
-	if layout.PublicRequestPathPrefix != "/site" {
-		t.Fatalf("unexpected public request prefix: %q", layout.PublicRequestPathPrefix)
-	}
+	require.False(t, layout.ServerFeatures.I18nRouting)
+	require.False(t, layout.ServerFeatures.PublicFiles)
+	require.False(t, layout.ServerFeatures.HealthEndpoint)
+	require.Equal(t, "/site", layout.PublicRequestPathPrefix)
 }
 
 func TestResolveProjectLayoutRequiresI18nDirWhenFeatureEnabled(t *testing.T) {
@@ -203,21 +138,13 @@ func TestResolveProjectLayoutRequiresI18nDirWhenFeatureEnabled(t *testing.T) {
 			},
 		},
 	})
-	if err == nil {
-		t.Fatal("expected missing i18n dir error")
-	}
-	if !strings.Contains(err.Error(), "strict i18n root missing") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "strict i18n root missing")
 }
 
 func writeBundlerTestFile(t *testing.T, filePath string, content string) {
 	t.Helper()
 
-	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
-		t.Fatalf("mkdir %q: %v", filepath.Dir(filePath), err)
-	}
-	if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
-		t.Fatalf("write %q: %v", filePath, err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Dir(filePath), 0o755))
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0o644))
 }

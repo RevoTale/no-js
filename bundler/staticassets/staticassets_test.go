@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	frameworkstaticassets "github.com/RevoTale/no-js/framework/staticassets"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuild_MinifiesAndCopiesAssets(t *testing.T) {
@@ -25,46 +26,28 @@ func TestBuild_MinifiesAndCopiesAssets(t *testing.T) {
 		SourceDir: sourceDir,
 		URLPrefix: "/_assets/",
 	})
-	if err != nil {
-		t.Fatalf("build bundle: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		if cleanupErr := bundle.Cleanup(); cleanupErr != nil {
-			t.Fatalf("cleanup bundle: %v", cleanupErr)
-		}
+		require.NoError(t, bundle.Cleanup())
 	})
 
 	prefixPattern := regexp.MustCompile(`^/_assets/[0-9a-f]{16}/$`)
-	if !prefixPattern.MatchString(bundle.URLPrefix()) {
-		t.Fatalf("unexpected url prefix %q", bundle.URLPrefix())
-	}
-	if got := bundle.URL("styles.css"); got != bundle.URLPrefix()+"styles.css" {
-		t.Fatalf("unexpected asset url: %q", got)
-	}
+	require.True(t, prefixPattern.MatchString(bundle.URLPrefix()))
+	require.Equal(t, bundle.URLPrefix()+"styles.css", bundle.URL("styles.css"))
 
 	minifiedJS := mustReadFile(t, filepath.Join(bundle.Dir(), "app.js"))
 	originalJS := mustReadFile(t, filepath.Join(sourceDir, "app.js"))
-	if string(minifiedJS) == string(originalJS) {
-		t.Fatalf("expected js to be minified")
-	}
-	if len(minifiedJS) >= len(originalJS) {
-		t.Fatalf("expected minified js to be smaller: original=%d minified=%d", len(originalJS), len(minifiedJS))
-	}
+	require.NotEqual(t, string(originalJS), string(minifiedJS))
+	require.Less(t, len(minifiedJS), len(originalJS))
 
 	minifiedCSS := mustReadFile(t, filepath.Join(bundle.Dir(), "styles.css"))
 	originalCSS := mustReadFile(t, filepath.Join(sourceDir, "styles.css"))
-	if string(minifiedCSS) == string(originalCSS) {
-		t.Fatalf("expected css to be minified")
-	}
-	if len(minifiedCSS) >= len(originalCSS) {
-		t.Fatalf("expected minified css to be smaller: original=%d minified=%d", len(originalCSS), len(minifiedCSS))
-	}
+	require.NotEqual(t, string(originalCSS), string(minifiedCSS))
+	require.Less(t, len(minifiedCSS), len(originalCSS))
 
 	copiedSVG := mustReadFile(t, filepath.Join(bundle.Dir(), "logo.svg"))
 	originalSVG := mustReadFile(t, filepath.Join(sourceDir, "logo.svg"))
-	if string(copiedSVG) != string(originalSVG) {
-		t.Fatalf("expected svg to be copied unchanged")
-	}
+	require.Equal(t, string(originalSVG), string(copiedSVG))
 }
 
 func TestBuild_HashDeterministicForSameSource(t *testing.T) {
@@ -76,28 +59,18 @@ func TestBuild_HashDeterministicForSameSource(t *testing.T) {
 	writeTestFile(t, filepath.Join(sourceDir, "logo.svg"), "<svg><circle cx=\"5\" cy=\"5\" r=\"2\" /></svg>\n")
 
 	first, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/_assets/"})
-	if err != nil {
-		t.Fatalf("build first bundle: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		if cleanupErr := first.Cleanup(); cleanupErr != nil {
-			t.Fatalf("cleanup first bundle: %v", cleanupErr)
-		}
+		require.NoError(t, first.Cleanup())
 	})
 
 	second, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/_assets/"})
-	if err != nil {
-		t.Fatalf("build second bundle: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		if cleanupErr := second.Cleanup(); cleanupErr != nil {
-			t.Fatalf("cleanup second bundle: %v", cleanupErr)
-		}
+		require.NoError(t, second.Cleanup())
 	})
 
-	if first.Hash() != second.Hash() {
-		t.Fatalf("expected deterministic hash, got %q and %q", first.Hash(), second.Hash())
-	}
+	require.Equal(t, first.Hash(), second.Hash())
 }
 
 func TestBuild_HashChangesWhenContentChanges(t *testing.T) {
@@ -107,29 +80,19 @@ func TestBuild_HashChangesWhenContentChanges(t *testing.T) {
 	writeTestFile(t, filepath.Join(sourceDir, "app.js"), "console.log('a')\n")
 
 	first, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/_assets/"})
-	if err != nil {
-		t.Fatalf("build first bundle: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		if cleanupErr := first.Cleanup(); cleanupErr != nil {
-			t.Fatalf("cleanup first bundle: %v", cleanupErr)
-		}
+		require.NoError(t, first.Cleanup())
 	})
 
 	writeTestFile(t, filepath.Join(sourceDir, "app.js"), "console.log('b')\n")
 	second, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/_assets/"})
-	if err != nil {
-		t.Fatalf("build second bundle: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		if cleanupErr := second.Cleanup(); cleanupErr != nil {
-			t.Fatalf("cleanup second bundle: %v", cleanupErr)
-		}
+		require.NoError(t, second.Cleanup())
 	})
 
-	if first.Hash() == second.Hash() {
-		t.Fatalf("expected hash to change after content update")
-	}
+	require.NotEqual(t, first.Hash(), second.Hash())
 }
 
 func TestBuild_HashChangesWhenRelativePathChanges(t *testing.T) {
@@ -142,28 +105,18 @@ func TestBuild_HashChangesWhenRelativePathChanges(t *testing.T) {
 	writeTestFile(t, filepath.Join(secondDir, "nested", "a.js"), "console.log('same')\n")
 
 	first, err := Build(BuildConfig{SourceDir: firstDir, URLPrefix: "/_assets/"})
-	if err != nil {
-		t.Fatalf("build first bundle: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		if cleanupErr := first.Cleanup(); cleanupErr != nil {
-			t.Fatalf("cleanup first bundle: %v", cleanupErr)
-		}
+		require.NoError(t, first.Cleanup())
 	})
 
 	second, err := Build(BuildConfig{SourceDir: secondDir, URLPrefix: "/_assets/"})
-	if err != nil {
-		t.Fatalf("build second bundle: %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		if cleanupErr := second.Cleanup(); cleanupErr != nil {
-			t.Fatalf("cleanup second bundle: %v", cleanupErr)
-		}
+		require.NoError(t, second.Cleanup())
 	})
 
-	if first.Hash() == second.Hash() {
-		t.Fatalf("expected hash to change when relative path changes")
-	}
+	require.NotEqual(t, first.Hash(), second.Hash())
 }
 
 func TestBundleCleanupRemovesOutputDir(t *testing.T) {
@@ -173,24 +126,16 @@ func TestBundleCleanupRemovesOutputDir(t *testing.T) {
 	writeTestFile(t, filepath.Join(sourceDir, "app.js"), "console.log('x')\n")
 
 	bundle, err := Build(BuildConfig{SourceDir: sourceDir, URLPrefix: "/_assets/"})
-	if err != nil {
-		t.Fatalf("build bundle: %v", err)
-	}
+	require.NoError(t, err)
 
 	outDir := bundle.Dir()
-	if outDir == "" {
-		t.Fatalf("expected non-empty output dir")
-	}
-	if _, statErr := os.Stat(outDir); statErr != nil {
-		t.Fatalf("expected output dir to exist: %v", statErr)
-	}
+	require.NotEmpty(t, outDir)
+	_, statErr := os.Stat(outDir)
+	require.NoError(t, statErr)
 
-	if cleanupErr := bundle.Cleanup(); cleanupErr != nil {
-		t.Fatalf("cleanup bundle: %v", cleanupErr)
-	}
-	if _, statErr := os.Stat(outDir); !os.IsNotExist(statErr) {
-		t.Fatalf("expected output dir to be removed, stat err=%v", statErr)
-	}
+	require.NoError(t, bundle.Cleanup())
+	_, statErr = os.Stat(outDir)
+	require.True(t, os.IsNotExist(statErr))
 }
 
 func TestWriteManifest(t *testing.T) {
@@ -202,41 +147,26 @@ func TestWriteManifest(t *testing.T) {
 		Hash:    "abc123",
 	}
 
-	if err := WriteManifest(manifestPath, expected); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
+	require.NoError(t, WriteManifest(manifestPath, expected))
 
 	actual, err := frameworkstaticassets.ReadManifest(manifestPath)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
-
-	if actual.Hash != expected.Hash {
-		t.Fatalf("hash mismatch: expected %q, got %q", expected.Hash, actual.Hash)
-	}
-	if actual.Version != expected.Version {
-		t.Fatalf("version mismatch: expected %d, got %d", expected.Version, actual.Version)
-	}
+	require.NoError(t, err)
+	require.Equal(t, expected.Hash, actual.Hash)
+	require.Equal(t, expected.Version, actual.Version)
 }
 
 func writeTestFile(t *testing.T, path string, content string) {
 	t.Helper()
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("create test directory: %v", err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write test file: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 }
 
 func mustReadFile(t *testing.T, path string) []byte {
 	t.Helper()
 
 	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %q: %v", path, err)
-	}
+	require.NoError(t, err)
 
 	return content
 }

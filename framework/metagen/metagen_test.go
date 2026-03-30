@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
@@ -113,9 +114,7 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 	firstHead := renderHeadToString(t, first)
 	secondHead := renderHeadToString(t, second)
 
-	if firstHead != secondHead {
-		t.Fatalf("expected deterministic rendered head\nfirst:\n%s\nsecond:\n%s", firstHead, secondHead)
-	}
+	require.Equal(t, firstHead, secondHead)
 
 	required := []string{
 		`<title data-metagen-managed="true">Example Title</title>`,
@@ -132,9 +131,7 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 		`name="pinterest-rich-pin" content="true"`,
 	}
 	for _, token := range required {
-		if !strings.Contains(firstHead, token) {
-			t.Fatalf("expected rendered head to contain %q\n%s", token, firstHead)
-		}
+		require.Contains(t, firstHead, token)
 	}
 }
 
@@ -146,9 +143,7 @@ func TestHeadRendersDangerRawHeadVerbatim(t *testing.T) {
 		DangerRawHead: []string{`<style id="test-style">.x{color:red}</style>`},
 	})
 
-	if !strings.Contains(head, `<style id="test-style">.x{color:red}</style>`) {
-		t.Fatalf("expected DangerRawHead to be emitted verbatim, got %q", head)
-	}
+	require.Contains(t, head, `<style id="test-style">.x{color:red}</style>`)
 }
 
 func TestMergeAllAppendsDangerRawHeadAndOverridesFields(t *testing.T) {
@@ -165,21 +160,11 @@ func TestMergeAllAppendsDangerRawHeadAndOverridesFields(t *testing.T) {
 	}
 
 	merged := MergeAll(parent, child)
-	if merged.Title != "Child" {
-		t.Fatalf("expected child title override, got %q", merged.Title)
-	}
-	if merged.Description != "Parent Description" {
-		t.Fatalf("expected parent description inheritance, got %q", merged.Description)
-	}
-	if len(merged.DangerRawHead) != 2 {
-		t.Fatalf("expected merged raw head length 2, got %d", len(merged.DangerRawHead))
-	}
-	if merged.DangerRawHead[0] != "<style>.a{}</style>" {
-		t.Fatalf("expected parent raw head first, got %q", merged.DangerRawHead[0])
-	}
-	if merged.DangerRawHead[1] != "<script>window.x=1</script>" {
-		t.Fatalf("expected child raw head second, got %q", merged.DangerRawHead[1])
-	}
+	require.Equal(t, "Child", merged.Title)
+	require.Equal(t, "Parent Description", merged.Description)
+	require.Len(t, merged.DangerRawHead, 2)
+	require.Equal(t, "<style>.a{}</style>", merged.DangerRawHead[0])
+	require.Equal(t, "<script>window.x=1</script>", merged.DangerRawHead[1])
 }
 
 func TestBuildAlternatesPrefixAsNeeded(t *testing.T) {
@@ -199,25 +184,12 @@ func TestBuildAlternatesPrefixAsNeeded(t *testing.T) {
 			"application/atom+xml": "https://cdn.example.com/feed.atom?__live=navigation",
 		},
 	)
-	if err != nil {
-		t.Fatalf("build alternates: %v", err)
-	}
-
-	if alternates.Canonical != "https://example.com/app/de/note/hello?tag=go" {
-		t.Fatalf("canonical: expected %q, got %q", "https://example.com/app/de/note/hello?tag=go", alternates.Canonical)
-	}
-	if got := alternates.Languages["en"]; got != "https://example.com/app/note/hello?tag=go" {
-		t.Fatalf("en alternate: expected %q, got %q", "https://example.com/app/note/hello?tag=go", got)
-	}
-	if got := alternates.Languages["de"]; got != "https://example.com/app/de/note/hello?tag=go" {
-		t.Fatalf("de alternate: expected %q, got %q", "https://example.com/app/de/note/hello?tag=go", got)
-	}
-	if got := alternates.Types["application/rss+xml"]; got != "https://example.com/app/feed.xml" {
-		t.Fatalf("rss alternate: expected %q, got %q", "https://example.com/app/feed.xml", got)
-	}
-	if got := alternates.Types["application/atom+xml"]; got != "https://cdn.example.com/feed.atom" {
-		t.Fatalf("atom alternate: expected %q, got %q", "https://cdn.example.com/feed.atom", got)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "https://example.com/app/de/note/hello?tag=go", alternates.Canonical)
+	require.Equal(t, "https://example.com/app/note/hello?tag=go", alternates.Languages["en"])
+	require.Equal(t, "https://example.com/app/de/note/hello?tag=go", alternates.Languages["de"])
+	require.Equal(t, "https://example.com/app/feed.xml", alternates.Types["application/rss+xml"])
+	require.Equal(t, "https://cdn.example.com/feed.atom", alternates.Types["application/atom+xml"])
 }
 
 func TestBuildHTMXPatchAndWriteHeaders(t *testing.T) {
@@ -227,40 +199,22 @@ func TestBuildHTMXPatchAndWriteHeaders(t *testing.T) {
 		Title:       "Notes",
 		Description: "A notes feed",
 	})
-	if err != nil {
-		t.Fatalf("build htmx patch: %v", err)
-	}
-	if patch.Title != "Notes" {
-		t.Fatalf("patch title: expected %q, got %q", "Notes", patch.Title)
-	}
-	if strings.Contains(patch.Head, "<title") {
-		t.Fatalf("htmx patch should not include <title>, got %q", patch.Head)
-	}
-	if !strings.Contains(patch.Head, `name="description"`) {
-		t.Fatalf("htmx patch should include managed head metadata, got %q", patch.Head)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "Notes", patch.Title)
+	require.NotContains(t, patch.Head, "<title")
+	require.Contains(t, patch.Head, `name="description"`)
 
 	recorder := httptest.NewRecorder()
-	if err := WriteHTMXHeaders(recorder, patch); err != nil {
-		t.Fatalf("write htmx headers: %v", err)
-	}
+	require.NoError(t, WriteHTMXHeaders(recorder, patch))
 
 	rawHeader := recorder.Header().Get("HX-Trigger-After-Settle")
-	if strings.TrimSpace(rawHeader) == "" {
-		t.Fatal("expected HX-Trigger-After-Settle header")
-	}
+	require.NotEmpty(t, strings.TrimSpace(rawHeader))
 
 	payload := make(map[string]Patch)
-	if err := json.Unmarshal([]byte(rawHeader), &payload); err != nil {
-		t.Fatalf("parse htmx header payload: %v", err)
-	}
+	require.NoError(t, json.Unmarshal([]byte(rawHeader), &payload))
 	eventPayload, ok := payload[HTMXPatchEvent]
-	if !ok {
-		t.Fatalf("expected event %q in header payload", HTMXPatchEvent)
-	}
-	if eventPayload.Title != "Notes" {
-		t.Fatalf("payload title: expected %q, got %q", "Notes", eventPayload.Title)
-	}
+	require.True(t, ok)
+	require.Equal(t, "Notes", eventPayload.Title)
 }
 
 func TestWriteHTMXHeadersMergesJSONPayload(t *testing.T) {
@@ -270,20 +224,14 @@ func TestWriteHTMXHeadersMergesJSONPayload(t *testing.T) {
 	recorder.Header().Set("HX-Trigger-After-Settle", `{"existing":{"ok":true}}`)
 
 	err := WriteHTMXHeaders(recorder, Patch{Title: "Merged"})
-	if err != nil {
-		t.Fatalf("write merged headers: %v", err)
-	}
+	require.NoError(t, err)
 
 	out := make(map[string]json.RawMessage)
-	if err := json.Unmarshal([]byte(recorder.Header().Get("HX-Trigger-After-Settle")), &out); err != nil {
-		t.Fatalf("parse merged header: %v", err)
-	}
-	if _, ok := out["existing"]; !ok {
-		t.Fatalf("expected existing event to remain in merged header")
-	}
-	if _, ok := out[HTMXPatchEvent]; !ok {
-		t.Fatalf("expected %q event in merged header", HTMXPatchEvent)
-	}
+	require.NoError(t, json.Unmarshal([]byte(recorder.Header().Get("HX-Trigger-After-Settle")), &out))
+	_, ok := out["existing"]
+	require.True(t, ok)
+	_, ok = out[HTMXPatchEvent]
+	require.True(t, ok)
 }
 
 func renderHeadToString(t *testing.T, meta Metadata) string {
@@ -291,9 +239,7 @@ func renderHeadToString(t *testing.T, meta Metadata) string {
 
 	component := Head(meta)
 	var buffer bytes.Buffer
-	if err := component.Render(context.Background(), &buffer); err != nil {
-		t.Fatalf("render head: %v", err)
-	}
+	require.NoError(t, component.Render(context.Background(), &buffer))
 	return strings.TrimSpace(buffer.String())
 }
 
@@ -301,7 +247,5 @@ func TestWriteHTMXHeadersNilResponseWriter(t *testing.T) {
 	t.Parallel()
 
 	var writer http.ResponseWriter
-	if err := WriteHTMXHeaders(writer, Patch{Title: "noop"}); err != nil {
-		t.Fatalf("expected nil writer to be ignored, got %v", err)
-	}
+	require.NoError(t, WriteHTMXHeaders(writer, Patch{Title: "noop"}))
 }

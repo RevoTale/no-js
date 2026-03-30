@@ -3,6 +3,8 @@ package router
 import (
 	"testing"
 	"testing/fstest"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestAppRouterMatch(t *testing.T) {
@@ -17,9 +19,7 @@ func TestAppRouterMatch(t *testing.T) {
 			Data: []byte("package web"),
 		},
 	}, "app")
-	if err != nil {
-		t.Fatalf("new app router: %v", err)
-	}
+	require.NoError(t, err)
 
 	tests := []struct {
 		name        string
@@ -57,23 +57,15 @@ func TestAppRouterMatch(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			match, ok := router.Match(tc.path)
-			if !ok {
-				t.Fatalf("expected a match for %q", tc.path)
-			}
-			if match.ID != tc.expectedID {
-				t.Fatalf("expected route id %q, got %q", tc.expectedID, match.ID)
-			}
+			require.True(t, ok)
+			require.Equal(t, tc.expectedID, match.ID)
 			if tc.expectedKey == "" {
 				return
 			}
 
 			value, ok := match.Param(tc.expectedKey)
-			if !ok {
-				t.Fatalf("expected param %q", tc.expectedKey)
-			}
-			if value != tc.expectedVal {
-				t.Fatalf("expected param %q=%q, got %q", tc.expectedKey, tc.expectedVal, value)
-			}
+			require.True(t, ok)
+			require.Equal(t, tc.expectedVal, value)
 		})
 	}
 }
@@ -83,30 +75,20 @@ func TestAppRouterConflict(t *testing.T) {
 		"app/author/[slug]/page.templ": {Data: []byte("package web")},
 		"app/author/[id]/page.templ":   {Data: []byte("package web")},
 	}, "app")
-	if err == nil {
-		t.Fatal("expected conflict error, got nil")
-	}
+	require.Error(t, err)
 }
 
 func TestMatchPathPattern(t *testing.T) {
 	params, ok := MatchPathPattern("/author/[slug]/live", "/author/nina/live")
-	if !ok {
-		t.Fatal("expected wildcard pattern to match")
-	}
-	if params["slug"] != "nina" {
-		t.Fatalf("expected slug to be %q, got %q", "nina", params["slug"])
-	}
+	require.True(t, ok)
+	require.Equal(t, "nina", params["slug"])
 
 	if _, ok = MatchPathPattern("/author/[slug]/live", "/author/nina"); ok {
-		t.Fatal("expected mismatch for shorter path")
+		require.FailNow(t, "expected mismatch for shorter path")
 	}
 }
 
 func TestIsValidSlug(t *testing.T) {
-	if !IsValidSlug("l-you") {
-		t.Fatal("expected l-you to be a valid slug")
-	}
-	if IsValidSlug("bad slug") {
-		t.Fatal("expected slug with spaces to be invalid")
-	}
+	require.True(t, IsValidSlug("l-you"))
+	require.False(t, IsValidSlug("bad slug"))
 }

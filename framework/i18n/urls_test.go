@@ -1,6 +1,10 @@
 package i18n
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestLocalizePathAndStripLocale(t *testing.T) {
 	t.Parallel()
@@ -11,28 +15,15 @@ func TestLocalizePathAndStripLocale(t *testing.T) {
 		PrefixMode:    PrefixAsNeeded,
 	}
 
-	if got := LocalizePath(cfg, "en", "/note/hello"); got != "/note/hello" {
-		t.Fatalf("localized default path: expected %q, got %q", "/note/hello", got)
-	}
-	if got := LocalizePath(cfg, "uk", "/note/hello"); got != "/uk/note/hello" {
-		t.Fatalf("localized non-default path: expected %q, got %q", "/uk/note/hello", got)
-	}
+	require.Equal(t, "/note/hello", LocalizePath(cfg, "en", "/note/hello"))
+	require.Equal(t, "/uk/note/hello", LocalizePath(cfg, "uk", "/note/hello"))
 
 	locale, stripped, hadPrefix, ok := StripLocale(cfg, "/uk/note/hello")
-	if !ok {
-		t.Fatalf("expected strip locale success")
-	}
-	if locale != "uk" || stripped != "/note/hello" || !hadPrefix {
-		t.Fatalf(
-			"unexpected strip result locale=%q stripped=%q hadPrefix=%t",
-			locale,
-			stripped,
-			hadPrefix,
-		)
-	}
+	require.True(t, ok)
+	require.Equal(t, "uk", locale)
+	require.Equal(t, "/note/hello", stripped)
+	require.True(t, hadPrefix)
 
 	_, _, _, ok = StripLocale(cfg, "/it/note/hello")
-	if ok {
-		t.Fatalf("expected unsupported locale-like prefix to fail")
-	}
+	require.False(t, ok)
 }

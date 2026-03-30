@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/stretchr/testify/require"
 )
 
 type localeEntry struct {
@@ -21,13 +23,8 @@ func TestDiscoverMessageFilesSorted(t *testing.T) {
 	}
 
 	files, err := DiscoverMessageFiles(filesystem)
-	if err != nil {
-		t.Fatalf("discover message files: %v", err)
-	}
-
-	if got, want := strings.Join(files, ","), "messages/active.de.json,messages/active.en.json"; got != want {
-		t.Fatalf("files mismatch: got %q want %q", got, want)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "messages/active.de.json,messages/active.en.json", strings.Join(files, ","))
 }
 
 func TestDiscoverMessageFilesRejectsSubdirectories(t *testing.T) {
@@ -38,12 +35,8 @@ func TestDiscoverMessageFilesRejectsSubdirectories(t *testing.T) {
 	}
 
 	_, err := DiscoverMessageFiles(filesystem)
-	if err == nil {
-		t.Fatal("expected error for nested messages directory")
-	}
-	if !strings.Contains(err.Error(), "must not contain subdirectories") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must not contain subdirectories")
 }
 
 func TestDiscoverMessageFilesRejectsNonJSON(t *testing.T) {
@@ -55,12 +48,8 @@ func TestDiscoverMessageFilesRejectsNonJSON(t *testing.T) {
 	}
 
 	_, err := DiscoverMessageFiles(filesystem)
-	if err == nil {
-		t.Fatal("expected error for non-json file")
-	}
-	if !strings.Contains(err.Error(), "must contain only json files") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must contain only json files")
 }
 
 func TestValidateMessageKeyParityPasses(t *testing.T) {
@@ -76,9 +65,7 @@ func TestValidateMessageKeyParityPasses(t *testing.T) {
 		"messages/active.en.json",
 		"messages/active.de.json",
 	}, []string{"one", "two"})
-	if err != nil {
-		t.Fatalf("expected parity validation to pass, got %v", err)
-	}
+	require.NoError(t, err)
 }
 
 func TestValidateMessageKeyParityRejectsMissingKey(t *testing.T) {
@@ -90,12 +77,8 @@ func TestValidateMessageKeyParityRejectsMissingKey(t *testing.T) {
 	}
 
 	err := ValidateMessageKeyParity(filesystem, []string{"messages/active.en.json"}, []string{"one", "two"})
-	if err == nil {
-		t.Fatal("expected missing key validation error")
-	}
-	if !strings.Contains(err.Error(), "missing=") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing=")
 }
 
 func TestValidateMessageKeyParityRejectsExtraKey(t *testing.T) {
@@ -107,12 +90,8 @@ func TestValidateMessageKeyParityRejectsExtraKey(t *testing.T) {
 	}
 
 	err := ValidateMessageKeyParity(filesystem, []string{"messages/active.en.json"}, []string{"one", "two"})
-	if err == nil {
-		t.Fatal("expected extra key validation error")
-	}
-	if !strings.Contains(err.Error(), "extra=") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "extra=")
 }
 
 func TestValidateMessageKeyParityRejectsDuplicateIDs(t *testing.T) {
@@ -123,20 +102,14 @@ func TestValidateMessageKeyParityRejectsDuplicateIDs(t *testing.T) {
 		{ID: "one", Translation: "second"},
 	}
 	payload, err := json.Marshal(entries)
-	if err != nil {
-		t.Fatalf("marshal duplicate payload: %v", err)
-	}
+	require.NoError(t, err)
 	filesystem := fstest.MapFS{
 		"messages/active.en.json": &fstest.MapFile{Data: payload},
 	}
 
 	err = ValidateMessageKeyParity(filesystem, []string{"messages/active.en.json"}, []string{"one"})
-	if err == nil {
-		t.Fatal("expected duplicate key validation error")
-	}
-	if !strings.Contains(err.Error(), "duplicate message id") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "duplicate message id")
 }
 
 func TestParseCanonicalMessagesRejectsDuplicateIDs(t *testing.T) {
@@ -146,12 +119,8 @@ func TestParseCanonicalMessagesRejectsDuplicateIDs(t *testing.T) {
 		{"id":"a.b","translation":"x"},
 		{"id":"a.b","translation":"y"}
 	]`))
-	if err == nil {
-		t.Fatal("expected duplicate id error")
-	}
-	if !strings.Contains(err.Error(), "duplicate message id") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "duplicate message id")
 }
 
 func buildLocalePayload(t *testing.T, keys []string) []byte {
@@ -166,8 +135,6 @@ func buildLocalePayload(t *testing.T, keys []string) []byte {
 	}
 
 	payload, err := json.Marshal(entries)
-	if err != nil {
-		t.Fatalf("marshal payload: %v", err)
-	}
+	require.NoError(t, err)
 	return payload
 }

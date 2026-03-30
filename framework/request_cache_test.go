@@ -45,7 +45,7 @@ func TestCachedCall_DeduplicatesConcurrentCalls(t *testing.T) {
 	select {
 	case <-started:
 	case <-time.After(time.Second):
-		t.Fatal("cached call did not start")
+		require.FailNow(t, "cached call did not start")
 	}
 
 	time.Sleep(50 * time.Millisecond)
@@ -62,7 +62,7 @@ func TestCachedCall_DeduplicatesConcurrentCalls(t *testing.T) {
 		case value := <-resultCh:
 			assert.Equal(t, "ok", value)
 		case <-time.After(time.Second):
-			t.Fatal("timed out waiting for cached call result")
+			require.FailNow(t, "timed out waiting for cached call result")
 		}
 	}
 }

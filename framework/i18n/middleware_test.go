@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestMiddlewareRewriteAndContext(t *testing.T) {
@@ -14,9 +16,7 @@ func TestMiddlewareRewriteAndContext(t *testing.T) {
 		DefaultLocale: "en",
 		PrefixMode:    PrefixAsNeeded,
 	})
-	if err != nil {
-		t.Fatalf("new resolver: %v", err)
-	}
+	require.NoError(t, err)
 
 	var gotPath string
 	var gotLocale string
@@ -32,15 +32,9 @@ func TestMiddlewareRewriteAndContext(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/uk/note/hello?x=1", nil)
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status: expected %d, got %d", http.StatusOK, rec.Code)
-	}
-	if gotPath != "/note/hello" {
-		t.Fatalf("rewritten path: expected %q, got %q", "/note/hello", gotPath)
-	}
-	if gotLocale != "uk" {
-		t.Fatalf("locale: expected %q, got %q", "uk", gotLocale)
-	}
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "/note/hello", gotPath)
+	require.Equal(t, "uk", gotLocale)
 }
 
 func TestMiddlewareCanonicalRedirectAndUnknownLocale(t *testing.T) {
@@ -51,9 +45,7 @@ func TestMiddlewareCanonicalRedirectAndUnknownLocale(t *testing.T) {
 		DefaultLocale: "en",
 		PrefixMode:    PrefixAsNeeded,
 	})
-	if err != nil {
-		t.Fatalf("new resolver: %v", err)
-	}
+	require.NoError(t, err)
 
 	handler := Middleware(MiddlewareConfig{
 		Resolver: resolver,
@@ -64,17 +56,11 @@ func TestMiddlewareCanonicalRedirectAndUnknownLocale(t *testing.T) {
 	recRedirect := httptest.NewRecorder()
 	reqRedirect := httptest.NewRequest(http.MethodGet, "/en/note/hello?x=1", nil)
 	handler.ServeHTTP(recRedirect, reqRedirect)
-	if recRedirect.Code != http.StatusPermanentRedirect {
-		t.Fatalf("redirect status: expected %d, got %d", http.StatusPermanentRedirect, recRedirect.Code)
-	}
-	if location := recRedirect.Header().Get("Location"); location != "/note/hello?x=1" {
-		t.Fatalf("redirect location: expected %q, got %q", "/note/hello?x=1", location)
-	}
+	require.Equal(t, http.StatusPermanentRedirect, recRedirect.Code)
+	require.Equal(t, "/note/hello?x=1", recRedirect.Header().Get("Location"))
 
 	recNotFound := httptest.NewRecorder()
 	reqNotFound := httptest.NewRequest(http.MethodGet, "/it/note/hello", nil)
 	handler.ServeHTTP(recNotFound, reqNotFound)
-	if recNotFound.Code != http.StatusNotFound {
-		t.Fatalf("unknown locale status: expected %d, got %d", http.StatusNotFound, recNotFound.Code)
-	}
+	require.Equal(t, http.StatusNotFound, recNotFound.Code)
 }

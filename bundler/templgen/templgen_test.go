@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestRunGeneratesOutputFromPath(t *testing.T) {
@@ -17,14 +19,11 @@ func TestRunGeneratesOutputFromPath(t *testing.T) {
 		Paths:    []string{root},
 		BasePath: root,
 	})
-	if err != nil {
-		t.Fatalf("run templgen: %v", err)
-	}
+	require.NoError(t, err)
 
 	generatedPath := filepath.Join(root, "hello_templ.go")
-	if _, statErr := os.Stat(generatedPath); statErr != nil {
-		t.Fatalf("expected generated file %q: %v", generatedPath, statErr)
-	}
+	_, statErr := os.Stat(generatedPath)
+	require.NoError(t, statErr)
 }
 
 func TestRunReturnsErrorForEmptySelection(t *testing.T) {
@@ -34,14 +33,10 @@ func TestRunReturnsErrorForEmptySelection(t *testing.T) {
 	err := Run(Config{
 		BasePath: root,
 	})
-	if err == nil {
-		t.Fatal("expected no templ files error")
-	}
+	require.Error(t, err)
 }
 
 func writeTestFile(t *testing.T, filePath string, content string) {
 	t.Helper()
-	if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
-		t.Fatalf("write %q: %v", filePath, err)
-	}
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0o644))
 }

@@ -74,20 +74,10 @@ func TestServeRoutePageOnly(t *testing.T) {
 			return nil
 		},
 	})
-	if err != nil {
-		t.Fatalf("new engine: %v", err)
-	}
-
-	if !routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/notes", nil)) {
-		t.Fatal("expected route to match")
-	}
-	if rendered != "page" {
-		t.Fatalf("expected page content, got %q", rendered)
-	}
-
-	if routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/missing", nil)) {
-		t.Fatal("did not expect missing route to match")
-	}
+	require.NoError(t, err)
+	require.True(t, routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/notes", nil)))
+	require.Equal(t, "page", rendered)
+	require.False(t, routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/missing", nil)))
 }
 
 func TestServeRouteSkipsLayoutsForPartialRequests(t *testing.T) {
@@ -124,16 +114,9 @@ func TestServeRouteSkipsLayoutsForPartialRequests(t *testing.T) {
 			return nil
 		},
 	})
-	if err != nil {
-		t.Fatalf("new engine: %v", err)
-	}
-
-	if !routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/notes", nil)) {
-		t.Fatal("expected route to match")
-	}
-	if rendered != "body" {
-		t.Fatalf("expected partial body without layout, got %q", rendered)
-	}
+	require.NoError(t, err)
+	require.True(t, routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/notes", nil)))
+	require.Equal(t, "body", rendered)
 }
 
 func TestNotFoundAndServerErrorClassification(t *testing.T) {
@@ -171,28 +154,13 @@ func TestNotFoundAndServerErrorClassification(t *testing.T) {
 				serverErrorCalled = true
 			},
 		})
-		if err != nil {
-			t.Fatalf("new engine: %v", err)
-		}
-
-		if !routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/notes", nil)) {
-			t.Fatal("expected route to match")
-		}
-		if !notFoundCalled {
-			t.Fatal("expected not found callback")
-		}
-		if notFoundContext.Source != framework.NotFoundSourcePageLoad {
-			t.Fatalf("expected not-found source %q, got %q", framework.NotFoundSourcePageLoad, notFoundContext.Source)
-		}
-		if notFoundContext.MatchedRoutePattern != "/notes" {
-			t.Fatalf("expected matched route pattern /notes, got %q", notFoundContext.MatchedRoutePattern)
-		}
-		if notFoundContext.RequestPath != "/notes" {
-			t.Fatalf("expected request path /notes, got %q", notFoundContext.RequestPath)
-		}
-		if serverErrorCalled {
-			t.Fatal("did not expect server error callback")
-		}
+		require.NoError(t, err)
+		require.True(t, routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/notes", nil)))
+		require.True(t, notFoundCalled)
+		require.Equal(t, framework.NotFoundSourcePageLoad, notFoundContext.Source)
+		require.Equal(t, "/notes", notFoundContext.MatchedRoutePattern)
+		require.Equal(t, "/notes", notFoundContext.RequestPath)
+		require.False(t, serverErrorCalled)
 	})
 
 	t.Run("server error", func(t *testing.T) {
@@ -224,19 +192,10 @@ func TestNotFoundAndServerErrorClassification(t *testing.T) {
 				serverErrorCalled = true
 			},
 		})
-		if err != nil {
-			t.Fatalf("new engine: %v", err)
-		}
-
-		if !routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/notes", nil)) {
-			t.Fatal("expected route to match")
-		}
-		if notFoundCalled {
-			t.Fatal("did not expect not found callback")
-		}
-		if !serverErrorCalled {
-			t.Fatal("expected server error callback")
-		}
+		require.NoError(t, err)
+		require.True(t, routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/notes", nil)))
+		require.False(t, notFoundCalled)
+		require.True(t, serverErrorCalled)
 	})
 }
 
@@ -276,16 +235,9 @@ func TestLayoutOrder(t *testing.T) {
 			return nil
 		},
 	})
-	if err != nil {
-		t.Fatalf("new engine: %v", err)
-	}
-
-	if !routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/notes", nil)) {
-		t.Fatal("expected route to match")
-	}
-	if rendered != "[outer][inner]body[/inner][/outer]" {
-		t.Fatalf("unexpected render output: %q", rendered)
-	}
+	require.NoError(t, err)
+	require.True(t, routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/notes", nil)))
+	require.Equal(t, "[outer][inner]body[/inner][/outer]", rendered)
 }
 
 func TestMetaGenRunsConcurrentlyWithLoad(t *testing.T) {
@@ -425,7 +377,7 @@ func TestMetaGenAndLoadShareRequestCachedLoader(t *testing.T) {
 	select {
 	case <-sharedStarted:
 	case <-time.After(time.Second):
-		t.Fatal("shared loader did not start")
+		require.FailNow(t, "shared loader did not start")
 	}
 
 	time.Sleep(50 * time.Millisecond)
@@ -437,7 +389,7 @@ func TestMetaGenAndLoadShareRequestCachedLoader(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(time.Second):
-		t.Fatal("route did not complete")
+		require.FailNow(t, "route did not complete")
 	}
 
 	assert.Equal(t, "shared-data", rendered)

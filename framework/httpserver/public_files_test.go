@@ -6,21 +6,17 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestWithPublicFiles(t *testing.T) {
 	t.Parallel()
 
 	publicDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(publicDir, "nested"), 0o755); err != nil {
-		t.Fatalf("create nested public dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(publicDir, "favicon.svg"), []byte("<svg/>"), 0o644); err != nil {
-		t.Fatalf("write favicon fixture: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(publicDir, "nested", "info.txt"), []byte("nested-file"), 0o644); err != nil {
-		t.Fatalf("write nested fixture: %v", err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Join(publicDir, "nested"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(publicDir, "favicon.svg"), []byte("<svg/>"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(publicDir, "nested", "info.txt"), []byte("nested-file"), 0o644))
 
 	t.Run("serves file bytes and default cache policy", func(t *testing.T) {
 		nextCalled := false
@@ -30,30 +26,16 @@ func TestWithPublicFiles(t *testing.T) {
 		})
 
 		middleware, err := WithPublicFiles(PublicFilesConfig{Dir: publicDir})
-		if err != nil {
-			t.Fatalf("build public middleware: %v", err)
-		}
+		require.NoError(t, err)
 
 		handler := middleware(next)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/favicon.svg", nil))
 
-		if rec.Code != http.StatusOK {
-			t.Fatalf("public file status: expected %d, got %d", http.StatusOK, rec.Code)
-		}
-		if got := rec.Body.String(); got != "<svg/>" {
-			t.Fatalf("public file body: expected %q, got %q", "<svg/>", got)
-		}
-		if got := rec.Header().Get("Cache-Control"); got != defaultPublicFilesCachePolicy {
-			t.Fatalf(
-				"public file cache policy: expected %q, got %q",
-				defaultPublicFilesCachePolicy,
-				got,
-			)
-		}
-		if nextCalled {
-			t.Fatalf("public file request should not delegate to next handler")
-		}
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.Equal(t, "<svg/>", rec.Body.String())
+		require.Equal(t, defaultPublicFilesCachePolicy, rec.Header().Get("Cache-Control"))
+		require.False(t, nextCalled)
 	})
 
 	t.Run("serves nested path as-is", func(t *testing.T) {
@@ -61,19 +43,13 @@ func TestWithPublicFiles(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 		})
 		middleware, err := WithPublicFiles(PublicFilesConfig{Dir: publicDir})
-		if err != nil {
-			t.Fatalf("build public middleware: %v", err)
-		}
+		require.NoError(t, err)
 
 		handler := middleware(next)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/nested/info.txt", nil))
-		if rec.Code != http.StatusOK {
-			t.Fatalf("nested file status: expected %d, got %d", http.StatusOK, rec.Code)
-		}
-		if got := rec.Body.String(); got != "nested-file" {
-			t.Fatalf("nested file body: expected %q, got %q", "nested-file", got)
-		}
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.Equal(t, "nested-file", rec.Body.String())
 	})
 
 	t.Run("applies custom cache policy", func(t *testing.T) {
@@ -82,16 +58,12 @@ func TestWithPublicFiles(t *testing.T) {
 		})
 		cfg := PublicFilesConfig{Dir: publicDir}.WithPublicFileCachePolicy("public, max-age=600")
 		middleware, err := WithPublicFiles(cfg)
-		if err != nil {
-			t.Fatalf("build public middleware: %v", err)
-		}
+		require.NoError(t, err)
 
 		handler := middleware(next)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/favicon.svg", nil))
-		if got := rec.Header().Get("Cache-Control"); got != "public, max-age=600" {
-			t.Fatalf("custom cache policy: expected %q, got %q", "public, max-age=600", got)
-		}
+		require.Equal(t, "public, max-age=600", rec.Header().Get("Cache-Control"))
 	})
 
 	t.Run("serves files under configured request path prefix only", func(t *testing.T) {
@@ -100,26 +72,18 @@ func TestWithPublicFiles(t *testing.T) {
 		})
 		cfg := PublicFilesConfig{Dir: publicDir}.WithRequestPathPrefix("site/")
 		middleware, err := WithPublicFiles(cfg)
-		if err != nil {
-			t.Fatalf("build public middleware: %v", err)
-		}
+		require.NoError(t, err)
 
 		handler := middleware(next)
 
 		recPrefixed := httptest.NewRecorder()
 		handler.ServeHTTP(recPrefixed, httptest.NewRequest(http.MethodGet, "/site/favicon.svg", nil))
-		if recPrefixed.Code != http.StatusOK {
-			t.Fatalf("prefixed public file status: expected %d, got %d", http.StatusOK, recPrefixed.Code)
-		}
-		if got := recPrefixed.Body.String(); got != "<svg/>" {
-			t.Fatalf("prefixed public file body: expected %q, got %q", "<svg/>", got)
-		}
+		require.Equal(t, http.StatusOK, recPrefixed.Code)
+		require.Equal(t, "<svg/>", recPrefixed.Body.String())
 
 		recUnprefixed := httptest.NewRecorder()
 		handler.ServeHTTP(recUnprefixed, httptest.NewRequest(http.MethodGet, "/favicon.svg", nil))
-		if recUnprefixed.Code != http.StatusAccepted {
-			t.Fatalf("unprefixed request should delegate: expected %d, got %d", http.StatusAccepted, recUnprefixed.Code)
-		}
+		require.Equal(t, http.StatusAccepted, recUnprefixed.Code)
 	})
 
 	t.Run("delegates unknown paths", func(t *testing.T) {
@@ -129,19 +93,13 @@ func TestWithPublicFiles(t *testing.T) {
 			w.WriteHeader(http.StatusAccepted)
 		})
 		middleware, err := WithPublicFiles(PublicFilesConfig{Dir: publicDir})
-		if err != nil {
-			t.Fatalf("build public middleware: %v", err)
-		}
+		require.NoError(t, err)
 
 		handler := middleware(next)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/missing.file", nil))
-		if rec.Code != http.StatusAccepted {
-			t.Fatalf("unknown path should delegate: expected %d, got %d", http.StatusAccepted, rec.Code)
-		}
-		if !nextCalled {
-			t.Fatalf("unknown path should delegate to next handler")
-		}
+		require.Equal(t, http.StatusAccepted, rec.Code)
+		require.True(t, nextCalled)
 	})
 
 	t.Run("does not expose directory listing", func(t *testing.T) {
@@ -149,16 +107,12 @@ func TestWithPublicFiles(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 		})
 		middleware, err := WithPublicFiles(PublicFilesConfig{Dir: publicDir})
-		if err != nil {
-			t.Fatalf("build public middleware: %v", err)
-		}
+		require.NoError(t, err)
 
 		handler := middleware(next)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/nested", nil))
-		if rec.Code != http.StatusNotFound {
-			t.Fatalf("directory path should delegate, got status %d", rec.Code)
-		}
+		require.Equal(t, http.StatusNotFound, rec.Code)
 	})
 
 	t.Run("matched file rejects non-read methods", func(t *testing.T) {
@@ -166,34 +120,25 @@ func TestWithPublicFiles(t *testing.T) {
 			w.WriteHeader(http.StatusNoContent)
 		})
 		middleware, err := WithPublicFiles(PublicFilesConfig{Dir: publicDir})
-		if err != nil {
-			t.Fatalf("build public middleware: %v", err)
-		}
+		require.NoError(t, err)
 
 		handler := middleware(next)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/favicon.svg", nil))
-		if rec.Code != http.StatusMethodNotAllowed {
-			t.Fatalf("non-read method status: expected %d, got %d", http.StatusMethodNotAllowed, rec.Code)
-		}
+		require.Equal(t, http.StatusMethodNotAllowed, rec.Code)
 	})
 }
 
 func TestWithPublicFilesInvalidDir(t *testing.T) {
 	t.Parallel()
 
-	if _, err := WithPublicFiles(PublicFilesConfig{}); err == nil {
-		t.Fatalf("expected error for empty public dir")
-	}
-	if _, err := WithPublicFiles(PublicFilesConfig{Dir: filepath.Join(t.TempDir(), "missing")}); err == nil {
-		t.Fatalf("expected error for missing public dir")
-	}
+	_, err := WithPublicFiles(PublicFilesConfig{})
+	require.Error(t, err)
+	_, err = WithPublicFiles(PublicFilesConfig{Dir: filepath.Join(t.TempDir(), "missing")})
+	require.Error(t, err)
 
 	filePath := filepath.Join(t.TempDir(), "not-a-dir")
-	if err := os.WriteFile(filePath, []byte("x"), 0o644); err != nil {
-		t.Fatalf("write file fixture: %v", err)
-	}
-	if _, err := WithPublicFiles(PublicFilesConfig{Dir: filePath}); err == nil {
-		t.Fatalf("expected error for non-directory public path")
-	}
+	require.NoError(t, os.WriteFile(filePath, []byte("x"), 0o644))
+	_, err = WithPublicFiles(PublicFilesConfig{Dir: filePath})
+	require.Error(t, err)
 }

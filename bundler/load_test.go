@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadConfigMissingFileUsesDefaults(t *testing.T) {
@@ -12,15 +14,9 @@ func TestLoadConfigMissingFileUsesDefaults(t *testing.T) {
 	rootDir := t.TempDir()
 
 	cfg, configPath, err := LoadConfig(rootDir)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-	if cfg != (Config{}) {
-		t.Fatalf("expected zero config when file is missing, got %#v", cfg)
-	}
-	if configPath != "" {
-		t.Fatalf("expected empty config path, got %q", configPath)
-	}
+	require.NoError(t, err)
+	require.Equal(t, Config{}, cfg)
+	require.Empty(t, configPath)
 }
 
 func TestLoadConfigFileRejectsMissingVersion(t *testing.T) {
@@ -30,12 +26,8 @@ func TestLoadConfigFileRejectsMissingVersion(t *testing.T) {
 	writeBundlerTestFile(t, configPath, "project:\n  public_dir: internal/web/public\n")
 
 	_, err := LoadConfigFile(configPath)
-	if err == nil {
-		t.Fatal("expected version error")
-	}
-	if !strings.Contains(err.Error(), "must declare version: 1") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must declare version: 1")
 }
 
 func TestLoadConfigFileRejectsUnknownFields(t *testing.T) {
@@ -45,12 +37,8 @@ func TestLoadConfigFileRejectsUnknownFields(t *testing.T) {
 	writeBundlerTestFile(t, configPath, "version: 1\nunknown: value\n")
 
 	_, err := LoadConfigFile(configPath)
-	if err == nil {
-		t.Fatal("expected unknown field error")
-	}
-	if !strings.Contains(err.Error(), "field unknown not found") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "field unknown not found")
 }
 
 func TestLoadConfigFileRejectsInvalidFeatureMode(t *testing.T) {
@@ -60,12 +48,8 @@ func TestLoadConfigFileRejectsInvalidFeatureMode(t *testing.T) {
 	writeBundlerTestFile(t, configPath, "version: 1\nserver:\n  features:\n    static_assets: sometimes\n")
 
 	_, err := LoadConfigFile(configPath)
-	if err == nil {
-		t.Fatal("expected invalid feature mode error")
-	}
-	if !strings.Contains(err.Error(), "invalid feature mode") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid feature mode")
 }
 
 func TestResolveProjectLayoutFromRootUsesConfigOverrides(t *testing.T) {
@@ -101,29 +85,15 @@ func TestResolveProjectLayoutFromRootUsesConfigOverrides(t *testing.T) {
 	)
 
 	layout, err := ResolveProjectLayoutFromRoot(rootDir)
-	if err != nil {
-		t.Fatalf("resolve project layout from root: %v", err)
-	}
+	require.NoError(t, err)
 
 	expectedConfigPath := filepath.ToSlash(filepath.Join(rootDir, defaultBundleConfigFileName))
-	if got := filepath.ToSlash(layout.ConfigPath); got != expectedConfigPath {
-		t.Fatalf("unexpected config path: %q", got)
-	}
-	if got := filepath.ToSlash(layout.AppDir); got != filepath.ToSlash(filepath.Join(rootDir, "src", "web", "app")) {
-		t.Fatalf("unexpected app dir: %q", got)
-	}
+	require.Equal(t, expectedConfigPath, filepath.ToSlash(layout.ConfigPath))
+	require.Equal(t, filepath.ToSlash(filepath.Join(rootDir, "src", "web", "app")), filepath.ToSlash(layout.AppDir))
 	expectedBootstrapDir := filepath.ToSlash(filepath.Join(rootDir, "src", "web", "bootstrap"))
-	if got := filepath.ToSlash(layout.BootstrapDir); got != expectedBootstrapDir {
-		t.Fatalf("unexpected bootstrap dir: %q", got)
-	}
-	if got := filepath.ToSlash(layout.PublicDir); got != filepath.ToSlash(filepath.Join(rootDir, "web-public")) {
-		t.Fatalf("unexpected public dir: %q", got)
-	}
+	require.Equal(t, expectedBootstrapDir, filepath.ToSlash(layout.BootstrapDir))
+	require.Equal(t, filepath.ToSlash(filepath.Join(rootDir, "web-public")), filepath.ToSlash(layout.PublicDir))
 	expectedStaticSourceDir := filepath.ToSlash(filepath.Join(rootDir, "web-static"))
-	if got := filepath.ToSlash(layout.StaticAssets.SourceDir); got != expectedStaticSourceDir {
-		t.Fatalf("unexpected static source dir: %q", got)
-	}
-	if layout.PublicRequestPathPrefix != "/site" {
-		t.Fatalf("unexpected public request prefix: %q", layout.PublicRequestPathPrefix)
-	}
+	require.Equal(t, expectedStaticSourceDir, filepath.ToSlash(layout.StaticAssets.SourceDir))
+	require.Equal(t, "/site", layout.PublicRequestPathPrefix)
 }

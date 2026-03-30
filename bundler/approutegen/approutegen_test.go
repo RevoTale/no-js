@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/RevoTale/no-js/bundler"
+	"github.com/stretchr/testify/require"
 )
 
 const testAppModulePath = "example.com/app"
@@ -22,19 +23,10 @@ func TestDiscoverRouteFilesStaticAndDynamic(t *testing.T) {
 	writeTestFile(t, filepath.Join(appRoot, "author", "[slug]", "page.templ"), "package appsrc\n")
 
 	routes, err := discoverRouteFiles(appRoot, genRoot)
-	if err != nil {
-		t.Fatalf("discover routes: %v", err)
-	}
-
-	if len(routes.Pages) != 2 {
-		t.Fatalf("expected 2 pages, got %d", len(routes.Pages))
-	}
-	if routes.Pages[0].RouteID != "author/[slug]" {
-		t.Fatalf("expected first route author/[slug], got %q", routes.Pages[0].RouteID)
-	}
-	if routes.Pages[1].RouteID != "notes" {
-		t.Fatalf("expected second route notes, got %q", routes.Pages[1].RouteID)
-	}
+	require.NoError(t, err)
+	require.Len(t, routes.Pages, 2)
+	require.Equal(t, "author/[slug]", routes.Pages[0].RouteID)
+	require.Equal(t, "notes", routes.Pages[1].RouteID)
 }
 
 func TestDiscoverRouteFilesRejectsRouteLocalComponents(t *testing.T) {
@@ -46,12 +38,8 @@ func TestDiscoverRouteFilesRejectsRouteLocalComponents(t *testing.T) {
 	writeTestFile(t, filepath.Join(appRoot, "notes", "components", "card.templ"), "package appsrc\n")
 
 	_, err := discoverRouteFiles(appRoot, genRoot)
-	if err == nil {
-		t.Fatal("expected route-local components error")
-	}
-	if !strings.Contains(err.Error(), "internal/web/components") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "internal/web/components")
 }
 
 func TestDiscoverRouteFilesRejectsRootComponentsDir(t *testing.T) {
@@ -62,12 +50,8 @@ func TestDiscoverRouteFilesRejectsRootComponentsDir(t *testing.T) {
 	writeTestFile(t, filepath.Join(appRoot, "components", "note_card.templ"), "package appsrc\n")
 
 	_, err := discoverRouteFiles(appRoot, genRoot)
-	if err == nil {
-		t.Fatal("expected root components error")
-	}
-	if !strings.Contains(err.Error(), "internal/web/components") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "internal/web/components")
 }
 
 func TestDiscoverRouteFilesRejectsLegacyWildcardSyntax(t *testing.T) {
@@ -78,12 +62,8 @@ func TestDiscoverRouteFilesRejectsLegacyWildcardSyntax(t *testing.T) {
 	writeTestFile(t, filepath.Join(appRoot, "note", "_slug", "page.templ"), "package appsrc\n")
 
 	_, err := discoverRouteFiles(appRoot, genRoot)
-	if err == nil {
-		t.Fatal("expected legacy wildcard syntax error")
-	}
-	if !strings.Contains(err.Error(), "use [param]") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "use [param]")
 }
 
 func TestDiscoverRouteFilesCollectsNotFoundTemplates(t *testing.T) {
@@ -123,16 +103,12 @@ templ Page(view runtime.AuthorPageView) { <div id="notes-content"></div> }
 	)
 
 	routes, err := discoverRouteFiles(appRoot, genRoot)
-	if err != nil {
-		t.Fatalf("discover routes: %v", err)
-	}
+	require.NoError(t, err)
 
-	if _, ok := routes.NotFounds[""]; !ok {
-		t.Fatalf("expected root 404 template")
-	}
-	if _, ok := routes.NotFounds["author/[slug]"]; !ok {
-		t.Fatalf("expected nested author 404 template")
-	}
+	_, ok := routes.NotFounds[""]
+	require.True(t, ok)
+	_, ok = routes.NotFounds["author/[slug]"]
+	require.True(t, ok)
 }
 
 func TestParsePageViewType(t *testing.T) {
@@ -150,12 +126,8 @@ templ Page(view runtime.NotePageView) { <div/> }
 	)
 
 	viewType, err := parsePageViewType(pagePath)
-	if err != nil {
-		t.Fatalf("parse page view type: %v", err)
-	}
-	if viewType != "runtime.NotePageView" {
-		t.Fatalf("expected runtime.NotePageView, got %q", viewType)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "runtime.NotePageView", viewType)
 }
 
 func TestParsePageViewTypeRejectsNonRuntimeType(t *testing.T) {
@@ -164,12 +136,8 @@ func TestParsePageViewTypeRejectsNonRuntimeType(t *testing.T) {
 	writeTestFile(t, pagePath, "package appsrc\n\ntempl Page(view note.NotePageView) { <div/> }\n")
 
 	_, err := parsePageViewType(pagePath)
-	if err == nil {
-		t.Fatal("expected runtime-qualified type error")
-	}
-	if !strings.Contains(err.Error(), "runtime-qualified") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "runtime-qualified")
 }
 
 func TestValidateLayoutTemplateSignature(t *testing.T) {
@@ -228,20 +196,12 @@ templ Layout(meta metagen.Metadata, view runtime.RootLayoutView, child templ.Com
 `,
 	)
 
-	if err := validateLayoutTemplateSignature(templateDef{RouteID: "", SourcePath: rootValidPath}); err != nil {
-		t.Fatalf("expected valid root layout signature, got %v", err)
-	}
-	if err := validateLayoutTemplateSignature(templateDef{RouteID: "", SourcePath: rootInvalidPath}); err == nil {
-		t.Fatal("expected invalid root layout signature error")
-	}
+	require.NoError(t, validateLayoutTemplateSignature(templateDef{RouteID: "", SourcePath: rootValidPath}))
+	require.Error(t, validateLayoutTemplateSignature(templateDef{RouteID: "", SourcePath: rootInvalidPath}))
 	childValidTemplate := templateDef{RouteID: "author/[slug]", SourcePath: childValidPath}
-	if err := validateLayoutTemplateSignature(childValidTemplate); err != nil {
-		t.Fatalf("expected valid child layout signature, got %v", err)
-	}
+	require.NoError(t, validateLayoutTemplateSignature(childValidTemplate))
 	childInvalidTemplate := templateDef{RouteID: "author/[slug]", SourcePath: childInvalidPath}
-	if err := validateLayoutTemplateSignature(childInvalidTemplate); err == nil {
-		t.Fatal("expected invalid child layout signature error")
-	}
+	require.Error(t, validateLayoutTemplateSignature(childInvalidTemplate))
 }
 
 func TestValidateNotFoundTemplateSignature(t *testing.T) {
@@ -269,12 +229,8 @@ templ Page(view runtime.NotesPageView, path string) { <div>{ path }</div> }
 `,
 	)
 
-	if err := validateNotFoundTemplateSignature(validPath); err != nil {
-		t.Fatalf("expected valid 404 signature, got %v", err)
-	}
-	if err := validateNotFoundTemplateSignature(invalidPath); err == nil {
-		t.Fatal("expected invalid 404 signature error")
-	}
+	require.NoError(t, validateNotFoundTemplateSignature(validPath))
+	require.Error(t, validateNotFoundTemplateSignature(invalidPath))
 }
 
 func TestValidateRootTemplateSignature(t *testing.T) {
@@ -300,12 +256,8 @@ templ RootLayout(locale string, child templ.Component) { @child }
 `,
 	)
 
-	if err := validateRootTemplateSignature(validPath); err != nil {
-		t.Fatalf("expected valid root signature, got %v", err)
-	}
-	if err := validateRootTemplateSignature(invalidPath); err == nil {
-		t.Fatal("expected invalid root signature error")
-	}
+	require.NoError(t, validateRootTemplateSignature(validPath))
+	require.Error(t, validateRootTemplateSignature(invalidPath))
 }
 
 func TestValidateErrorTemplateSignature(t *testing.T) {
@@ -333,12 +285,8 @@ templ Error(view runtime.NotePageView, path string) { <div>{ path }</div> }
 `,
 	)
 
-	if err := validateErrorTemplateSignature(validPath); err != nil {
-		t.Fatalf("expected valid error signature, got %v", err)
-	}
-	if err := validateErrorTemplateSignature(invalidPath); err == nil {
-		t.Fatal("expected invalid error signature")
-	}
+	require.NoError(t, validateErrorTemplateSignature(validPath))
+	require.Error(t, validateErrorTemplateSignature(invalidPath))
 }
 
 func TestValidateNoDocumentTagsAllowsHeader(t *testing.T) {
@@ -366,12 +314,8 @@ templ Layout() {
 `,
 	)
 
-	if err := validateNoDocumentTags(validPath); err != nil {
-		t.Fatalf("header tag should be allowed, got %v", err)
-	}
-	if err := validateNoDocumentTags(invalidPath); err == nil {
-		t.Fatal("expected head tag rejection")
-	}
+	require.NoError(t, validateNoDocumentTags(validPath))
+	require.Error(t, validateNoDocumentTags(invalidPath))
 }
 
 func TestBuildRouteMetasPageOnly(t *testing.T) {
@@ -395,14 +339,10 @@ templ Page(view runtime.AuthorPageView) { <div id="notes-content"></div> }
 	writeTestFile(t, filepath.Join(appRoot, "author", "[slug]", "page.templ"), authorTemplate)
 
 	routes, err := discoverRouteFiles(appRoot, genRoot)
-	if err != nil {
-		t.Fatalf("discover routes: %v", err)
-	}
+	require.NoError(t, err)
 
 	metas, err := buildRouteMetas(routes.Pages, bundler.ProjectLayout{})
-	if err != nil {
-		t.Fatalf("build route metas: %v", err)
-	}
+	require.NoError(t, err)
 
 	byRoute := map[string]routeMeta{}
 	for _, meta := range metas {
@@ -410,20 +350,12 @@ templ Page(view runtime.AuthorPageView) { <div id="notes-content"></div> }
 	}
 
 	rootMeta, ok := byRoute[""]
-	if !ok {
-		t.Fatalf("missing root route meta: %#v", byRoute)
-	}
-	if rootMeta.PageViewType != "runtime.NotesPageView" {
-		t.Fatalf("expected root page view type, got %q", rootMeta.PageViewType)
-	}
+	require.True(t, ok)
+	require.Equal(t, "runtime.NotesPageView", rootMeta.PageViewType)
 
 	authorMeta, ok := byRoute["author/[slug]"]
-	if !ok {
-		t.Fatalf("missing author route meta: %#v", byRoute)
-	}
-	if authorMeta.PageViewType != "runtime.AuthorPageView" {
-		t.Fatalf("expected author page view type, got %q", authorMeta.PageViewType)
-	}
+	require.True(t, ok)
+	require.Equal(t, "runtime.AuthorPageView", authorMeta.PageViewType)
 }
 
 func TestBuildRouteMetasAllowsNonPageViewSuffix(t *testing.T) {
@@ -440,20 +372,12 @@ templ Page(view runtime.NoteView) { <div id="note-content"></div> }
 	writeTestFile(t, filepath.Join(appRoot, "note", "[slug]", "page.templ"), pageTemplate)
 
 	routes, err := discoverRouteFiles(appRoot, genRoot)
-	if err != nil {
-		t.Fatalf("discover routes: %v", err)
-	}
+	require.NoError(t, err)
 
 	metas, err := buildRouteMetas(routes.Pages, bundler.ProjectLayout{})
-	if err != nil {
-		t.Fatalf("build route metas: %v", err)
-	}
-	if len(metas) != 1 {
-		t.Fatalf("expected 1 route meta, got %d", len(metas))
-	}
-	if metas[0].PageViewType != "runtime.NoteView" {
-		t.Fatalf("expected runtime.NoteView, got %q", metas[0].PageViewType)
-	}
+	require.NoError(t, err)
+	require.Len(t, metas, 1)
+	require.Equal(t, "runtime.NoteView", metas[0].PageViewType)
 }
 
 func TestResolverNamespaceGenerationDeterministic(t *testing.T) {
@@ -478,23 +402,15 @@ func TestResolverNamespaceGenerationDeterministic(t *testing.T) {
 		metas,
 		map[string]templateDef{},
 	)
-	if err != nil {
-		t.Fatalf("first generation failed: %v", err)
-	}
+	require.NoError(t, err)
 	second, err := generateResolverNamespaceSource(
 		bundler.ProjectLayout{AppModulePath: testAppModulePath},
 		metas,
 		map[string]templateDef{},
 	)
-	if err != nil {
-		t.Fatalf("second generation failed: %v", err)
-	}
-	if !bytes.Equal(first, second) {
-		t.Fatalf("resolver namespace generation is not deterministic")
-	}
-	if !bytes.Contains(first, []byte("var _ RouteResolver = (*Resolver)(nil)")) {
-		t.Fatalf("expected compile-time assertion in generated resolver namespace:\n%s", string(first))
-	}
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(first, second))
+	require.Contains(t, string(first), "var _ RouteResolver = (*Resolver)(nil)")
 }
 
 func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
@@ -540,47 +456,21 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 			},
 		},
 	)
-	if err != nil {
-		t.Fatalf("generate registry: %v", err)
-	}
+	require.NoError(t, err)
 
 	text := string(registry)
-	if !strings.Contains(text, "route_resolvers \"example.com/app/internal/web/resolvers\"") {
-		t.Fatalf("expected unified resolver namespace import in registry:\n%s", text)
-	}
-	if strings.Contains(text, "rr_") {
-		t.Fatalf("did not expect per-route resolver aliases in registry:\n%s", text)
-	}
-	if !strings.Contains(text, "func NewRouteResolvers() RouteResolvers") {
-		t.Fatalf("expected NewRouteResolvers constructor in registry:\n%s", text)
-	}
-	if !strings.Contains(text, "return &route_resolvers.Resolver{}") {
-		t.Fatalf("expected route resolver constructor to return unified resolver:\n%s", text)
-	}
-	if !strings.Contains(text, "framework.PageOnlyRouteHandler") {
-		t.Fatalf("expected page-only route handlers:\n%s", text)
-	}
-	if strings.Contains(text, "PageAndLiveRouteHandler") {
-		t.Fatalf("did not expect live route handlers:\n%s", text)
-	}
-	if strings.Contains(text, "/.live/") {
-		t.Fatalf("did not expect live route patterns:\n%s", text)
-	}
-	if strings.Contains(text, "ParseRootLiveState") {
-		t.Fatalf("did not expect live resolver contract references:\n%s", text)
-	}
-	if !strings.Contains(text, "func NotFoundPage(notFound framework.NotFoundContext) templ.Component") {
-		t.Fatalf("expected generated NotFoundPage helper in registry:\n%s", text)
-	}
-	if !strings.Contains(text, "RootLayout: r_root_root.RootLayout") {
-		t.Fatalf("expected RootLayout wiring in page module:\n%s", text)
-	}
-	if !strings.Contains(text, "MetaGenChain: []framework.PageMetaGen") {
-		t.Fatalf("expected generated metadata chain in page module:\n%s", text)
-	}
-	if !strings.Contains(text, "ErrorPage: func(locale string, path string) templ.Component") {
-		t.Fatalf("expected generated ErrorPage fallback in page module:\n%s", text)
-	}
+	require.Contains(t, text, "route_resolvers \"example.com/app/internal/web/resolvers\"")
+	require.NotContains(t, text, "rr_")
+	require.Contains(t, text, "func NewRouteResolvers() RouteResolvers")
+	require.Contains(t, text, "return &route_resolvers.Resolver{}")
+	require.Contains(t, text, "framework.PageOnlyRouteHandler")
+	require.NotContains(t, text, "PageAndLiveRouteHandler")
+	require.NotContains(t, text, "/.live/")
+	require.NotContains(t, text, "ParseRootLiveState")
+	require.Contains(t, text, "func NotFoundPage(notFound framework.NotFoundContext) templ.Component")
+	require.Contains(t, text, "RootLayout: r_root_root.RootLayout")
+	require.Contains(t, text, "MetaGenChain: []framework.PageMetaGen")
+	require.Contains(t, text, "ErrorPage: func(locale string, path string) templ.Component")
 }
 
 func TestRegistryGenerationRequiresRootNotFoundTemplate(t *testing.T) {
@@ -612,12 +502,8 @@ func TestRegistryGenerationRequiresRootNotFoundTemplate(t *testing.T) {
 			},
 		},
 	)
-	if err == nil {
-		t.Fatal("expected missing root 404 metadata error")
-	}
-	if !strings.Contains(err.Error(), "missing root 404") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing root 404")
 }
 
 func TestRegistryGenerationRequiresRootErrorTemplate(t *testing.T) {
@@ -649,12 +535,8 @@ func TestRegistryGenerationRequiresRootErrorTemplate(t *testing.T) {
 		},
 		map[string]templateDef{},
 	)
-	if err == nil {
-		t.Fatal("expected missing root error metadata error")
-	}
-	if !strings.Contains(err.Error(), "missing root error") {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing root error")
 }
 
 func TestRegistryGenerationWiresNearestErrorTemplate(t *testing.T) {
@@ -701,48 +583,32 @@ func TestRegistryGenerationWiresNearestErrorTemplate(t *testing.T) {
 			},
 		},
 	)
-	if err != nil {
-		t.Fatalf("generate registry: %v", err)
-	}
+	require.NoError(t, err)
 
 	text := string(registry)
-	if !strings.Contains(text, "component := r_error_author_param_slug.Error(view, pathValue)") {
-		t.Fatalf("expected nearest author error template wiring, got:\n%s", text)
-	}
+	require.Contains(t, text, "component := r_error_author_param_slug.Error(view, pathValue)")
 }
 
 func TestRewritePackageDeclarationAddsGeneratedMarker(t *testing.T) {
 	source := "package appsrc\n\nimport (\n\t\"fmt\"\n)\n"
 
 	rewritten, err := rewritePackageDeclaration([]byte(source), "r_page_root")
-	if err != nil {
-		t.Fatalf("rewrite package declaration: %v", err)
-	}
+	require.NoError(t, err)
 
 	text := string(rewritten)
-	if !strings.HasPrefix(text, "package r_page_root\n"+generatedTemplHeader+"\n") {
-		t.Fatalf("expected generated marker after package declaration, got:\n%s", text)
-	}
-	if strings.Count(text, generatedTemplHeader) != 1 {
-		t.Fatalf("expected exactly one generated marker, got:\n%s", text)
-	}
+	require.True(t, strings.HasPrefix(text, "package r_page_root\n"+generatedTemplHeader+"\n"))
+	require.Equal(t, 1, strings.Count(text, generatedTemplHeader))
 }
 
 func TestRewritePackageDeclarationKeepsSingleGeneratedMarker(t *testing.T) {
 	source := "package appsrc\n\n" + generatedTemplHeader + "\n\ntempl Page() { <div></div> }\n"
 
 	rewritten, err := rewritePackageDeclaration([]byte(source), "r_page_root")
-	if err != nil {
-		t.Fatalf("rewrite package declaration: %v", err)
-	}
+	require.NoError(t, err)
 
 	text := string(rewritten)
-	if strings.Count(text, generatedTemplHeader) != 1 {
-		t.Fatalf("expected exactly one generated marker, got:\n%s", text)
-	}
-	if !strings.HasPrefix(text, "package r_page_root\n") {
-		t.Fatalf("expected package rename to be applied, got:\n%s", text)
-	}
+	require.Equal(t, 1, strings.Count(text, generatedTemplHeader))
+	require.True(t, strings.HasPrefix(text, "package r_page_root\n"))
 }
 
 func TestRunUsesExplicitProjectLayout(t *testing.T) {
@@ -788,37 +654,22 @@ templ Page(view runtime.NotesPageView) { <div>notes</div> }
 			PublicRequestPathPrefix: "/",
 		},
 	})
-	if err != nil {
-		t.Fatalf("run approutegen: %v", err)
-	}
+	require.NoError(t, err)
 
-	if _, statErr := os.Stat(filepath.Join(genDir, "registry_gen.go")); statErr != nil {
-		t.Fatalf("expected generated registry file: %v", statErr)
-	}
+	_, statErr := os.Stat(filepath.Join(genDir, "registry_gen.go"))
+	require.NoError(t, statErr)
 	serverSourcePath := filepath.Join(genDir, generatedServerFileName)
-	if _, statErr := os.Stat(serverSourcePath); statErr != nil {
-		t.Fatalf("expected generated server bootstrap: %v", statErr)
-	}
+	_, statErr = os.Stat(serverSourcePath)
+	require.NoError(t, statErr)
 	serverSource, err := os.ReadFile(serverSourcePath)
-	if err != nil {
-		t.Fatalf("read generated server bootstrap: %v", err)
-	}
+	require.NoError(t, err)
 	serverText := string(serverSource)
-	if strings.Contains(serverText, "appcore") {
-		t.Fatalf("generated server bootstrap should not reference appcore:\n%s", serverText)
-	}
-	if !strings.Contains(serverText, `"example.com/app/internal/web/runtime"`) {
-		t.Fatalf("generated server bootstrap should import runtime package:\n%s", serverText)
-	}
-	if !strings.Contains(serverText, "func NewHandler(cfg ServerConfig) (http.Handler, error)") {
-		t.Fatalf("generated server bootstrap should expose NewHandler:\n%s", serverText)
-	}
-	if !strings.Contains(serverText, "func MountRoutes(mux *http.ServeMux, cfg ServerConfig) error") {
-		t.Fatalf("generated server bootstrap should expose MountRoutes:\n%s", serverText)
-	}
-	if _, statErr := os.Stat(filepath.Join(resolverDir, generatedResolverFileName)); statErr != nil {
-		t.Fatalf("expected generated resolver namespace: %v", statErr)
-	}
+	require.NotContains(t, serverText, "appcore")
+	require.Contains(t, serverText, `"example.com/app/internal/web/runtime"`)
+	require.Contains(t, serverText, "func NewHandler(cfg ServerConfig) (http.Handler, error)")
+	require.Contains(t, serverText, "func MountRoutes(mux *http.ServeMux, cfg ServerConfig) error")
+	_, statErr = os.Stat(filepath.Join(resolverDir, generatedResolverFileName))
+	require.NoError(t, statErr)
 }
 
 func TestGenerateServerSourceHonorsFeatureFlags(t *testing.T) {
@@ -831,26 +682,14 @@ func TestGenerateServerSourceHonorsFeatureFlags(t *testing.T) {
 			PublicFiles:  false,
 		},
 	})
-	if err != nil {
-		t.Fatalf("generate disabled server source: %v", err)
-	}
+	require.NoError(t, err)
 
 	disabledText := string(disabledSource)
-	if strings.Contains(disabledText, "frameworki18n") {
-		t.Fatalf("disabled server source should omit i18n middleware wiring:\n%s", disabledText)
-	}
-	if strings.Contains(disabledText, "type StaticAssetsConfig struct") {
-		t.Fatalf("disabled server source should omit static manifest config:\n%s", disabledText)
-	}
-	if strings.Contains(disabledText, "loadStaticMount(") {
-		t.Fatalf("disabled server source should omit static loader helper:\n%s", disabledText)
-	}
-	if strings.Contains(disabledText, "type PublicFilesConfig struct") {
-		t.Fatalf("disabled server source should omit public files config:\n%s", disabledText)
-	}
-	if strings.Contains(disabledText, "WithPublicFiles") {
-		t.Fatalf("disabled server source should omit public files middleware:\n%s", disabledText)
-	}
+	require.NotContains(t, disabledText, "frameworki18n")
+	require.NotContains(t, disabledText, "type StaticAssetsConfig struct")
+	require.NotContains(t, disabledText, "loadStaticMount(")
+	require.NotContains(t, disabledText, "type PublicFilesConfig struct")
+	require.NotContains(t, disabledText, "WithPublicFiles")
 
 	enabledSource, err := generateServerSource(bundler.ProjectLayout{
 		AppModulePath:           testAppModulePath,
@@ -862,70 +701,35 @@ func TestGenerateServerSourceHonorsFeatureFlags(t *testing.T) {
 			HealthEndpoint: true,
 		},
 	})
-	if err != nil {
-		t.Fatalf("generate enabled server source: %v", err)
-	}
+	require.NoError(t, err)
 
 	enabledText := string(enabledSource)
-	if strings.Contains(enabledText, "appcore") {
-		t.Fatalf("enabled server source should not reference appcore:\n%s", enabledText)
-	}
-	if !strings.Contains(enabledText, `"example.com/app/internal/web/runtime"`) {
-		t.Fatalf("enabled server source should import runtime package:\n%s", enabledText)
-	}
-	if !strings.Contains(enabledText, "frameworki18n.Middleware") {
-		t.Fatalf("enabled server source should include i18n middleware:\n%s", enabledText)
-	}
-	if !strings.Contains(enabledText, "type RuntimeConfig struct") {
-		t.Fatalf("enabled server source should include grouped runtime config:\n%s", enabledText)
-	}
-	if !strings.Contains(enabledText, "type Hooks struct") {
-		t.Fatalf("enabled server source should include hook config:\n%s", enabledText)
-	}
-	if !strings.Contains(enabledText, "type StaticAssetsConfig struct") {
-		t.Fatalf("enabled server source should include static manifest config:\n%s", enabledText)
-	}
-	if !strings.Contains(enabledText, "func loadStaticMount(manifestPath string, basePrefix string)") {
-		t.Fatalf("enabled server source should include static loader helper:\n%s", enabledText)
-	}
-	if !strings.Contains(enabledText, "RequestPathPrefix string") {
-		t.Fatalf("enabled server source should include public path prefix config:\n%s", enabledText)
-	}
-	if !strings.Contains(enabledText, "httpserver.WithPublicFiles") {
-		t.Fatalf("enabled server source should include public files middleware:\n%s", enabledText)
-	}
-	if !strings.Contains(enabledText, "for idx := len(cfg.Hooks.Middleware) - 1; idx >= 0; idx--") {
-		t.Fatalf(
-			"enabled server source should wrap middleware hooks in reverse for request-order stability:\n%s",
-			enabledText,
-		)
-	}
-	if !strings.Contains(enabledText, "for _, mount := range cfg.Hooks.Mount") {
-		t.Fatalf("enabled server source should include mount hooks:\n%s", enabledText)
-	}
-	if !strings.Contains(enabledText, "handler = frameworki18n.Middleware") {
-		t.Fatalf("enabled server source should apply i18n after middleware hooks:\n%s", enabledText)
-	}
-	if !strings.Contains(enabledText, "versionedPrefix := manifest.VersionedURLPrefix(basePrefix)") {
-		t.Fatalf("enabled server source should compose runtime static prefix from manifest hash:\n%s", enabledText)
-	}
+	require.NotContains(t, enabledText, "appcore")
+	require.Contains(t, enabledText, `"example.com/app/internal/web/runtime"`)
+	require.Contains(t, enabledText, "frameworki18n.Middleware")
+	require.Contains(t, enabledText, "type RuntimeConfig struct")
+	require.Contains(t, enabledText, "type Hooks struct")
+	require.Contains(t, enabledText, "type StaticAssetsConfig struct")
+	require.Contains(t, enabledText, "func loadStaticMount(manifestPath string, basePrefix string)")
+	require.Contains(t, enabledText, "RequestPathPrefix string")
+	require.Contains(t, enabledText, "httpserver.WithPublicFiles")
+	require.Contains(t, enabledText, "for idx := len(cfg.Hooks.Middleware) - 1; idx >= 0; idx--")
+	require.Contains(t, enabledText, "for _, mount := range cfg.Hooks.Mount")
+	require.Contains(t, enabledText, "handler = frameworki18n.Middleware")
+	require.Contains(t, enabledText, "versionedPrefix := manifest.VersionedURLPrefix(basePrefix)")
 	if strings.Index(enabledText, "for idx := len(cfg.Hooks.Middleware) - 1; idx >= 0; idx--") >
 		strings.Index(enabledText, "handler = frameworki18n.Middleware") {
-		t.Fatalf("middleware hook wrapping should occur before i18n middleware:\n%s", enabledText)
+		require.FailNow(t, "middleware hook wrapping should occur before i18n middleware:\n%s", enabledText)
 	}
 	if strings.Index(enabledText, "handler = frameworki18n.Middleware") >
 		strings.Index(enabledText, "httpserver.WithPublicFiles") {
-		t.Fatalf("public files middleware should be applied after i18n middleware:\n%s", enabledText)
+		require.FailNow(t, "public files middleware should be applied after i18n middleware:\n%s", enabledText)
 	}
 }
 
 func writeTestFile(t *testing.T, filePath string, content string) {
 	t.Helper()
 
-	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
-		t.Fatalf("mkdir %q: %v", filepath.Dir(filePath), err)
-	}
-	if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
-		t.Fatalf("write %q: %v", filePath, err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Dir(filePath), 0o755))
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0o644))
 }

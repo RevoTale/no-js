@@ -1,6 +1,10 @@
 package i18n
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestNormalizeConfig(t *testing.T) {
 	t.Parallel()
@@ -10,19 +14,10 @@ func TestNormalizeConfig(t *testing.T) {
 		DefaultLocale: "EN",
 		PrefixMode:    PrefixAsNeeded,
 	})
-	if err != nil {
-		t.Fatalf("normalize config: %v", err)
-	}
-
-	if got := cfg.DefaultLocale; got != "en" {
-		t.Fatalf("default locale: expected %q, got %q", "en", got)
-	}
-	if len(cfg.Locales) != 3 {
-		t.Fatalf("locales length: expected %d, got %d", 3, len(cfg.Locales))
-	}
-	if got := cfg.PrefixMode; got != PrefixAsNeeded {
-		t.Fatalf("prefix mode: expected %q, got %q", PrefixAsNeeded, got)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "en", cfg.DefaultLocale)
+	require.Len(t, cfg.Locales, 3)
+	require.Equal(t, PrefixAsNeeded, cfg.PrefixMode)
 }
 
 func TestNormalizeConfigInvalid(t *testing.T) {
@@ -33,7 +28,7 @@ func TestNormalizeConfigInvalid(t *testing.T) {
 		DefaultLocale: "en",
 		PrefixMode:    PrefixMode("invalid"),
 	}); err == nil {
-		t.Fatalf("expected invalid prefix mode error")
+		require.FailNow(t, "expected invalid prefix mode error")
 	}
 
 	if _, err := NormalizeConfig(Config{
@@ -41,6 +36,6 @@ func TestNormalizeConfigInvalid(t *testing.T) {
 		DefaultLocale: "en",
 		PrefixMode:    PrefixAsNeeded,
 	}); err == nil {
-		t.Fatalf("expected invalid locale error")
+		require.FailNow(t, "expected invalid locale error")
 	}
 }

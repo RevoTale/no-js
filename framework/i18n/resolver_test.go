@@ -1,6 +1,10 @@
 package i18n
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestResolverResolveAsNeeded(t *testing.T) {
 	t.Parallel()
@@ -10,30 +14,22 @@ func TestResolverResolveAsNeeded(t *testing.T) {
 		DefaultLocale: "en",
 		PrefixMode:    PrefixAsNeeded,
 	})
-	if err != nil {
-		t.Fatalf("new resolver: %v", err)
-	}
+	require.NoError(t, err)
 
 	root := resolver.Resolve("/")
-	if root.Locale != "en" || root.StrippedPath != "/" || root.ShouldRedirect {
-		t.Fatalf("unexpected root decision: %#v", root)
-	}
+	require.Equal(t, "en", root.Locale)
+	require.Equal(t, "/", root.StrippedPath)
+	require.False(t, root.ShouldRedirect)
 
 	localized := resolver.Resolve("/uk/note/hello")
-	if localized.Locale != "uk" || localized.StrippedPath != "/note/hello" || localized.ShouldRedirect {
-		t.Fatalf("unexpected localized decision: %#v", localized)
-	}
+	require.Equal(t, "uk", localized.Locale)
+	require.Equal(t, "/note/hello", localized.StrippedPath)
+	require.False(t, localized.ShouldRedirect)
 
 	defaultPrefixed := resolver.Resolve("/en/note/hello")
-	if !defaultPrefixed.ShouldRedirect {
-		t.Fatalf("expected default prefixed path redirect")
-	}
-	if defaultPrefixed.CanonicalPath != "/note/hello" {
-		t.Fatalf("canonical path: expected %q, got %q", "/note/hello", defaultPrefixed.CanonicalPath)
-	}
+	require.True(t, defaultPrefixed.ShouldRedirect)
+	require.Equal(t, "/note/hello", defaultPrefixed.CanonicalPath)
 
 	unknown := resolver.Resolve("/it/note/hello")
-	if !unknown.NotFound {
-		t.Fatalf("expected unknown locale-like prefix to be marked not-found")
-	}
+	require.True(t, unknown.NotFound)
 }
