@@ -1,2 +1,2 @@
 // Package bundler defines build-time framework configuration and project layout resolution.
-package bundler
+package projectlayout

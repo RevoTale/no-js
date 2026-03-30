@@ -1,4 +1,4 @@
-package bundler
+package projectlayout
 
 import (
 	"fmt"
@@ -8,16 +8,16 @@ import (
 const (
 	defaultBundleConfigFileName    = "no-js.bundle.yaml"
 	bundleConfigVersion            = 1
-	defaultAppDir                  = "internal/web/app"
-	defaultGeneratedDir            = "internal/web/gen"
-	defaultResolverDir             = "internal/web/resolvers"
-	defaultRuntimeDir              = "internal/web/runtime"
-	defaultBootstrapDir            = "internal/web/bootstrap"
-	defaultI18nDir                 = "internal/web/i18n"
-	defaultPublicDirName           = "public"
+	defaultRoutesDir               = "web/routes"
+	defaultGeneratedDir            = "web/generated"
+	defaultResolversDir            = "web/resolvers"
+	defaultViewDir                 = "web/view"
+	defaultBootstrapDir            = "web/bootstrap"
+	defaultI18nDir                 = "web/i18n"
+	defaultAssetsDir               = "web/assets"
+	defaultAssetsBuildDir          = "web/assets-build"
+	defaultPublicDirName           = "web/public"
 	defaultPublicRequestPathPrefix = "/"
-	defaultStaticSourceDir         = "internal/web/static"
-	defaultStaticOutDir            = "internal/web/static-build"
 	defaultStaticManifestFileName  = "manifest.json"
 	defaultStaticRuntimeURLPrefix  = "/_assets/"
 )
@@ -63,31 +63,31 @@ func (mode *FeatureMode) UnmarshalYAML(unmarshal func(any) error) error {
 }
 
 type ServerFeaturesConfig struct {
-	// I18nRouting controls whether generated server bootstrap wires locale routing middleware.
+	// I18nRouting controls whether project layout resolves locale routing support as enabled.
 	I18nRouting FeatureMode `yaml:"i18n_routing"`
 
-	// StaticAssets controls whether generated server bootstrap wires static asset manifest loading and mounting.
+	// StaticAssets controls whether project layout resolves static asset support as enabled.
 	StaticAssets FeatureMode `yaml:"static_assets"`
 
-	// PublicFiles controls whether generated server bootstrap wires public-file serving middleware.
+	// PublicFiles controls whether project layout resolves public-file support as enabled.
 	PublicFiles FeatureMode `yaml:"public_files"`
 
-	// HealthEndpoint controls whether generated server bootstrap exposes a health endpoint.
+	// HealthEndpoint controls whether project layout resolves health endpoint support as enabled.
 	HealthEndpoint FeatureMode `yaml:"health_endpoint"`
 }
 
 type ProjectConfig struct {
-	// AppDir is the route tree directory relative to the application root.
-	AppDir string `yaml:"app_dir"`
+	// RoutesDir is the route tree directory relative to the application root.
+	RoutesDir string `yaml:"routes_dir"`
 
-	// GenDir is the generated route output directory relative to the application root.
-	GenDir string `yaml:"gen_dir"`
+	// GeneratedDir is the generated route output directory relative to the application root.
+	GeneratedDir string `yaml:"generated_dir"`
 
-	// ResolverDir is the handwritten resolver directory relative to the application root.
-	ResolverDir string `yaml:"resolver_dir"`
+	// ResolversDir is the handwritten resolver directory relative to the application root.
+	ResolversDir string `yaml:"resolvers_dir"`
 
-	// RuntimeDir is the application runtime contract package relative to the application root.
-	RuntimeDir string `yaml:"runtime_dir"`
+	// ViewDir is the application view contract package relative to the application root.
+	ViewDir string `yaml:"view_dir"`
 
 	// BootstrapDir is the app-owned bootstrap package relative to the application root.
 	BootstrapDir string `yaml:"bootstrap_dir"`
@@ -95,17 +95,17 @@ type ProjectConfig struct {
 	// I18nDir is the application i18n package relative to the application root.
 	I18nDir string `yaml:"i18n_dir"`
 
+	// AssetsDir is the source directory for bundled static assets relative to the application root.
+	AssetsDir string `yaml:"assets_dir"`
+
+	// AssetsBuildDir is the output directory for bundled static assets relative to the application root.
+	AssetsBuildDir string `yaml:"assets_build_dir"`
+
 	// PublicDir is the public files directory relative to the application root.
 	PublicDir string `yaml:"public_dir"`
 }
 
 type StaticAssetsConfig struct {
-	// SourceDir is the source directory for bundled static assets relative to the application root.
-	SourceDir string `yaml:"source_dir"`
-
-	// OutDir is the output directory for bundled static assets relative to the application root.
-	OutDir string `yaml:"out_dir"`
-
 	// ManifestPath is the manifest file path relative to the application root.
 	ManifestPath string `yaml:"manifest_path"`
 }
@@ -152,8 +152,11 @@ type ProjectLayout struct {
 	// It is empty when defaults are used without a bundle config file.
 	ConfigPath string
 
-	// AppDir is the absolute filesystem path to the route tree root.
-	AppDir string
+	// RoutesDir is the absolute filesystem path to the route tree root.
+	RoutesDir string
+
+	// RoutesImport is the module-relative import path that corresponds to RoutesDir.
+	RoutesImport string
 
 	// GeneratedDir is the absolute filesystem path where generated route code is written.
 	GeneratedDir string
@@ -161,17 +164,17 @@ type ProjectLayout struct {
 	// GeneratedImport is the module-relative import path that corresponds to GeneratedDir.
 	GeneratedImport string
 
-	// ResolverDir is the absolute filesystem path to the handwritten resolver directory.
-	ResolverDir string
+	// ResolversDir is the absolute filesystem path to the handwritten resolver directory.
+	ResolversDir string
 
-	// ResolverImport is the module-relative import path that corresponds to ResolverDir.
-	ResolverImport string
+	// ResolversImport is the module-relative import path that corresponds to ResolversDir.
+	ResolversImport string
 
-	// RuntimeDir is the absolute filesystem path to the handwritten runtime contract package.
-	RuntimeDir string
+	// ViewDir is the absolute filesystem path to the handwritten view contract package.
+	ViewDir string
 
-	// RuntimeImport is the module-relative import path that corresponds to RuntimeDir.
-	RuntimeImport string
+	// ViewImport is the module-relative import path that corresponds to ViewDir.
+	ViewImport string
 
 	// BootstrapDir is the absolute filesystem path to the app-owned bootstrap package.
 	BootstrapDir string

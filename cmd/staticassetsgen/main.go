@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/RevoTale/no-js/bundler/staticassets"
+	"github.com/RevoTale/no-js/internal/bundler/staticassets"
 )
 
 func main() {
@@ -16,9 +16,9 @@ func main() {
 	var manifestPath string
 	var urlPrefix string
 
-	flag.StringVar(&sourceDir, "source", "static", "source static directory")
-	flag.StringVar(&outDir, "out", "static-build", "output static directory")
-	flag.StringVar(&manifestPath, "manifest", "static-build/manifest.json", "manifest output path")
+	flag.StringVar(&sourceDir, "source", "web/assets", "source static directory")
+	flag.StringVar(&outDir, "out", "web/assets-build", "output static directory")
+	flag.StringVar(&manifestPath, "manifest", "web/assets-build/manifest.json", "manifest output path")
 	flag.StringVar(&urlPrefix, "url-prefix", "/_assets/", "base static URL prefix")
 	flag.Parse()
 

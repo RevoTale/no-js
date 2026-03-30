@@ -1,4 +1,4 @@
-package bundler
+package projectlayout
 
 import (
 	"fmt"
@@ -23,28 +23,28 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 		return ProjectLayout{}, fmt.Errorf("go.mod is missing in %s", resolvedRoot)
 	}
 
-	appDir, appImportPath, err := resolveModuleDir(resolvedRoot, cfg.Project.AppDir, defaultAppDir)
+	routesDir, routesImportPath, err := resolveModuleDir(resolvedRoot, cfg.Project.RoutesDir, defaultRoutesDir)
 	if err != nil {
-		return ProjectLayout{}, fmt.Errorf("resolve app dir: %w", err)
+		return ProjectLayout{}, fmt.Errorf("resolve routes dir: %w", err)
 	}
-	if !filesystem.PathExists(appDir) {
-		return ProjectLayout{}, fmt.Errorf("strict app root missing: expected %s", appImportPath)
+	if !filesystem.PathExists(routesDir) {
+		return ProjectLayout{}, fmt.Errorf("strict routes root missing: expected %s", routesImportPath)
 	}
 
-	generatedDir, generatedImport, err := resolveModuleDir(resolvedRoot, cfg.Project.GenDir, defaultGeneratedDir)
+	generatedDir, generatedImport, err := resolveModuleDir(resolvedRoot, cfg.Project.GeneratedDir, defaultGeneratedDir)
 	if err != nil {
 		return ProjectLayout{}, fmt.Errorf("resolve generated dir: %w", err)
 	}
-	resolverDir, resolverImport, err := resolveModuleDir(resolvedRoot, cfg.Project.ResolverDir, defaultResolverDir)
+	resolversDir, resolversImport, err := resolveModuleDir(resolvedRoot, cfg.Project.ResolversDir, defaultResolversDir)
 	if err != nil {
-		return ProjectLayout{}, fmt.Errorf("resolve resolver dir: %w", err)
+		return ProjectLayout{}, fmt.Errorf("resolve resolvers dir: %w", err)
 	}
-	runtimeDir, runtimeImport, err := resolveModuleDir(resolvedRoot, cfg.Project.RuntimeDir, defaultRuntimeDir)
+	viewDir, viewImport, err := resolveModuleDir(resolvedRoot, cfg.Project.ViewDir, defaultViewDir)
 	if err != nil {
-		return ProjectLayout{}, fmt.Errorf("resolve runtime dir: %w", err)
+		return ProjectLayout{}, fmt.Errorf("resolve view dir: %w", err)
 	}
-	if !filesystem.PathExists(runtimeDir) {
-		return ProjectLayout{}, fmt.Errorf("strict runtime root missing: expected %s", runtimeImport)
+	if !filesystem.PathExists(viewDir) {
+		return ProjectLayout{}, fmt.Errorf("strict view root missing: expected %s", viewImport)
 	}
 	bootstrapDir, bootstrapImport, err := resolveModuleDir(resolvedRoot, cfg.Project.BootstrapDir, defaultBootstrapDir)
 	if err != nil {
@@ -58,20 +58,20 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 	if err != nil {
 		return ProjectLayout{}, fmt.Errorf("resolve public dir: %w", err)
 	}
-	staticSourceDir, _, err := resolveModuleDir(resolvedRoot, cfg.StaticAssets.SourceDir, defaultStaticSourceDir)
+	staticSourceDir, _, err := resolveModuleDir(resolvedRoot, cfg.Project.AssetsDir, defaultAssetsDir)
 	if err != nil {
-		return ProjectLayout{}, fmt.Errorf("resolve static source dir: %w", err)
+		return ProjectLayout{}, fmt.Errorf("resolve assets dir: %w", err)
 	}
-	staticOutDir, _, err := resolveModuleDir(resolvedRoot, cfg.StaticAssets.OutDir, defaultStaticOutDir)
+	staticOutDir, _, err := resolveModuleDir(resolvedRoot, cfg.Project.AssetsBuildDir, defaultAssetsBuildDir)
 	if err != nil {
-		return ProjectLayout{}, fmt.Errorf("resolve static out dir: %w", err)
+		return ProjectLayout{}, fmt.Errorf("resolve assets build dir: %w", err)
 	}
 	staticManifestDefault := path.Join(
-		strings.Trim(strings.TrimSpace(cfg.StaticAssets.OutDir), "/"),
+		strings.Trim(strings.TrimSpace(cfg.Project.AssetsBuildDir), "/"),
 		defaultStaticManifestFileName,
 	)
 	if strings.TrimSpace(staticManifestDefault) == defaultStaticManifestFileName {
-		staticManifestDefault = path.Join(defaultStaticOutDir, defaultStaticManifestFileName)
+		staticManifestDefault = path.Join(defaultAssetsBuildDir, defaultStaticManifestFileName)
 	}
 	staticManifestPath, err := resolveRelativePath(
 		resolvedRoot,
@@ -100,13 +100,14 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 	return ProjectLayout{
 		RootDir: resolvedRoot,
 
-		AppDir:          appDir,
+		RoutesDir:       routesDir,
+		RoutesImport:    routesImportPath,
 		GeneratedDir:    generatedDir,
 		GeneratedImport: generatedImport,
-		ResolverDir:     resolverDir,
-		ResolverImport:  resolverImport,
-		RuntimeDir:      runtimeDir,
-		RuntimeImport:   runtimeImport,
+		ResolversDir:    resolversDir,
+		ResolversImport: resolversImport,
+		ViewDir:         viewDir,
+		ViewImport:      viewImport,
 		BootstrapDir:    bootstrapDir,
 		BootstrapImport: bootstrapImport,
 		I18nDir:         i18nDir,

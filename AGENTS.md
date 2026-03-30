@@ -2,23 +2,16 @@
 
 ## Overview
 `no-js` is an opinionated Go framework for server-rendered web applications. Runtime packages live under
-`framework/`, build-time packages live under `bundler/`, and CLI entrypoints live under `cmd/`.
+`framework/`, build-time packages live under `internal/`, and the supported public CLI entrypoint lives under
+`cmd/no-js`.
 
 ## Project Structure
 ```text
 <go-repo-root>/
   AGENTS.md
   Taskfile.yml
-  bundler/
-    approutegen/
-    i18nkeygen/
-    staticassets/
-    templgen/
   cmd/
-    approutegen/
-    i18nkeygen/
-    staticassetsgen/
-    templgen/
+    no-js/
   framework/
     engine/
     httpserver/
@@ -26,6 +19,13 @@
     metagen/
     router/
     staticassets/
+  internal/
+    bundler/
+      approutegen/
+      i18nkeygen/
+      staticassets/
+      templgen/
+    projectlayout/
 ```
 
 ## Strict Rules
@@ -33,7 +33,7 @@
 - MUST enforce a maximum line length of 120 through `.golangci.yml`.
 - MUST run validation and tests through `Taskfile.yml`.
 - MUST keep this repository library-focused; do not reintroduce product-specific app code under the root module.
-- MUST keep runtime packages free of imports from `bundler/*`.
+- MUST keep public runtime packages free of imports from `internal/bundler/*`.
 - MUST keep generator output module-aware: framework imports come from `github.com/RevoTale/no-js`, while consuming-app
   imports must be derived from the target app module.
 

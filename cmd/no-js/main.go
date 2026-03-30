@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/RevoTale/no-js/bundler"
-	"github.com/RevoTale/no-js/bundler/approutegen"
-	bundlerstaticassets "github.com/RevoTale/no-js/bundler/staticassets"
+	"github.com/RevoTale/no-js/internal/bundler/approutegen"
+	bundlerstaticassets "github.com/RevoTale/no-js/internal/bundler/staticassets"
+	"github.com/RevoTale/no-js/internal/projectlayout"
 )
 
 func main() {
@@ -81,35 +81,35 @@ func runGen(args []string) error {
 	}
 }
 
-func resolveLayout(rootDir string, configPath string) (bundler.ProjectLayout, error) {
+func resolveLayout(rootDir string, configPath string) (projectlayout.ProjectLayout, error) {
 	if strings.TrimSpace(configPath) == "" {
-		return bundler.ResolveProjectLayoutFromRoot(rootDir)
+		return projectlayout.ResolveProjectLayoutFromRoot(rootDir)
 	}
 
-	cfg, err := bundler.LoadConfigFile(configPath)
+	cfg, err := projectlayout.LoadConfigFile(configPath)
 	if err != nil {
-		return bundler.ProjectLayout{}, err
+		return projectlayout.ProjectLayout{}, err
 	}
-	layout, err := bundler.ResolveProjectLayout(rootDir, cfg)
+	layout, err := projectlayout.ResolveProjectLayout(rootDir, cfg)
 	if err != nil {
-		return bundler.ProjectLayout{}, err
+		return projectlayout.ProjectLayout{}, err
 	}
 	resolvedConfigPath, err := filepath.Abs(configPath)
 	if err != nil {
-		return bundler.ProjectLayout{}, fmt.Errorf("resolve config path %q: %w", configPath, err)
+		return projectlayout.ProjectLayout{}, fmt.Errorf("resolve config path %q: %w", configPath, err)
 	}
 	layout.ConfigPath = resolvedConfigPath
 	return layout, nil
 }
 
-func generateRoutes(layout bundler.ProjectLayout) error {
+func generateRoutes(layout projectlayout.ProjectLayout) error {
 	if err := approutegen.Run(approutegen.Config{Layout: layout}); err != nil {
 		return fmt.Errorf("generate routes: %w", err)
 	}
 	return nil
 }
 
-func generateAssets(layout bundler.ProjectLayout) error {
+func generateAssets(layout projectlayout.ProjectLayout) error {
 	if !layout.ServerFeatures.StaticAssets {
 		return nil
 	}

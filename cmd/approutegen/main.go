@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/RevoTale/no-js/bundler"
-	"github.com/RevoTale/no-js/bundler/approutegen"
+	"github.com/RevoTale/no-js/internal/bundler/approutegen"
+	"github.com/RevoTale/no-js/internal/projectlayout"
 )
 
 func main() {
@@ -15,7 +15,7 @@ func main() {
 	flag.StringVar(&rootDir, "root", ".", "application root directory")
 	flag.Parse()
 
-	layout, err := bundler.ResolveProjectLayoutFromRoot(rootDir)
+	layout, err := projectlayout.ResolveProjectLayoutFromRoot(rootDir)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "approutegen: %v\n", err)
 		os.Exit(1)

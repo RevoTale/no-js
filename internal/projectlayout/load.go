@@ -1,4 +1,4 @@
-package bundler
+package projectlayout
 
 import (
 	"fmt"

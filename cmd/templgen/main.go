@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/RevoTale/no-js/bundler/templgen"
+	"github.com/RevoTale/no-js/internal/bundler/templgen"
 )
 
 type multiFlag []string
