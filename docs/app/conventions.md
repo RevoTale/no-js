@@ -61,9 +61,16 @@ This is a framework contract today, even though the directory name is `web/view`
 Reserved files under `web/routes` let the app provide discovery data while the
 framework owns HTTP transport and serialization:
 
-- `robots.go`
-- `sitemap.go`
-- `feed.go`
+- root `robots.go`
+- root or nested `sitemap.go`
+- root or nested `feed.go`
+
+Nested discovery files inherit their route directory. Examples:
+
+- `web/routes/feed.go` serves `/feed.xml`
+- `web/routes/author/[slug]/feed.go` serves `/author/:slug/feed.xml`
+- `web/routes/notes/sitemap.go` serves `/notes/sitemap.xml` and nested sitemap
+  index endpoints under `/notes/...`
 
 See `framework/discovery/discovery.go` for the field-level return contracts.
 
