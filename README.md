@@ -16,45 +16,40 @@
 - optimized data streaming 
 - optional HTMX partial navigation support
 
-## Required App Structure
+## Start Here
 
-The route generator is strict. A consuming app is expected to look like this:
+For app developers using `no-js`:
 
-```text
-your-app/                            # provides the app root; required
-  go.mod                             # provides the module path for generated imports; required
-  web/                               # provides the fixed web namespace used by the generator; required
-    routes/                          # provides the file-based route tree; required
-      root.templ                     # provides the document shell; required
-      404.templ                      # provides the root not-found page; required
-      error.templ                    # provides the root error page; required
-      page.templ                     # provides the / route page; optional unless you serve /
-      layout.templ                   # provides the root-segment layout; optional
-      note/                          # provides a static route segment; optional
-        [slug]/                      # provides a dynamic route segment; optional, but [param] syntax is required
-          page.templ                 # provides the /note/:slug page; required for this route
-    generated/                       # provides generated route modules, registry output, and the App Bundle boundary
-    resolvers/                       # provides handwritten route resolver methods; required
-      root.go                        # provides resolver methods for the root route; optional per route
-      note_param_slug.go             # provides resolver methods for /note/[slug]; optional per route
-    view/                            # provides app-specific contracts for generated code; required today
-      context.go                     # provides runtime.Context; required today
-      view_models.go                 # provides runtime page view types and RootLayoutView; required today
-      loaders.go                     # provides page loaders and metadata helpers; usually required
-    components/                      # provides shared templ components; optional
-    i18n/                            # provides typed message keys and locale files; optional, auto-wired when present
-    assets/                          # provides source static assets; optional
-    assets-build/                    # provides generated hashed static assets; generated
-    public/                          # provides fixed-path public files; optional, served by convention from web/public
-  internal/                          # provides app-private domain and infrastructure code; optional
-```
+- [Getting Started](docs/app/getting-started.md)
+  The shortest path from empty app tree to `httpserver.NewApp(...)`.
+- [App Conventions](docs/app/conventions.md)
+  The strict `web/*` contract, generated outputs, and reserved route files.
 
-Generated files are written to:
+For contributors developing `no-js` itself:
+
+- [Developing `no-js`](docs/framework/developing-no-js.md)
+  Repository boundaries, main implementation areas, and contributor rules.
+- [AI Agents](docs/framework/ai-agents.md)
+  A framework-repo reading order and editing guide for agents.
+
+## Using `no-js` In An App
+
+## Core Contract
+
+The route generator is strict. The happy path assumes:
 
 ```text
-web/generated/                     # provides generated route modules with safe Go package names and the App Bundle boundary
-web/resolvers/generated.go         # provides generated route resolver interfaces and param types
+web/routes          route tree
+web/generated       generated route modules and App Bundle boundary
+web/resolvers       handwritten resolver methods
+web/view            runtime contracts used by generated code
+web/assets          source bundled static assets
+web/assets-build    generated hashed static assets
+web/public          fixed-path public files served by convention
 ```
+
+See [App Conventions](docs/app/conventions.md) for the full layout and route
+rules.
 
 ## Happy Path
 
@@ -99,59 +94,6 @@ framework owns the transport, endpoint paths, and XML/text rendering:
 Use the exported structs in `framework/discovery/discovery.go` as the
 field-level source of truth.
 
-Minimal examples:
-
-```go
-func Robots(
-	runtime framework.RuntimeContext[*runtime.Context],
-	r *http.Request,
-) (discovery.Robots, error) {
-	return discovery.Robots{
-		Rules: []discovery.RobotsRule{
-			{UserAgent: "*", Allow: []string{"/"}},
-		},
-		Sitemaps: []string{"https://example.com/sitemap.xml"},
-	}, nil
-}
-```
-
-```go
-func Sitemap(
-	runtime framework.RuntimeContext[*runtime.Context],
-	r *http.Request,
-) ([]discovery.SitemapEntry, error) {
-	return []discovery.SitemapEntry{
-		{
-			URL: "https://example.com/",
-			Alternates: map[string]string{
-				"en": "https://example.com/",
-			},
-		},
-	}, nil
-}
-```
-
-```go
-func Feed(
-	runtime framework.RuntimeContext[*runtime.Context],
-	r *http.Request,
-) (discovery.FeedDocument, error) {
-	return discovery.FeedDocument{
-		Title:       "Example Feed",
-		Link:        "https://example.com/",
-		Description: "Latest entries from Example",
-		SelfURL:     "https://example.com/feed.xml",
-		Items: []discovery.FeedItem{
-			{
-				Title: "Hello World",
-				Link:  "https://example.com/hello-world",
-				GUID:  "https://example.com/hello-world",
-			},
-		},
-	}, nil
-}
-```
-
 Specification references:
 
 - Robots Exclusion Protocol: [RFC 9309](https://www.rfc-editor.org/rfc/rfc9309.html)
@@ -161,27 +103,6 @@ Specification references:
   [Google Search Central hreflang guidance](https://developers.google.com/search/docs/advanced/crawling/localized-versions)
 - Image sitemap extensions:
   [Google Search Central image sitemaps](https://developers.google.com/search/docs/crawling-indexing/sitemaps/image-sitemaps)
-
-## Conventions
-
-These are not suggestions. They are the target framework contract.
-
-- Routes live under `web/routes`.
-- Dynamic segments must use `[param]` directories.
-- Route templates must use the exact file names `root.templ`, `layout.templ`, `page.templ`, `404.templ`, and `error.templ`.
-- `root.templ` is required at `web/routes/root.templ`.
-- Root `404.templ` and root `error.templ` are required.
-- Generated code imports `web/view` and `web/resolvers` from the consuming module.
-- The preferred runtime integration is `generated.Bundle(appContext)` passed to `httpserver.NewApp(...)`.
-- `App Bundle` is the generated app contract; `Custom Config` is the isolated escape hatch for app-owned hooks.
-- The current `web/view` package is still expected to use the Go package identifier `runtime`.
-- `page.templ` view types must be `runtime.*`.
-- Layout and error/not-found contracts currently depend on `runtime.RootLayoutView`.
-- `web/bootstrap` is not a reserved contract term; advanced composition may live in any app-owned package.
-- Site and canonical-domain policy should be centralized through a `Site Resolver`.
-- The framework owns the not-found error contract.
-- Route-local `components/` directories are rejected by the generator.
-- Only `root.templ` may contain document-level tags like `<html>`, `<head>`, and `<body>`.
 
 ## Build Config
 
@@ -233,40 +154,6 @@ static_assets:
 `manifest_path` points to generated static-bundle metadata. It stores the asset hash used by the runtime to construct
 the final versioned asset prefix. The happy path uses runtime convention defaults instead of manual asset wiring.
 
-## What We Support
-
-- Runtime packages under `framework/*`
-- `framework/engine`
-  Route execution, concurrent metadata and page loading, layout composition, and streaming root-layout rendering.
-- `framework/httpserver`
-  HTTP server integration, the `NewApp(...)` happy path, cache policies, gzip, `/healthz`, convention-based asset and
-  public-file mounting, locale auto-wiring, and isolated app `Custom Config` hooks.
-- `framework/metagen`
-  Canonical URLs, alternate languages/types, robots tags, Open Graph, Twitter cards, Pinterest tags, and HTMX head patch generation.
-- `framework/i18n`
-  Locale config, locale-aware path handling, request locale context, and routing prefix modes: `always`, `as-needed`, `never`.
-- `framework/staticassets`
-  Runtime manifest loading and runtime asset URL composition.
-
-- Build-time implementation under `internal/*`
-- `internal/bundler/approutegen`
-  Route discovery and generated registry/resolver contracts from the file tree.
-- `internal/bundler/i18nkeygen`
-  Go key generation from canonical locale message definitions.
-- `internal/bundler/staticassets`
-  Minification, hashing, manifest generation, and versioned asset bundle assembly.
-- `internal/bundler/templgen`
-  `templ` generation for selected files or paths.
-- `internal/projectlayout`
-  Strict layout defaults, config loading, and module-aware path resolution.
-
-- CLI entrypoints
-- `cmd/no-js`
-  Recommended root CLI for `gen`, `gen routes`, `gen assets`, and `gen check`.
-- `cmd/*`
-  Low-level compatibility and development CLIs for route generation, `templ` generation, i18n key generation, and
-  static asset building. `cmd/no-js` is the supported public entrypoint.
-
 ## Nuances
 
 - This framework is intentionally opinionated. The generator assumes the strict `web/*` layout and specific template
@@ -279,19 +166,9 @@ the final versioned asset prefix. The happy path uses runtime convention default
 - Site and canonical-domain policy should be centralized through a `Site Resolver`.
 - i18n locales are currently normalized to two-letter lowercase codes.
 - HTMX support is request-driven. Partial requests are detected through `HX-Request`, and metadata patches are emitted through response headers.
-- Build-time implementation may import runtime-owned shared types, but public runtime packages must not import
-  `internal/bundler/*`.
 - Static assets and public files are separate concerns:
   `/_assets/` is the default runtime prefix for fingerprinted build output, while public files are served as fixed
   request paths.
-
-## Development
-
-```bash
-task fix
-task validate
-task test
-```
 
 ## Origin
 

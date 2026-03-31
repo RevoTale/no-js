@@ -5,6 +5,17 @@
 `framework/`, build-time packages live under `internal/`, and the supported public CLI entrypoint lives under
 `cmd/no-js`.
 
+Read these first when you need context:
+
+- `README.md`
+- `docs/framework/developing-no-js.md`
+- `docs/framework/ai-agents.md`
+
+If a task affects the consuming-app contract, also inspect:
+
+- `docs/app/getting-started.md`
+- `docs/app/conventions.md`
+
 ## Project Structure
 ```text
 <go-repo-root>/
@@ -42,6 +53,8 @@
 - MUST not reserve `web/bootstrap` as a contract term or required path.
 - MUST surface invalid app-bundle wiring at startup; framework happy-path APIs must not rely on request-time soft
   failures for missing required context or dependencies.
+- MUST keep `README.md` high-level and task-oriented; field-level contract truth belongs in exported Go types and
+  focused reference docs, not long README inventories.
 
 ## Working Agreements
 - Keep changes scoped to the framework and its tooling.
@@ -49,6 +62,7 @@
 - If editing this repository inside a larger checkout, also follow the parent instructions in [../AGENTS.md](../AGENTS.md).
 - Prefer the happy-path mental model of `generated.Bundle(appContext)` consumed by `httpserver.NewApp(...)`.
 - Treat advanced composition as app-owned and package-agnostic.
+- When improving docs, optimize first-time app development and agent onboarding before adding deeper architecture prose.
 
 ## Taskfile Workflow
 - `task fix`: format Go sources.
