@@ -17,7 +17,6 @@ func TestResolveProjectLayoutDefaults(t *testing.T) {
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package runtime\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "i18n", "doc.go"), "package i18n\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "assets", "app.js"), "console.log('x')\n")
-	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "public", "robots.txt"), "User-agent: *\n")
 
 	layout, err := ResolveProjectLayout(rootDir, Config{})
 	require.NoError(t, err)
@@ -26,13 +25,9 @@ func TestResolveProjectLayoutDefaults(t *testing.T) {
 	require.Equal(t, filepath.ToSlash(filepath.Join(rootDir, defaultRoutesDir)), filepath.ToSlash(layout.RoutesDir))
 	require.Equal(t, filepath.ToSlash(filepath.Join(rootDir, defaultViewDir)), filepath.ToSlash(layout.ViewDir))
 	require.Equal(t, defaultViewDir, layout.ViewImport)
-	require.Equal(t, filepath.ToSlash(filepath.Join(rootDir, defaultBootstrapDir)), filepath.ToSlash(layout.BootstrapDir))
-	require.Equal(t, defaultBootstrapDir, layout.BootstrapImport)
 	require.Equal(t, filepath.ToSlash(filepath.Join(rootDir, defaultI18nDir)), filepath.ToSlash(layout.I18nDir))
 	require.Equal(t, defaultGeneratedDir, layout.GeneratedImport)
 	require.Equal(t, "example.com/app", layout.AppModulePath)
-	require.Equal(t, filepath.ToSlash(filepath.Join(rootDir, defaultPublicDirName)), filepath.ToSlash(layout.PublicDir))
-	require.Equal(t, "/", layout.PublicRequestPathPrefix)
 	expectedStaticSourceDir := filepath.ToSlash(filepath.Join(rootDir, defaultAssetsDir))
 	require.Equal(t, expectedStaticSourceDir, filepath.ToSlash(layout.StaticAssets.SourceDir))
 	expectedStaticOutDir := filepath.ToSlash(filepath.Join(rootDir, defaultAssetsBuildDir))
@@ -43,7 +38,6 @@ func TestResolveProjectLayoutDefaults(t *testing.T) {
 	require.Equal(t, expectedManifestPath, filepath.ToSlash(layout.StaticAssets.ManifestPath))
 	require.True(t, layout.ServerFeatures.I18nRouting)
 	require.True(t, layout.ServerFeatures.StaticAssets)
-	require.True(t, layout.ServerFeatures.PublicFiles)
 	require.True(t, layout.ServerFeatures.HealthEndpoint)
 }
 
@@ -89,7 +83,6 @@ func TestResolveProjectLayoutDisablesPresenceBasedFeaturesWhenPathsAreMissing(t 
 
 	require.False(t, layout.ServerFeatures.I18nRouting)
 	require.False(t, layout.ServerFeatures.StaticAssets)
-	require.False(t, layout.ServerFeatures.PublicFiles)
 	require.True(t, layout.ServerFeatures.HealthEndpoint)
 }
 
@@ -101,26 +94,19 @@ func TestResolveProjectLayoutRespectsExplicitFeatureOverrides(t *testing.T) {
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "routes", "page.templ"), "package appsrc\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package runtime\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "i18n", "doc.go"), "package i18n\n")
-	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "public", "robots.txt"), "User-agent: *\n")
 
 	layout, err := ResolveProjectLayout(rootDir, Config{
 		Server: ServerConfig{
 			Features: ServerFeaturesConfig{
 				I18nRouting:    FeatureDisabled,
-				PublicFiles:    FeatureDisabled,
 				HealthEndpoint: FeatureDisabled,
 			},
-		},
-		PublicFiles: PublicFilesConfig{
-			RequestPathPrefix: "site/",
 		},
 	})
 	require.NoError(t, err)
 
 	require.False(t, layout.ServerFeatures.I18nRouting)
-	require.False(t, layout.ServerFeatures.PublicFiles)
 	require.False(t, layout.ServerFeatures.HealthEndpoint)
-	require.Equal(t, "/site", layout.PublicRequestPathPrefix)
 }
 
 func TestResolveProjectLayoutRequiresI18nDirWhenFeatureEnabled(t *testing.T) {

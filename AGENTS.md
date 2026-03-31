@@ -36,11 +36,17 @@
 - MUST keep public runtime packages free of imports from `internal/bundler/*`.
 - MUST keep generator output module-aware: framework imports come from `github.com/RevoTale/no-js`, while consuming-app
   imports must be derived from the target app module.
+- MUST use the canonical public terminology in docs and design discussions: `App Bundle`, `Custom Config`,
+  `Site Resolver`, and `Advanced composition`.
+- MUST keep public framework config generic; app-specific dependencies and product concepts must stay out.
+- MUST not reserve `web/bootstrap` as a contract term or required path.
 
 ## Working Agreements
 - Keep changes scoped to the framework and its tooling.
 - Prefer backward-compatible improvements to public packages and CLIs.
 - If editing this repository inside a larger checkout, also follow the parent instructions in [../AGENTS.md](../AGENTS.md).
+- Prefer the happy-path mental model of `generated.Bundle(appContext)` consumed by `httpserver.NewApp(...)`.
+- Treat advanced composition as app-owned and package-agnostic.
 
 ## Taskfile Workflow
 - `task fix`: format Go sources.

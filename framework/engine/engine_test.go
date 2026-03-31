@@ -120,7 +120,7 @@ func TestServeRouteSkipsLayoutsForPartialRequests(t *testing.T) {
 }
 
 func TestNotFoundAndServerErrorClassification(t *testing.T) {
-	errNotFound := errors.New("not found")
+	errNotFound := framework.ErrNotFound
 	errBoom := errors.New("boom")
 
 	t.Run("not found", func(t *testing.T) {
@@ -144,8 +144,7 @@ func TestNotFoundAndServerErrorClassification(t *testing.T) {
 					},
 				},
 			},
-			RenderPage:      func(*http.Request, http.ResponseWriter, templ.Component, metagen.Metadata) error { return nil },
-			IsNotFoundError: func(err error) bool { return errors.Is(err, errNotFound) },
+			RenderPage: func(*http.Request, http.ResponseWriter, templ.Component, metagen.Metadata) error { return nil },
 			HandleNotFound: func(_ http.ResponseWriter, _ *http.Request, ctx framework.NotFoundContext) {
 				notFoundCalled = true
 				notFoundContext = ctx
@@ -183,8 +182,7 @@ func TestNotFoundAndServerErrorClassification(t *testing.T) {
 					},
 				},
 			},
-			RenderPage:      func(*http.Request, http.ResponseWriter, templ.Component, metagen.Metadata) error { return nil },
-			IsNotFoundError: func(error) bool { return false },
+			RenderPage: func(*http.Request, http.ResponseWriter, templ.Component, metagen.Metadata) error { return nil },
 			HandleNotFound: func(http.ResponseWriter, *http.Request, framework.NotFoundContext) {
 				notFoundCalled = true
 			},
@@ -398,7 +396,7 @@ func TestMetaGenAndLoadShareRequestCachedLoader(t *testing.T) {
 func TestMetaGenErrorPrefersMetadataClassification(t *testing.T) {
 	t.Parallel()
 
-	errNotFound := errors.New("not found")
+	errNotFound := framework.ErrNotFound
 	loadCanceled := make(chan struct{})
 	renderCalled := false
 	notFoundCalled := false
@@ -430,9 +428,6 @@ func TestMetaGenErrorPrefersMetadataClassification(t *testing.T) {
 		RenderPage: func(_ *http.Request, _ http.ResponseWriter, _ templ.Component, _ metagen.Metadata) error {
 			renderCalled = true
 			return nil
-		},
-		IsNotFoundError: func(err error) bool {
-			return errors.Is(err, errNotFound)
 		},
 		HandleNotFound: func(_ http.ResponseWriter, _ *http.Request, ctx framework.NotFoundContext) {
 			notFoundCalled = true

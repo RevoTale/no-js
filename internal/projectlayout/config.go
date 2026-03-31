@@ -6,20 +6,17 @@ import (
 )
 
 const (
-	defaultBundleConfigFileName    = "no-js.bundle.yaml"
-	bundleConfigVersion            = 1
-	defaultRoutesDir               = "web/routes"
-	defaultGeneratedDir            = "web/generated"
-	defaultResolversDir            = "web/resolvers"
-	defaultViewDir                 = "web/view"
-	defaultBootstrapDir            = "web/bootstrap"
-	defaultI18nDir                 = "web/i18n"
-	defaultAssetsDir               = "web/assets"
-	defaultAssetsBuildDir          = "web/assets-build"
-	defaultPublicDirName           = "web/public"
-	defaultPublicRequestPathPrefix = "/"
-	defaultStaticManifestFileName  = "manifest.json"
-	defaultStaticRuntimeURLPrefix  = "/_assets/"
+	defaultBundleConfigFileName   = "no-js.bundle.yaml"
+	bundleConfigVersion           = 1
+	defaultRoutesDir              = "web/routes"
+	defaultGeneratedDir           = "web/generated"
+	defaultResolversDir           = "web/resolvers"
+	defaultViewDir                = "web/view"
+	defaultI18nDir                = "web/i18n"
+	defaultAssetsDir              = "web/assets"
+	defaultAssetsBuildDir         = "web/assets-build"
+	defaultStaticManifestFileName = "manifest.json"
+	defaultStaticRuntimeURLPrefix = "/_assets/"
 )
 
 type FeatureMode string
@@ -69,9 +66,6 @@ type ServerFeaturesConfig struct {
 	// StaticAssets controls whether project layout resolves static asset support as enabled.
 	StaticAssets FeatureMode `yaml:"static_assets"`
 
-	// PublicFiles controls whether project layout resolves public-file support as enabled.
-	PublicFiles FeatureMode `yaml:"public_files"`
-
 	// HealthEndpoint controls whether project layout resolves health endpoint support as enabled.
 	HealthEndpoint FeatureMode `yaml:"health_endpoint"`
 }
@@ -89,9 +83,6 @@ type ProjectConfig struct {
 	// ViewDir is the application view contract package relative to the application root.
 	ViewDir string `yaml:"view_dir"`
 
-	// BootstrapDir is the app-owned bootstrap package relative to the application root.
-	BootstrapDir string `yaml:"bootstrap_dir"`
-
 	// I18nDir is the application i18n package relative to the application root.
 	I18nDir string `yaml:"i18n_dir"`
 
@@ -100,23 +91,15 @@ type ProjectConfig struct {
 
 	// AssetsBuildDir is the output directory for bundled static assets relative to the application root.
 	AssetsBuildDir string `yaml:"assets_build_dir"`
+}
 
-	// PublicDir is the public files directory relative to the application root.
-	PublicDir string `yaml:"public_dir"`
+type ServerConfig struct {
+	Features ServerFeaturesConfig `yaml:"features"`
 }
 
 type StaticAssetsConfig struct {
 	// ManifestPath is the manifest file path relative to the application root.
 	ManifestPath string `yaml:"manifest_path"`
-}
-
-type PublicFilesConfig struct {
-	// RequestPathPrefix is the request-path prefix used when serving public files.
-	RequestPathPrefix string `yaml:"request_path_prefix"`
-}
-
-type ServerConfig struct {
-	Features ServerFeaturesConfig `yaml:"features"`
 }
 
 // Config defines build-time inputs for project layout resolution and code generation.
@@ -127,13 +110,11 @@ type Config struct {
 	Project      ProjectConfig      `yaml:"project"`
 	Server       ServerConfig       `yaml:"server"`
 	StaticAssets StaticAssetsConfig `yaml:"static_assets"`
-	PublicFiles  PublicFilesConfig  `yaml:"public_files"`
 }
 
 type ServerFeatures struct {
 	I18nRouting    bool
 	StaticAssets   bool
-	PublicFiles    bool
 	HealthEndpoint bool
 }
 
@@ -176,23 +157,11 @@ type ProjectLayout struct {
 	// ViewImport is the module-relative import path that corresponds to ViewDir.
 	ViewImport string
 
-	// BootstrapDir is the absolute filesystem path to the app-owned bootstrap package.
-	BootstrapDir string
-
-	// BootstrapImport is the module-relative import path that corresponds to BootstrapDir.
-	BootstrapImport string
-
 	// I18nDir is the absolute filesystem path to the handwritten i18n package.
 	I18nDir string
 
 	// I18nImport is the module-relative import path that corresponds to I18nDir.
 	I18nImport string
-
-	// PublicDir is the absolute filesystem path to the public files directory.
-	PublicDir string
-
-	// PublicRequestPathPrefix is the normalized request-path prefix used when serving PublicDir.
-	PublicRequestPathPrefix string
 
 	StaticAssets   StaticAssetsLayout
 	ServerFeatures ServerFeatures

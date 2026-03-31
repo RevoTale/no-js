@@ -46,17 +46,9 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 	if !filesystem.PathExists(viewDir) {
 		return ProjectLayout{}, fmt.Errorf("strict view root missing: expected %s", viewImport)
 	}
-	bootstrapDir, bootstrapImport, err := resolveModuleDir(resolvedRoot, cfg.Project.BootstrapDir, defaultBootstrapDir)
-	if err != nil {
-		return ProjectLayout{}, fmt.Errorf("resolve bootstrap dir: %w", err)
-	}
 	i18nDir, i18nImport, err := resolveModuleDir(resolvedRoot, cfg.Project.I18nDir, defaultI18nDir)
 	if err != nil {
 		return ProjectLayout{}, fmt.Errorf("resolve i18n dir: %w", err)
-	}
-	publicDir, _, err := resolveModuleDir(resolvedRoot, cfg.Project.PublicDir, defaultPublicDirName)
-	if err != nil {
-		return ProjectLayout{}, fmt.Errorf("resolve public dir: %w", err)
 	}
 	staticSourceDir, _, err := resolveModuleDir(resolvedRoot, cfg.Project.AssetsDir, defaultAssetsDir)
 	if err != nil {
@@ -85,7 +77,6 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 	serverFeatures := ServerFeatures{
 		I18nRouting:    cfg.Server.Features.I18nRouting.Resolve(filesystem.PathExists(i18nDir)),
 		StaticAssets:   cfg.Server.Features.StaticAssets.Resolve(filesystem.PathExists(staticSourceDir)),
-		PublicFiles:    cfg.Server.Features.PublicFiles.Resolve(filesystem.PathExists(publicDir)),
 		HealthEndpoint: cfg.Server.Features.HealthEndpoint.Resolve(true),
 	}
 	if serverFeatures.I18nRouting && !filesystem.PathExists(i18nDir) {
@@ -108,13 +99,8 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 		ResolversImport: resolversImport,
 		ViewDir:         viewDir,
 		ViewImport:      viewImport,
-		BootstrapDir:    bootstrapDir,
-		BootstrapImport: bootstrapImport,
 		I18nDir:         i18nDir,
 		I18nImport:      i18nImport,
-
-		PublicDir:               publicDir,
-		PublicRequestPathPrefix: normalizeRequestPathPrefix(cfg.PublicFiles.RequestPathPrefix),
 		StaticAssets: StaticAssetsLayout{
 			SourceDir:    staticSourceDir,
 			OutDir:       staticOutDir,
@@ -162,20 +148,6 @@ func normalizeRelativePath(value string, defaultValue string) (string, error) {
 	}
 
 	return normalized, nil
-}
-
-func normalizeRequestPathPrefix(value string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return defaultPublicRequestPathPrefix
-	}
-	if !strings.HasPrefix(trimmed, "/") {
-		trimmed = "/" + trimmed
-	}
-	if trimmed != "/" && strings.HasSuffix(trimmed, "/") {
-		trimmed = strings.TrimRight(trimmed, "/")
-	}
-	return trimmed
 }
 
 func readModulePath(rootDir string) (string, error) {

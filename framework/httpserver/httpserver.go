@@ -48,14 +48,22 @@ func DefaultCachePolicies() CachePolicies {
 }
 
 type Config[C interface{}] struct {
+	App    AppBundle[C]
+	Custom CustomConfig
+
 	AppContext C
 	Handlers   []framework.RouteHandler[C]
+
+	I18n        *frameworki18n.Config
+	PublicFiles *PublicFilesConfig
+
+	MountExtraRoutes func(*http.ServeMux) error
+	MainMiddlewares  []func(http.Handler) http.Handler
 
 	Static StaticMount
 
 	CachePolicies CachePolicies
 
-	IsNotFoundError     func(err error) bool
 	NotFoundPage        func(notFoundContext framework.NotFoundContext) templ.Component
 	LogServerError      func(err error)
 	LogResolverTiming   func(event framework.ResolverTiming)
@@ -104,7 +112,6 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 		Handlers:          cfg.Handlers,
 		IsPartialRequest:  srv.isHTMXRequest,
 		RenderPage:        srv.renderPage,
-		IsNotFoundError:   cfg.IsNotFoundError,
 		HandleNotFound:    srv.handleNotFound,
 		HandleServerError: srv.handleServerError,
 		LogServerError:    srv.logServerError,
@@ -115,15 +122,63 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 	}
 	srv.routeEngine = routeEngine
 
-	mux := http.NewServeMux()
+	mainMux := http.NewServeMux()
 	if strings.TrimSpace(cfg.Static.Dir) != "" {
 		prefix := normalizeStaticPrefix(cfg.Static.URLPrefix)
 		fs := http.FileServer(http.Dir(cfg.Static.Dir))
-		mux.Handle(prefix, withCachePolicy(cachePolicies.Static, http.StripPrefix(prefix, fs)))
+		mainMux.Handle(prefix, withCachePolicy(cachePolicies.Static, http.StripPrefix(prefix, fs)))
 	}
 
-	mux.HandleFunc("/", srv.handleRoute)
-	return withGzipCompression(mux), nil
+	mainMux.HandleFunc("/", srv.handleRoute)
+
+	var mainHandler http.Handler = mainMux
+	for _, middleware := range cfg.MainMiddlewares {
+		if middleware == nil {
+			continue
+		}
+		mainHandler = middleware(mainHandler)
+	}
+
+	if cfg.I18n != nil {
+		resolver, err := frameworki18n.NewResolver(*cfg.I18n)
+		if err != nil {
+			return nil, fmt.Errorf("create i18n resolver: %w", err)
+		}
+
+		bypassPrefixes := []string{}
+		if strings.TrimSpace(cfg.Static.Dir) != "" {
+			bypassPrefixes = append(bypassPrefixes, normalizeStaticPrefix(cfg.Static.URLPrefix))
+		}
+
+		bypassExact := []string{}
+		if strings.TrimSpace(healthPath) != "" {
+			bypassExact = append(bypassExact, healthPath)
+		}
+
+		mainHandler = frameworki18n.Middleware(frameworki18n.MiddlewareConfig{
+			Resolver:       resolver,
+			BypassPrefixes: bypassPrefixes,
+			BypassExact:    bypassExact,
+		})(mainHandler)
+	}
+
+	if cfg.PublicFiles != nil {
+		publicMiddleware, err := WithPublicFiles(*cfg.PublicFiles)
+		if err != nil {
+			return nil, fmt.Errorf("build public files middleware: %w", err)
+		}
+		mainHandler = publicMiddleware(mainHandler)
+	}
+
+	outerMux := http.NewServeMux()
+	if cfg.MountExtraRoutes != nil {
+		if err := cfg.MountExtraRoutes(outerMux); err != nil {
+			return nil, fmt.Errorf("mount extra routes: %w", err)
+		}
+	}
+	outerMux.Handle("/", mainHandler)
+
+	return withGzipCompression(outerMux), nil
 }
 
 func (s *server[C]) handleRoute(w http.ResponseWriter, r *http.Request) {

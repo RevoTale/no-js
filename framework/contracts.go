@@ -61,7 +61,6 @@ type RuntimeContext[C interface{}] interface {
 	AppContext() C
 	IsPartialRequest(r *http.Request) bool
 	RenderPage(r *http.Request, w http.ResponseWriter, component templ.Component, meta metagen.Metadata) error
-	IsNotFound(err error) bool
 	RespondNotFound(w http.ResponseWriter, r *http.Request, notFoundContext NotFoundContext)
 	RespondServerError(w http.ResponseWriter, err error)
 	LogServerError(err error)
@@ -302,7 +301,7 @@ func handleModuleError[C interface{}](
 	source NotFoundSource,
 	stage string,
 ) {
-	if runtime.IsNotFound(err) {
+	if IsNotFound(err) {
 		runtime.RespondNotFound(w, r, NotFoundContext{
 			RequestPath:         r.URL.Path,
 			MatchedRoutePattern: routePattern,

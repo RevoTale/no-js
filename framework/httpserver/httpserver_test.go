@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/RevoTale/no-js/framework"
+	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
 	"github.com/RevoTale/no-js/framework/metagen"
 	"github.com/a-h/templ"
 	"github.com/stretchr/testify/assert"
@@ -245,10 +245,76 @@ func TestHTTPServerDoesNotCompressWithoutGzipAcceptEncoding(t *testing.T) {
 	require.Equal(t, "page", strings.TrimSpace(rec.Body.String()))
 }
 
+func TestNewAppUsesBundleAndCustomConfig(t *testing.T) {
+	t.Parallel()
+
+	staticDir := t.TempDir()
+	manifestPath := filepath.Join(staticDir, "manifest.json")
+	require.NoError(t, os.WriteFile(manifestPath, []byte("{\n  \"version\": 1,\n  \"hash\": \"abc123\"\n}\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(staticDir, "file.txt"), []byte("asset"), 0o644))
+
+	publicDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(publicDir, "favicon.txt"), []byte("icon"), 0o644))
+
+	var staticBasePath string
+	handler, err := NewApp(Config[*struct{}]{
+		App: AppBundle[*struct{}]{
+			Context: &struct{}{},
+			Handlers: []framework.RouteHandler[*struct{}]{
+				framework.PageOnlyRouteHandler[*struct{}, framework.EmptyParams, string]{
+					Page: framework.PageModule[*struct{}, framework.EmptyParams, string]{
+						Pattern: "/notes",
+						ParseParams: func(path string) (framework.EmptyParams, bool) {
+							return framework.EmptyParams{}, path == "/notes"
+						},
+						Load: func(context.Context, *struct{}, *http.Request, framework.EmptyParams) (string, error) {
+							return "page", nil
+						},
+						Render: func(view string) templ.Component { return textComponent(view) },
+					},
+				},
+			},
+			NotFoundPage: func(framework.NotFoundContext) templ.Component {
+				return textComponent("not-found")
+			},
+			OnStaticAssetBasePathResolved: func(prefix string) {
+				staticBasePath = prefix
+			},
+		},
+		Custom: CustomConfig{
+			StaticAssets: &StaticAssetsConfig{
+				ManifestPath: manifestPath,
+				URLPrefix:    "/assets/",
+			},
+			PublicFiles: &PublicFilesConfig{
+				Dir: publicDir,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	recPage := httptest.NewRecorder()
+	handler.ServeHTTP(recPage, httptest.NewRequest(http.MethodGet, "/notes", nil))
+	require.Equal(t, http.StatusOK, recPage.Code)
+	require.Equal(t, "page", strings.TrimSpace(recPage.Body.String()))
+
+	recStatic := httptest.NewRecorder()
+	handler.ServeHTTP(recStatic, httptest.NewRequest(http.MethodGet, "/assets/abc123/file.txt", nil))
+	require.Equal(t, http.StatusOK, recStatic.Code)
+	require.Equal(t, "asset", strings.TrimSpace(recStatic.Body.String()))
+
+	recPublic := httptest.NewRecorder()
+	handler.ServeHTTP(recPublic, httptest.NewRequest(http.MethodGet, "/favicon.txt", nil))
+	require.Equal(t, http.StatusOK, recPublic.Code)
+	require.Equal(t, "icon", strings.TrimSpace(recPublic.Body.String()))
+
+	require.Equal(t, "/assets/abc123/", staticBasePath)
+}
+
 func TestHTTPServerNotFoundContextForLoadAndUnmatched(t *testing.T) {
 	t.Parallel()
 
-	errNotFound := errors.New("not found")
+	errNotFound := framework.ErrNotFound
 	ctxs := make([]framework.NotFoundContext, 0, 2)
 
 	handler, err := New(Config[*struct{}]{
@@ -267,7 +333,6 @@ func TestHTTPServerNotFoundContextForLoadAndUnmatched(t *testing.T) {
 				},
 			},
 		},
-		IsNotFoundError: func(err error) bool { return errors.Is(err, errNotFound) },
 		NotFoundPage: func(notFoundContext framework.NotFoundContext) templ.Component {
 			ctxs = append(ctxs, notFoundContext)
 			return textComponent("missing")
@@ -370,6 +435,117 @@ func TestHTTPServerResolverDebugToggle(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHTTPServerAppliesI18nToMainRoutesOnly(t *testing.T) {
+	t.Parallel()
+
+	handler, err := New(Config[*struct{}]{
+		AppContext: &struct{}{},
+		I18n: &frameworki18n.Config{
+			Locales:       []string{"en", "de"},
+			DefaultLocale: "en",
+			PrefixMode:    frameworki18n.PrefixAsNeeded,
+		},
+		Handlers: []framework.RouteHandler[*struct{}]{
+			framework.PageOnlyRouteHandler[*struct{}, framework.EmptyParams, string]{
+				Page: framework.PageModule[*struct{}, framework.EmptyParams, string]{
+					Pattern: "/notes",
+					ParseParams: func(path string) (framework.EmptyParams, bool) {
+						return framework.EmptyParams{}, path == "/notes"
+					},
+					Load: func(_ context.Context, _ *struct{}, r *http.Request, _ framework.EmptyParams) (string, error) {
+						return frameworki18n.LocaleFromContext(r.Context()), nil
+					},
+					Render: func(view string) templ.Component { return textComponent(view) },
+				},
+			},
+		},
+		MountExtraRoutes: func(mux *http.ServeMux) error {
+			mux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
+				_, ok := frameworki18n.RequestInfoFromContext(r.Context())
+				if ok {
+					_, _ = io.WriteString(w, "has-locale")
+					return
+				}
+				_, _ = io.WriteString(w, "no-locale")
+			})
+			return nil
+		},
+	})
+	require.NoError(t, err)
+
+	recLocalized := httptest.NewRecorder()
+	handler.ServeHTTP(recLocalized, httptest.NewRequest(http.MethodGet, "/de/notes", nil))
+	require.Equal(t, http.StatusOK, recLocalized.Code)
+	require.Equal(t, "de", strings.TrimSpace(recLocalized.Body.String()))
+
+	recExtra := httptest.NewRecorder()
+	handler.ServeHTTP(recExtra, httptest.NewRequest(http.MethodGet, "/robots.txt", nil))
+	require.Equal(t, http.StatusOK, recExtra.Code)
+	require.Equal(t, "no-locale", strings.TrimSpace(recExtra.Body.String()))
+}
+
+func TestHTTPServerKeepsExtraRoutesOutsideMainMiddlewaresAndPublicFiles(t *testing.T) {
+	t.Parallel()
+
+	publicDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(publicDir, "robots.txt"), []byte("public"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(publicDir, "site.txt"), []byte("public-site"), 0o644))
+
+	mainMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Main-Middleware", "applied")
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	handler, err := New(Config[*struct{}]{
+		AppContext: &struct{}{},
+		Handlers: []framework.RouteHandler[*struct{}]{
+			framework.PageOnlyRouteHandler[*struct{}, framework.EmptyParams, string]{
+				Page: framework.PageModule[*struct{}, framework.EmptyParams, string]{
+					Pattern: "/notes",
+					ParseParams: func(path string) (framework.EmptyParams, bool) {
+						return framework.EmptyParams{}, path == "/notes"
+					},
+					Load: func(context.Context, *struct{}, *http.Request, framework.EmptyParams) (string, error) {
+						return "page", nil
+					},
+					Render: func(view string) templ.Component { return textComponent(view) },
+				},
+			},
+		},
+		PublicFiles: &PublicFilesConfig{Dir: publicDir},
+		MainMiddlewares: []func(http.Handler) http.Handler{
+			mainMiddleware,
+		},
+		MountExtraRoutes: func(mux *http.ServeMux) error {
+			mux.HandleFunc("/robots.txt", func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = io.WriteString(w, "extra")
+			})
+			return nil
+		},
+	})
+	require.NoError(t, err)
+
+	recMain := httptest.NewRecorder()
+	handler.ServeHTTP(recMain, httptest.NewRequest(http.MethodGet, "/notes", nil))
+	require.Equal(t, http.StatusOK, recMain.Code)
+	require.Equal(t, "applied", recMain.Header().Get("X-Main-Middleware"))
+	require.Equal(t, "page", strings.TrimSpace(recMain.Body.String()))
+
+	recPublic := httptest.NewRecorder()
+	handler.ServeHTTP(recPublic, httptest.NewRequest(http.MethodGet, "/site.txt", nil))
+	require.Equal(t, http.StatusOK, recPublic.Code)
+	require.Empty(t, strings.TrimSpace(recPublic.Header().Get("X-Main-Middleware")))
+	require.Equal(t, "public-site", strings.TrimSpace(recPublic.Body.String()))
+
+	recExtra := httptest.NewRecorder()
+	handler.ServeHTTP(recExtra, httptest.NewRequest(http.MethodGet, "/robots.txt", nil))
+	require.Equal(t, http.StatusOK, recExtra.Code)
+	require.Empty(t, strings.TrimSpace(recExtra.Header().Get("X-Main-Middleware")))
+	require.Equal(t, "extra", strings.TrimSpace(recExtra.Body.String()))
 }
 
 func drainResolverTimingEvents(events <-chan framework.ResolverTiming) []framework.ResolverTiming {

@@ -644,14 +644,12 @@ templ Page(view runtime.NotesPageView) { <div>notes</div> }
 
 	err := Run(Config{
 		Layout: projectlayout.ProjectLayout{
-			RootDir:                 rootDir,
-			RoutesDir:               appDir,
-			GeneratedDir:            genDir,
-			GeneratedImport:         "web/generated",
-			ResolversDir:            resolverDir,
-			AppModulePath:           testAppModulePath,
-			PublicDir:               filepath.Join(rootDir, "public"),
-			PublicRequestPathPrefix: "/",
+			RootDir:         rootDir,
+			RoutesDir:       appDir,
+			GeneratedDir:    genDir,
+			GeneratedImport: "web/generated",
+			ResolversDir:    resolverDir,
+			AppModulePath:   testAppModulePath,
 		},
 	})
 	require.NoError(t, err)
