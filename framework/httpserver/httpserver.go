@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/RevoTale/no-js/framework"
+	frameworkdiscovery "github.com/RevoTale/no-js/framework/discovery"
 	"github.com/RevoTale/no-js/framework/engine"
 	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
 	"github.com/RevoTale/no-js/framework/metagen"
@@ -53,6 +54,7 @@ type Config[C interface{}] struct {
 
 	AppContext C
 	Handlers   []framework.RouteHandler[C]
+	Discovery  *frameworkdiscovery.Bundle[C]
 
 	I18n        *frameworki18n.Config
 	PublicFiles *PublicFilesConfig
@@ -178,7 +180,18 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 	}
 	outerMux.Handle("/", mainHandler)
 
-	return withGzipCompression(outerMux), nil
+	var finalHandler http.Handler = outerMux
+	if cfg.Discovery != nil {
+		discoveryBundle := cfg.Discovery
+		finalHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if frameworkdiscovery.MaybeServe(srv.routeEngine, discoveryBundle, srv.logServerError, w, r) {
+				return
+			}
+			outerMux.ServeHTTP(w, r)
+		})
+	}
+
+	return withGzipCompression(finalHandler), nil
 }
 
 func (s *server[C]) handleRoute(w http.ResponseWriter, r *http.Request) {

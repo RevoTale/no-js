@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/RevoTale/no-js/framework"
+	frameworkdiscovery "github.com/RevoTale/no-js/framework/discovery"
 	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
 	"github.com/RevoTale/no-js/framework/staticassets"
 	"github.com/a-h/templ"
@@ -19,6 +21,7 @@ const defaultPublicDir = "web/public"
 type AppBundle[C interface{}] struct {
 	Context                       C
 	Handlers                      []framework.RouteHandler[C]
+	Discovery                     *frameworkdiscovery.Bundle[C]
 	I18n                          *frameworki18n.Config
 	NotFoundPage                  func(notFoundContext framework.NotFoundContext) templ.Component
 	OnStaticAssetBasePathResolved func(prefix string)
@@ -47,6 +50,10 @@ func NewApp[C interface{}](cfg Config[C]) (http.Handler, error) {
 	app := cfg.App
 	custom := cfg.Custom
 
+	if appContextIsNil(app.Context) {
+		return nil, fmt.Errorf("app context is required")
+	}
+
 	staticAssetsCfg := custom.StaticAssets
 	if staticAssetsCfg == nil {
 		staticAssetsCfg = &StaticAssetsConfig{
@@ -71,6 +78,7 @@ func NewApp[C interface{}](cfg Config[C]) (http.Handler, error) {
 	return New(Config[C]{
 		AppContext:          app.Context,
 		Handlers:            app.Handlers,
+		Discovery:           app.Discovery,
 		I18n:                app.I18n,
 		PublicFiles:         publicFiles,
 		MountExtraRoutes:    custom.ExtraRoutes,
@@ -85,6 +93,25 @@ func NewApp[C interface{}](cfg Config[C]) (http.Handler, error) {
 		HealthPath:          custom.HealthPath,
 		HealthBody:          custom.HealthBody,
 	})
+}
+
+func appContextIsNil[C interface{}](value C) bool {
+	raw := any(value)
+	if raw == nil {
+		return true
+	}
+
+	rv := reflect.ValueOf(raw)
+	if !rv.IsValid() {
+		return true
+	}
+
+	switch rv.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return rv.IsNil()
+	default:
+		return false
+	}
 }
 
 func resolvePublicFiles(publicFiles *PublicFilesConfig) (*PublicFilesConfig, error) {

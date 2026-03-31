@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/RevoTale/no-js/framework"
+	frameworkdiscovery "github.com/RevoTale/no-js/framework/discovery"
 	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
 	"github.com/RevoTale/no-js/framework/metagen"
 	"github.com/a-h/templ"
@@ -311,6 +312,20 @@ func TestNewAppUsesBundleAndCustomConfig(t *testing.T) {
 	require.Equal(t, "/assets/abc123/", staticBasePath)
 }
 
+func TestNewAppRejectsNilPointerAppContext(t *testing.T) {
+	t.Parallel()
+
+	handler, err := NewApp(Config[*struct{}]{
+		App: AppBundle[*struct{}]{
+			Context: nil,
+		},
+	})
+
+	require.Nil(t, handler)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "app context is required")
+}
+
 func TestHTTPServerNotFoundContextForLoadAndUnmatched(t *testing.T) {
 	t.Parallel()
 
@@ -546,6 +561,47 @@ func TestHTTPServerKeepsExtraRoutesOutsideMainMiddlewaresAndPublicFiles(t *testi
 	require.Equal(t, http.StatusOK, recExtra.Code)
 	require.Empty(t, strings.TrimSpace(recExtra.Header().Get("X-Main-Middleware")))
 	require.Equal(t, "extra", strings.TrimSpace(recExtra.Body.String()))
+}
+
+func TestNewAppDiscoveryTakesPrecedenceOverPublicFilesAndExtraRoutes(t *testing.T) {
+	t.Parallel()
+
+	publicDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(publicDir, "robots.txt"), []byte("public"), 0o644))
+
+	handler, err := NewApp(Config[*struct{}]{
+		App: AppBundle[*struct{}]{
+			Context: &struct{}{},
+			Discovery: &frameworkdiscovery.Bundle[*struct{}]{
+				Robots: func(framework.RuntimeContext[*struct{}], *http.Request) (frameworkdiscovery.Robots, error) {
+					return frameworkdiscovery.Robots{
+						Rules: []frameworkdiscovery.RobotsRule{
+							{UserAgent: "*", Allow: []string{"/"}},
+						},
+						Sitemaps: []string{"https://example.com/sitemap-index"},
+					}, nil
+				},
+			},
+		},
+		Custom: CustomConfig{
+			PublicFiles: &PublicFilesConfig{Dir: publicDir},
+			ExtraRoutes: func(mux *http.ServeMux) error {
+				mux.HandleFunc("/robots.txt", func(w http.ResponseWriter, _ *http.Request) {
+					_, _ = io.WriteString(w, "extra")
+				})
+				return nil
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/robots.txt", nil))
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "Sitemap: https://example.com/sitemap-index")
+	require.NotContains(t, rec.Body.String(), "public")
+	require.NotContains(t, rec.Body.String(), "extra")
 }
 
 func drainResolverTimingEvents(events <-chan framework.ResolverTiming) []framework.ResolverTiming {

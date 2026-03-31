@@ -86,6 +86,82 @@ Public files: web/public
 Localization: auto-wired when web/i18n exists
 ```
 
+## Discovery Conventions
+
+Reserved files under `web/routes` return structured discovery data. The
+framework owns the transport, endpoint paths, and XML/text rendering:
+
+- `robots.go` returns `discovery.Robots`
+- `sitemap.go` returns `[]discovery.SitemapEntry`, plus optional
+  `GenerateSitemaps` and `SitemapByID`
+- `feed.go` returns `discovery.FeedDocument`
+
+Use the exported structs in `framework/discovery/discovery.go` as the
+field-level source of truth.
+
+Minimal examples:
+
+```go
+func Robots(
+	runtime framework.RuntimeContext[*runtime.Context],
+	r *http.Request,
+) (discovery.Robots, error) {
+	return discovery.Robots{
+		Rules: []discovery.RobotsRule{
+			{UserAgent: "*", Allow: []string{"/"}},
+		},
+		Sitemaps: []string{"https://example.com/sitemap.xml"},
+	}, nil
+}
+```
+
+```go
+func Sitemap(
+	runtime framework.RuntimeContext[*runtime.Context],
+	r *http.Request,
+) ([]discovery.SitemapEntry, error) {
+	return []discovery.SitemapEntry{
+		{
+			URL: "https://example.com/",
+			Alternates: map[string]string{
+				"en": "https://example.com/",
+			},
+		},
+	}, nil
+}
+```
+
+```go
+func Feed(
+	runtime framework.RuntimeContext[*runtime.Context],
+	r *http.Request,
+) (discovery.FeedDocument, error) {
+	return discovery.FeedDocument{
+		Title:       "Example Feed",
+		Link:        "https://example.com/",
+		Description: "Latest entries from Example",
+		SelfURL:     "https://example.com/feed.xml",
+		Items: []discovery.FeedItem{
+			{
+				Title: "Hello World",
+				Link:  "https://example.com/hello-world",
+				GUID:  "https://example.com/hello-world",
+			},
+		},
+	}, nil
+}
+```
+
+Specification references:
+
+- Robots Exclusion Protocol: [RFC 9309](https://www.rfc-editor.org/rfc/rfc9309.html)
+- RSS 2.0: [RSS Specification](https://www.rssboard.org/rss-specification)
+- XML Sitemaps: [Sitemaps XML format](https://www.sitemaps.org/protocol.html)
+- Alternate-language sitemap links:
+  [Google Search Central hreflang guidance](https://developers.google.com/search/docs/advanced/crawling/localized-versions)
+- Image sitemap extensions:
+  [Google Search Central image sitemaps](https://developers.google.com/search/docs/crawling-indexing/sitemaps/image-sitemaps)
+
 ## Conventions
 
 These are not suggestions. They are the target framework contract.

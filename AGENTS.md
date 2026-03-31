@@ -40,6 +40,8 @@
   `Site Resolver`, and `Advanced composition`.
 - MUST keep public framework config generic; app-specific dependencies and product concepts must stay out.
 - MUST not reserve `web/bootstrap` as a contract term or required path.
+- MUST surface invalid app-bundle wiring at startup; framework happy-path APIs must not rely on request-time soft
+  failures for missing required context or dependencies.
 
 ## Working Agreements
 - Keep changes scoped to the framework and its tooling.

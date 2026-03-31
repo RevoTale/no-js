@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"go/ast"
 	"go/format"
+	"go/parser"
+	"go/token"
 	"io/fs"
 	"os"
 	"path"
@@ -118,6 +121,18 @@ type routeFiles struct {
 	NotFounds map[string]templateDef
 	Errors    map[string]templateDef
 	Root      templateDef
+	Discovery discoveryConventions
+}
+
+type discoveryConventions struct {
+	RobotsFile          string
+	SitemapFile         string
+	FeedFile            string
+	HasRobots           bool
+	HasSitemap          bool
+	HasGenerateSitemaps bool
+	HasSitemapByID      bool
+	HasFeed             bool
 }
 
 type Config struct {
@@ -178,6 +193,9 @@ func Run(cfg Config) error {
 			return err
 		}
 	}
+	if err := validateDiscoveryConventions(paths, &routes.Discovery); err != nil {
+		return err
+	}
 
 	metas, err := buildRouteMetas(routes.Pages, paths)
 	if err != nil {
@@ -223,6 +241,20 @@ func Run(cfg Config) error {
 	if err := os.WriteFile(filepath.Join(paths.GeneratedDir, "registry_gen.go"), registrySource, 0o644); err != nil {
 		return fmt.Errorf("write registry_gen.go: %w", err)
 	}
+	discoverySource, err := generateDiscoverySource(paths, routes.Discovery)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(paths.GeneratedDir, "discovery_gen.go"), discoverySource, 0o644); err != nil {
+		return fmt.Errorf("write discovery_gen.go: %w", err)
+	}
+	bundleSource, err := generateBundleSource(paths)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(paths.GeneratedDir, "bundle_gen.go"), bundleSource, 0o644); err != nil {
+		return fmt.Errorf("write bundle_gen.go: %w", err)
+	}
 
 	return nil
 }
@@ -252,6 +284,274 @@ func viewImportPath(paths projectlayout.ProjectLayout) string {
 	return appImportPath(paths.AppModulePath, relativePath)
 }
 
+func routesImportPath(paths projectlayout.ProjectLayout) string {
+	relativePath := strings.TrimSpace(paths.RoutesImport)
+	if relativePath == "" {
+		relativePath = "web/routes"
+	}
+	return appImportPath(paths.AppModulePath, relativePath)
+}
+
+func validateDiscoveryConventions(paths projectlayout.ProjectLayout, discovery *discoveryConventions) error {
+	if discovery == nil {
+		return nil
+	}
+
+	if strings.TrimSpace(discovery.RobotsFile) != "" {
+		if err := validateDiscoveryFunction(
+			discovery.RobotsFile,
+			"Robots",
+			[]func(ast.Expr, map[string]string) bool{
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isRuntimeContextType(expr, imports, viewImportPath(paths))
+				},
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isPointerToImportedSelector(expr, imports, "net/http", "Request")
+				},
+			},
+			[]func(ast.Expr, map[string]string) bool{
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isImportedSelector(expr, imports, frameworkModulePath+"/framework/discovery", "Robots")
+				},
+				isErrorType,
+			},
+		); err != nil {
+			return err
+		}
+		discovery.HasRobots = true
+	}
+
+	if strings.TrimSpace(discovery.SitemapFile) != "" {
+		if err := validateDiscoveryFunction(
+			discovery.SitemapFile,
+			"Sitemap",
+			[]func(ast.Expr, map[string]string) bool{
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isRuntimeContextType(expr, imports, viewImportPath(paths))
+				},
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isPointerToImportedSelector(expr, imports, "net/http", "Request")
+				},
+			},
+			[]func(ast.Expr, map[string]string) bool{
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isSliceOfImportedSelector(expr, imports, frameworkModulePath+"/framework/discovery", "SitemapEntry")
+				},
+				isErrorType,
+			},
+		); err != nil {
+			return err
+		}
+		discovery.HasSitemap = true
+
+		generateErr := validateDiscoveryFunction(
+			discovery.SitemapFile,
+			"GenerateSitemaps",
+			[]func(ast.Expr, map[string]string) bool{
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isRuntimeContextType(expr, imports, viewImportPath(paths))
+				},
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isPointerToImportedSelector(expr, imports, "net/http", "Request")
+				},
+			},
+			[]func(ast.Expr, map[string]string) bool{
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isSliceOfImportedSelector(expr, imports, frameworkModulePath+"/framework/discovery", "SitemapID")
+				},
+				isErrorType,
+			},
+		)
+		switch {
+		case generateErr == nil:
+			discovery.HasGenerateSitemaps = true
+		case !errors.Is(generateErr, fs.ErrNotExist):
+			return generateErr
+		}
+
+		sitemapByIDErr := validateDiscoveryFunction(
+			discovery.SitemapFile,
+			"SitemapByID",
+			[]func(ast.Expr, map[string]string) bool{
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isRuntimeContextType(expr, imports, viewImportPath(paths))
+				},
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isPointerToImportedSelector(expr, imports, "net/http", "Request")
+				},
+				isStringType,
+			},
+			[]func(ast.Expr, map[string]string) bool{
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isSliceOfImportedSelector(expr, imports, frameworkModulePath+"/framework/discovery", "SitemapEntry")
+				},
+				isErrorType,
+			},
+		)
+		switch {
+		case sitemapByIDErr == nil:
+			discovery.HasSitemapByID = true
+		case !errors.Is(sitemapByIDErr, fs.ErrNotExist):
+			return sitemapByIDErr
+		}
+
+		if discovery.HasGenerateSitemaps && !discovery.HasSitemapByID {
+			return fmt.Errorf("%s: GenerateSitemaps requires SitemapByID", discovery.SitemapFile)
+		}
+	}
+
+	if strings.TrimSpace(discovery.FeedFile) != "" {
+		if err := validateDiscoveryFunction(
+			discovery.FeedFile,
+			"Feed",
+			[]func(ast.Expr, map[string]string) bool{
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isRuntimeContextType(expr, imports, viewImportPath(paths))
+				},
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isPointerToImportedSelector(expr, imports, "net/http", "Request")
+				},
+			},
+			[]func(ast.Expr, map[string]string) bool{
+				func(expr ast.Expr, imports map[string]string) bool {
+					return isImportedSelector(expr, imports, frameworkModulePath+"/framework/discovery", "FeedDocument")
+				},
+				isErrorType,
+			},
+		); err != nil {
+			return err
+		}
+		discovery.HasFeed = true
+	}
+
+	return nil
+}
+
+func validateDiscoveryFunction(
+	filePath string,
+	functionName string,
+	paramChecks []func(ast.Expr, map[string]string) bool,
+	resultChecks []func(ast.Expr, map[string]string) bool,
+) error {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
+	if err != nil {
+		return fmt.Errorf("parse %s: %w", filePath, err)
+	}
+
+	imports := importAliases(file)
+	for _, decl := range file.Decls {
+		funcDecl, ok := decl.(*ast.FuncDecl)
+		if !ok || funcDecl.Name == nil || funcDecl.Name.Name != functionName {
+			continue
+		}
+		if funcDecl.Recv != nil {
+			return fmt.Errorf("%s: %s must be a package function", filePath, functionName)
+		}
+		paramTypes := fieldTypes(funcDecl.Type.Params)
+		if len(paramTypes) != len(paramChecks) {
+			return fmt.Errorf("%s: %s has invalid parameter count", filePath, functionName)
+		}
+		for idx, check := range paramChecks {
+			if !check(paramTypes[idx], imports) {
+				return fmt.Errorf("%s: %s has invalid parameter %d signature", filePath, functionName, idx+1)
+			}
+		}
+
+		resultTypes := fieldTypes(funcDecl.Type.Results)
+		if len(resultTypes) != len(resultChecks) {
+			return fmt.Errorf("%s: %s has invalid result count", filePath, functionName)
+		}
+		for idx, check := range resultChecks {
+			if !check(resultTypes[idx], imports) {
+				return fmt.Errorf("%s: %s has invalid result %d signature", filePath, functionName, idx+1)
+			}
+		}
+		return nil
+	}
+
+	return fs.ErrNotExist
+}
+
+func importAliases(file *ast.File) map[string]string {
+	imports := make(map[string]string, len(file.Imports))
+	for _, spec := range file.Imports {
+		importPath := strings.Trim(spec.Path.Value, `"`)
+		alias := path.Base(importPath)
+		if spec.Name != nil && strings.TrimSpace(spec.Name.Name) != "" {
+			alias = spec.Name.Name
+		}
+		imports[alias] = importPath
+	}
+	return imports
+}
+
+func fieldTypes(fields *ast.FieldList) []ast.Expr {
+	if fields == nil {
+		return nil
+	}
+	types := make([]ast.Expr, 0, len(fields.List))
+	for _, field := range fields.List {
+		count := len(field.Names)
+		if count == 0 {
+			count = 1
+		}
+		for idx := 0; idx < count; idx++ {
+			types = append(types, field.Type)
+		}
+	}
+	return types
+}
+
+func isRuntimeContextType(expr ast.Expr, imports map[string]string, viewImport string) bool {
+	indexExpr, ok := expr.(*ast.IndexExpr)
+	if !ok {
+		return false
+	}
+	if !isImportedSelector(indexExpr.X, imports, frameworkModulePath+"/framework", "RuntimeContext") {
+		return false
+	}
+	return isPointerToImportedSelector(indexExpr.Index, imports, viewImport, "Context")
+}
+
+func isImportedSelector(expr ast.Expr, imports map[string]string, importPath string, selector string) bool {
+	sel, ok := expr.(*ast.SelectorExpr)
+	if !ok || strings.TrimSpace(sel.Sel.Name) != selector {
+		return false
+	}
+	ident, ok := sel.X.(*ast.Ident)
+	if !ok {
+		return false
+	}
+	return imports[strings.TrimSpace(ident.Name)] == importPath
+}
+
+func isPointerToImportedSelector(expr ast.Expr, imports map[string]string, importPath string, selector string) bool {
+	star, ok := expr.(*ast.StarExpr)
+	if !ok {
+		return false
+	}
+	return isImportedSelector(star.X, imports, importPath, selector)
+}
+
+func isSliceOfImportedSelector(expr ast.Expr, imports map[string]string, importPath string, selector string) bool {
+	arrayType, ok := expr.(*ast.ArrayType)
+	if !ok {
+		return false
+	}
+	return isImportedSelector(arrayType.Elt, imports, importPath, selector)
+}
+
+func isErrorType(expr ast.Expr, _ map[string]string) bool {
+	ident, ok := expr.(*ast.Ident)
+	return ok && strings.TrimSpace(ident.Name) == "error"
+}
+
+func isStringType(expr ast.Expr, _ map[string]string) bool {
+	ident, ok := expr.(*ast.Ident)
+	return ok && strings.TrimSpace(ident.Name) == "string"
+}
+
 func discoverRouteFiles(appRoot string, outputRoot string) (routeFiles, error) {
 	templates := make([]templateDef, 0, 16)
 	pages := make([]templateDef, 0, 8)
@@ -259,6 +559,7 @@ func discoverRouteFiles(appRoot string, outputRoot string) (routeFiles, error) {
 	notFounds := make(map[string]templateDef)
 	errorsByRoute := make(map[string]templateDef)
 	var rootLayoutTemplate templateDef
+	discovery := discoveryConventions{}
 
 	walkErr := filepath.WalkDir(appRoot, func(filePath string, entry fs.DirEntry, err error) error {
 		if err != nil {
@@ -273,6 +574,19 @@ func discoverRouteFiles(appRoot string, outputRoot string) (routeFiles, error) {
 			return fmt.Errorf("resolve relative path for %q: %w", filePath, relErr)
 		}
 		relPath = filepath.ToSlash(relPath)
+
+		if relPath == "robots.go" {
+			discovery.RobotsFile = filePath
+			return nil
+		}
+		if relPath == "sitemap.go" {
+			discovery.SitemapFile = filePath
+			return nil
+		}
+		if relPath == "feed.go" {
+			discovery.FeedFile = filePath
+			return nil
+		}
 
 		if !strings.HasSuffix(relPath, ".templ") {
 			return nil
@@ -369,6 +683,7 @@ func discoverRouteFiles(appRoot string, outputRoot string) (routeFiles, error) {
 		NotFounds: notFounds,
 		Errors:    errorsByRoute,
 		Root:      rootLayoutTemplate,
+		Discovery: discovery,
 	}, nil
 }
 
@@ -1069,6 +1384,94 @@ func generateRegistrySource(
 	formatted, err := format.Source(buffer.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("format registry source: %w", err)
+	}
+	return formatted, nil
+}
+
+func generateDiscoverySource(paths projectlayout.ProjectLayout, discovery discoveryConventions) ([]byte, error) {
+	importLines := []string{
+		fmt.Sprintf("%q", frameworkModulePath+"/framework/discovery"),
+		fmt.Sprintf("%q", viewImportPath(paths)),
+	}
+	if discovery.HasRobots || discovery.HasSitemap || discovery.HasFeed {
+		importLines = append(importLines, fmt.Sprintf("route_conventions %q", routesImportPath(paths)))
+	}
+
+	buffer := &bytes.Buffer{}
+	buffer.WriteString(generatedGoHeader + "\n")
+	buffer.WriteString("package gen\n\n")
+	buffer.WriteString("import (\n")
+	for _, line := range dedupeSorted(importLines) {
+		buffer.WriteString("\t" + line + "\n")
+	}
+	buffer.WriteString(")\n\n")
+
+	buffer.WriteString("func DiscoveryBundle() *discovery.Bundle[*runtime.Context] {\n")
+	if !discovery.HasRobots && !discovery.HasSitemap && !discovery.HasFeed {
+		buffer.WriteString("\treturn nil\n")
+		buffer.WriteString("}\n")
+		formatted, err := format.Source(buffer.Bytes())
+		if err != nil {
+			return nil, fmt.Errorf("format discovery source: %w", err)
+		}
+		return formatted, nil
+	}
+
+	buffer.WriteString("\treturn &discovery.Bundle[*runtime.Context]{\n")
+	if discovery.HasRobots {
+		buffer.WriteString("\t\tRobots: route_conventions.Robots,\n")
+	}
+	if discovery.HasSitemap {
+		buffer.WriteString("\t\tSitemap: route_conventions.Sitemap,\n")
+	}
+	if discovery.HasGenerateSitemaps {
+		buffer.WriteString("\t\tGenerateSitemaps: route_conventions.GenerateSitemaps,\n")
+	}
+	if discovery.HasSitemapByID {
+		buffer.WriteString("\t\tSitemapByID: route_conventions.SitemapByID,\n")
+	}
+	if discovery.HasFeed {
+		buffer.WriteString("\t\tFeed: route_conventions.Feed,\n")
+	}
+	buffer.WriteString("\t}\n")
+	buffer.WriteString("}\n")
+
+	formatted, err := format.Source(buffer.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("format discovery source: %w", err)
+	}
+	return formatted, nil
+}
+
+func generateBundleSource(paths projectlayout.ProjectLayout) ([]byte, error) {
+	buffer := &bytes.Buffer{}
+	buffer.WriteString(generatedGoHeader + "\n")
+	buffer.WriteString("package gen\n\n")
+	buffer.WriteString("import (\n")
+	writef(buffer, "\t%q\n", frameworkModulePath+"/framework/httpserver")
+	writef(buffer, "\t%q\n", frameworkModulePath+"/framework/i18n")
+	writef(buffer, "\t%q\n", viewImportPath(paths))
+	buffer.WriteString(")\n\n")
+
+	buffer.WriteString("func Bundle(appContext *runtime.Context) httpserver.AppBundle[*runtime.Context] {\n")
+	buffer.WriteString("\tvar i18nConfig *i18n.Config\n")
+	buffer.WriteString("\tif appContext != nil {\n")
+	buffer.WriteString("\t\tcfg := appContext.I18nConfig()\n")
+	buffer.WriteString("\t\ti18nConfig = &cfg\n")
+	buffer.WriteString("\t}\n\n")
+	buffer.WriteString("\treturn httpserver.AppBundle[*runtime.Context]{\n")
+	buffer.WriteString("\t\tContext:                       appContext,\n")
+	buffer.WriteString("\t\tHandlers:                      Handlers(NewRouteResolvers()),\n")
+	buffer.WriteString("\t\tDiscovery:                     DiscoveryBundle(),\n")
+	buffer.WriteString("\t\tI18n:                          i18nConfig,\n")
+	buffer.WriteString("\t\tNotFoundPage:                  NotFoundPage,\n")
+	buffer.WriteString("\t\tOnStaticAssetBasePathResolved: runtime.SetStaticAssetBasePath,\n")
+	buffer.WriteString("\t}\n")
+	buffer.WriteString("}\n")
+
+	formatted, err := format.Source(buffer.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("format bundle source: %w", err)
 	}
 	return formatted, nil
 }

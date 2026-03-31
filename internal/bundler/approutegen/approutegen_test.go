@@ -111,6 +111,138 @@ templ Page(view runtime.AuthorPageView) { <div id="notes-content"></div> }
 	require.True(t, ok)
 }
 
+func TestDiscoverRouteFilesCollectsDiscoveryConventions(t *testing.T) {
+	root := t.TempDir()
+	appRoot := filepath.Join(root, "app")
+	genRoot := filepath.Join(root, "gen")
+
+	writeTestFile(t, filepath.Join(appRoot, "root.templ"), "package appsrc\n")
+	writeTestFile(
+		t,
+		filepath.Join(appRoot, "robots.go"),
+		`package routes
+
+import (
+	"net/http"
+
+	view "example.com/app/web/view"
+	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/framework/discovery"
+)
+
+func Robots(runtime framework.RuntimeContext[*view.Context], r *http.Request) (discovery.Robots, error) {
+	return discovery.Robots{}, nil
+}
+`,
+	)
+	writeTestFile(
+		t,
+		filepath.Join(appRoot, "sitemap.go"),
+		`package routes
+
+import (
+	"net/http"
+
+	view "example.com/app/web/view"
+	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/framework/discovery"
+)
+
+func Sitemap(runtime framework.RuntimeContext[*view.Context], r *http.Request) ([]discovery.SitemapEntry, error) {
+	return nil, nil
+}
+
+func GenerateSitemaps(runtime framework.RuntimeContext[*view.Context], r *http.Request) ([]discovery.SitemapID, error) {
+	return nil, nil
+}
+
+func SitemapByID(
+	runtime framework.RuntimeContext[*view.Context],
+	r *http.Request,
+	id string,
+) ([]discovery.SitemapEntry, error) {
+	return nil, nil
+}
+`,
+	)
+	writeTestFile(
+		t,
+		filepath.Join(appRoot, "feed.go"),
+		`package routes
+
+import (
+	"net/http"
+
+	view "example.com/app/web/view"
+	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/framework/discovery"
+)
+
+func Feed(runtime framework.RuntimeContext[*view.Context], r *http.Request) (discovery.FeedDocument, error) {
+	return discovery.FeedDocument{}, nil
+}
+`,
+	)
+
+	routes, err := discoverRouteFiles(appRoot, genRoot)
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(appRoot, "robots.go"), routes.Discovery.RobotsFile)
+	require.Equal(t, filepath.Join(appRoot, "sitemap.go"), routes.Discovery.SitemapFile)
+	require.Equal(t, filepath.Join(appRoot, "feed.go"), routes.Discovery.FeedFile)
+
+	err = validateDiscoveryConventions(projectlayout.ProjectLayout{
+		AppModulePath: testAppModulePath,
+		RoutesImport:  "web/routes",
+		ViewImport:    "web/view",
+	}, &routes.Discovery)
+	require.NoError(t, err)
+	require.True(t, routes.Discovery.HasRobots)
+	require.True(t, routes.Discovery.HasSitemap)
+	require.True(t, routes.Discovery.HasGenerateSitemaps)
+	require.True(t, routes.Discovery.HasSitemapByID)
+	require.True(t, routes.Discovery.HasFeed)
+}
+
+func TestValidateDiscoveryConventionsRejectsGenerateWithoutSitemapByID(t *testing.T) {
+	root := t.TempDir()
+	appRoot := filepath.Join(root, "app")
+	genRoot := filepath.Join(root, "gen")
+
+	writeTestFile(
+		t,
+		filepath.Join(appRoot, "sitemap.go"),
+		`package routes
+
+import (
+	"net/http"
+
+	view "example.com/app/web/view"
+	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/framework/discovery"
+)
+
+func Sitemap(runtime framework.RuntimeContext[*view.Context], r *http.Request) ([]discovery.SitemapEntry, error) {
+	return nil, nil
+}
+
+func GenerateSitemaps(runtime framework.RuntimeContext[*view.Context], r *http.Request) ([]discovery.SitemapID, error) {
+	return nil, nil
+}
+`,
+	)
+
+	routes, err := discoverRouteFiles(appRoot, genRoot)
+	require.NoError(t, err)
+
+	err = validateDiscoveryConventions(projectlayout.ProjectLayout{
+		AppModulePath: testAppModulePath,
+		RoutesImport:  "web/routes",
+		ViewImport:    "web/view",
+	}, &routes.Discovery)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "GenerateSitemaps requires SitemapByID")
+}
+
 func TestParsePageViewType(t *testing.T) {
 	root := t.TempDir()
 	pagePath := filepath.Join(root, "page.templ")
