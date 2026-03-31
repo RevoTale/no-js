@@ -124,15 +124,28 @@ type routeFiles struct {
 	Discovery discoveryConventions
 }
 
-type discoveryConventions struct {
-	RobotsFile          string
-	SitemapFile         string
-	FeedFile            string
-	HasRobots           bool
+type feedConvention struct {
+	RouteID     string
+	Segments    []routeSegment
+	SourcePath  string
+	ImportAlias string
+}
+
+type sitemapConvention struct {
+	RouteID             string
+	Segments            []routeSegment
+	SourcePath          string
+	ImportAlias         string
 	HasSitemap          bool
 	HasGenerateSitemaps bool
 	HasSitemapByID      bool
-	HasFeed             bool
+}
+
+type discoveryConventions struct {
+	RobotsFile string
+	HasRobots  bool
+	Sitemaps   []sitemapConvention
+	Feeds      []feedConvention
 }
 
 type Config struct {
@@ -292,6 +305,18 @@ func routesImportPath(paths projectlayout.ProjectLayout) string {
 	return appImportPath(paths.AppModulePath, relativePath)
 }
 
+func routesImportPathForRouteID(paths projectlayout.ProjectLayout, routeID string) string {
+	base := strings.TrimSpace(paths.RoutesImport)
+	if base == "" {
+		base = "web/routes"
+	}
+	trimmedRouteID := strings.Trim(strings.TrimSpace(routeID), "/")
+	if trimmedRouteID == "" {
+		return appImportPath(paths.AppModulePath, base)
+	}
+	return appImportPath(paths.AppModulePath, path.Join(base, trimmedRouteID))
+}
+
 func validateDiscoveryConventions(paths projectlayout.ProjectLayout, discovery *discoveryConventions) error {
 	if discovery == nil {
 		return nil
@@ -321,9 +346,10 @@ func validateDiscoveryConventions(paths projectlayout.ProjectLayout, discovery *
 		discovery.HasRobots = true
 	}
 
-	if strings.TrimSpace(discovery.SitemapFile) != "" {
+	for idx := range discovery.Sitemaps {
+		convention := &discovery.Sitemaps[idx]
 		if err := validateDiscoveryFunction(
-			discovery.SitemapFile,
+			convention.SourcePath,
 			"Sitemap",
 			[]func(ast.Expr, map[string]string) bool{
 				func(expr ast.Expr, imports map[string]string) bool {
@@ -342,10 +368,10 @@ func validateDiscoveryConventions(paths projectlayout.ProjectLayout, discovery *
 		); err != nil {
 			return err
 		}
-		discovery.HasSitemap = true
+		convention.HasSitemap = true
 
 		generateErr := validateDiscoveryFunction(
-			discovery.SitemapFile,
+			convention.SourcePath,
 			"GenerateSitemaps",
 			[]func(ast.Expr, map[string]string) bool{
 				func(expr ast.Expr, imports map[string]string) bool {
@@ -364,13 +390,13 @@ func validateDiscoveryConventions(paths projectlayout.ProjectLayout, discovery *
 		)
 		switch {
 		case generateErr == nil:
-			discovery.HasGenerateSitemaps = true
+			convention.HasGenerateSitemaps = true
 		case !errors.Is(generateErr, fs.ErrNotExist):
 			return generateErr
 		}
 
 		sitemapByIDErr := validateDiscoveryFunction(
-			discovery.SitemapFile,
+			convention.SourcePath,
 			"SitemapByID",
 			[]func(ast.Expr, map[string]string) bool{
 				func(expr ast.Expr, imports map[string]string) bool {
@@ -390,19 +416,25 @@ func validateDiscoveryConventions(paths projectlayout.ProjectLayout, discovery *
 		)
 		switch {
 		case sitemapByIDErr == nil:
-			discovery.HasSitemapByID = true
+			convention.HasSitemapByID = true
 		case !errors.Is(sitemapByIDErr, fs.ErrNotExist):
 			return sitemapByIDErr
 		}
 
-		if discovery.HasGenerateSitemaps && !discovery.HasSitemapByID {
-			return fmt.Errorf("%s: GenerateSitemaps requires SitemapByID", discovery.SitemapFile)
+		if convention.HasGenerateSitemaps && !convention.HasSitemapByID {
+			return fmt.Errorf("%s: GenerateSitemaps requires SitemapByID", convention.SourcePath)
 		}
 	}
+	sortSitemapConventions(discovery.Sitemaps)
+	if err := validateDiscoveryPatternConflicts(discovery.Sitemaps, func(convention sitemapConvention) string {
+		return conventionEndpointPattern(convention.RouteID, "sitemap.xml")
+	}); err != nil {
+		return err
+	}
 
-	if strings.TrimSpace(discovery.FeedFile) != "" {
+	for _, convention := range discovery.Feeds {
 		if err := validateDiscoveryFunction(
-			discovery.FeedFile,
+			convention.SourcePath,
 			"Feed",
 			[]func(ast.Expr, map[string]string) bool{
 				func(expr ast.Expr, imports map[string]string) bool {
@@ -421,7 +453,12 @@ func validateDiscoveryConventions(paths projectlayout.ProjectLayout, discovery *
 		); err != nil {
 			return err
 		}
-		discovery.HasFeed = true
+	}
+	sortFeedConventions(discovery.Feeds)
+	if err := validateDiscoveryPatternConflicts(discovery.Feeds, func(convention feedConvention) string {
+		return conventionEndpointPattern(convention.RouteID, "feed.xml")
+	}); err != nil {
+		return err
 	}
 
 	return nil
@@ -552,6 +589,71 @@ func isStringType(expr ast.Expr, _ map[string]string) bool {
 	return ok && strings.TrimSpace(ident.Name) == "string"
 }
 
+func sortSitemapConventions(conventions []sitemapConvention) {
+	sort.Slice(conventions, func(i int, j int) bool {
+		return discoveryConventionLess(conventions[i].RouteID, conventions[j].RouteID)
+	})
+}
+
+func sortFeedConventions(conventions []feedConvention) {
+	sort.Slice(conventions, func(i int, j int) bool {
+		return discoveryConventionLess(conventions[i].RouteID, conventions[j].RouteID)
+	})
+}
+
+func discoveryConventionLess(leftRouteID string, rightRouteID string) bool {
+	leftSegments := segmentsFromRouteID(leftRouteID)
+	rightSegments := segmentsFromRouteID(rightRouteID)
+
+	leftStatic := countStaticSegments(leftSegments)
+	rightStatic := countStaticSegments(rightSegments)
+	if leftStatic != rightStatic {
+		return leftStatic > rightStatic
+	}
+	if len(leftSegments) != len(rightSegments) {
+		return len(leftSegments) > len(rightSegments)
+	}
+	return leftRouteID < rightRouteID
+}
+
+func countStaticSegments(segments []routeSegment) int {
+	count := 0
+	for _, segment := range segments {
+		if !segment.IsParam() {
+			count++
+		}
+	}
+	return count
+}
+
+func validateDiscoveryPatternConflicts[T any](conventions []T, patternFor func(T) string) error {
+	seen := make(map[string]struct{}, len(conventions))
+	for _, convention := range conventions {
+		pattern := discoveryPatternKey(patternFor(convention))
+		if _, ok := seen[pattern]; ok {
+			return fmt.Errorf("discovery route pattern conflict: %q", patternFor(convention))
+		}
+		seen[pattern] = struct{}{}
+	}
+	return nil
+}
+
+func discoveryPatternKey(pattern string) string {
+	segments := segmentsFromRouteID(strings.TrimPrefix(strings.TrimSpace(pattern), "/"))
+	parts := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		if segment.IsParam() {
+			parts = append(parts, ":")
+			continue
+		}
+		parts = append(parts, segment.StaticName)
+	}
+	if len(parts) == 0 {
+		return "/"
+	}
+	return "/" + strings.Join(parts, "/")
+}
+
 func discoverRouteFiles(appRoot string, outputRoot string) (routeFiles, error) {
 	templates := make([]templateDef, 0, 16)
 	pages := make([]templateDef, 0, 8)
@@ -579,12 +681,24 @@ func discoverRouteFiles(appRoot string, outputRoot string) (routeFiles, error) {
 			discovery.RobotsFile = filePath
 			return nil
 		}
-		if relPath == "sitemap.go" {
-			discovery.SitemapFile = filePath
+		if path.Base(relPath) == "sitemap.go" {
+			routeID := routeIDForDiscoveryFile(relPath)
+			discovery.Sitemaps = append(discovery.Sitemaps, sitemapConvention{
+				RouteID:     routeID,
+				Segments:    segmentsFromRouteID(routeID),
+				SourcePath:  filePath,
+				ImportAlias: discoveryImportAlias(routeID),
+			})
 			return nil
 		}
-		if relPath == "feed.go" {
-			discovery.FeedFile = filePath
+		if path.Base(relPath) == "feed.go" {
+			routeID := routeIDForDiscoveryFile(relPath)
+			discovery.Feeds = append(discovery.Feeds, feedConvention{
+				RouteID:     routeID,
+				Segments:    segmentsFromRouteID(routeID),
+				SourcePath:  filePath,
+				ImportAlias: discoveryImportAlias(routeID),
+			})
 			return nil
 		}
 
@@ -1390,11 +1504,32 @@ func generateRegistrySource(
 
 func generateDiscoverySource(paths projectlayout.ProjectLayout, discovery discoveryConventions) ([]byte, error) {
 	importLines := []string{
+		fmt.Sprintf("%q", frameworkModulePath+"/framework"),
 		fmt.Sprintf("%q", frameworkModulePath+"/framework/discovery"),
 		fmt.Sprintf("%q", viewImportPath(paths)),
 	}
-	if discovery.HasRobots || discovery.HasSitemap || discovery.HasFeed {
-		importLines = append(importLines, fmt.Sprintf("route_conventions %q", routesImportPath(paths)))
+
+	packageImports := make([]string, 0, 1+len(discovery.Sitemaps)+len(discovery.Feeds))
+	if discovery.HasRobots {
+		packageImports = append(
+			packageImports,
+			fmt.Sprintf("%s %q", discoveryImportAlias(""), routesImportPath(paths)),
+		)
+	}
+	for _, convention := range discovery.Sitemaps {
+		packageImports = append(
+			packageImports,
+			fmt.Sprintf("%s %q", convention.ImportAlias, routesImportPathForRouteID(paths, convention.RouteID)),
+		)
+	}
+	for _, convention := range discovery.Feeds {
+		packageImports = append(
+			packageImports,
+			fmt.Sprintf("%s %q", convention.ImportAlias, routesImportPathForRouteID(paths, convention.RouteID)),
+		)
+	}
+	if len(packageImports) > 0 {
+		importLines = append(importLines, dedupeSorted(packageImports)...)
 	}
 
 	buffer := &bytes.Buffer{}
@@ -1407,7 +1542,7 @@ func generateDiscoverySource(paths projectlayout.ProjectLayout, discovery discov
 	buffer.WriteString(")\n\n")
 
 	buffer.WriteString("func DiscoveryBundle() *discovery.Bundle[*runtime.Context] {\n")
-	if !discovery.HasRobots && !discovery.HasSitemap && !discovery.HasFeed {
+	if !discovery.HasRobots && len(discovery.Sitemaps) == 0 && len(discovery.Feeds) == 0 {
 		buffer.WriteString("\treturn nil\n")
 		buffer.WriteString("}\n")
 		formatted, err := format.Source(buffer.Bytes())
@@ -1419,21 +1554,41 @@ func generateDiscoverySource(paths projectlayout.ProjectLayout, discovery discov
 
 	buffer.WriteString("\treturn &discovery.Bundle[*runtime.Context]{\n")
 	if discovery.HasRobots {
-		buffer.WriteString("\t\tRobots: route_conventions.Robots,\n")
+		writef(buffer, "\t\tRobots: %s.Robots,\n", discoveryImportAlias(""))
 	}
-	if discovery.HasSitemap {
-		buffer.WriteString("\t\tSitemap: route_conventions.Sitemap,\n")
+	if len(discovery.Sitemaps) > 0 {
+		buffer.WriteString("\t\tSitemaps: []discovery.SitemapRoute[*runtime.Context]{\n")
+		for _, convention := range discovery.Sitemaps {
+			buffer.WriteString("\t\t\t{\n")
+			writef(buffer, "\t\t\t\tRoutePattern: %q,\n", routePattern(convention.RouteID))
+			if convention.HasSitemap {
+				writef(buffer, "\t\t\t\tSitemap: %s.Sitemap,\n", convention.ImportAlias)
+			}
+			if convention.HasGenerateSitemaps {
+				writef(buffer, "\t\t\t\tGenerateSitemaps: %s.GenerateSitemaps,\n", convention.ImportAlias)
+			}
+			if convention.HasSitemapByID {
+				writef(buffer, "\t\t\t\tSitemapByID: %s.SitemapByID,\n", convention.ImportAlias)
+			}
+			buffer.WriteString("\t\t\t},\n")
+		}
+		buffer.WriteString("\t\t},\n")
 	}
-	if discovery.HasGenerateSitemaps {
-		buffer.WriteString("\t\tGenerateSitemaps: route_conventions.GenerateSitemaps,\n")
-	}
-	if discovery.HasSitemapByID {
-		buffer.WriteString("\t\tSitemapByID: route_conventions.SitemapByID,\n")
-	}
-	if discovery.HasFeed {
-		buffer.WriteString("\t\tFeed: route_conventions.Feed,\n")
+	if len(discovery.Feeds) > 0 {
+		buffer.WriteString("\t\tFeeds: []discovery.FeedRoute[*runtime.Context]{\n")
+		for _, convention := range discovery.Feeds {
+			buffer.WriteString("\t\t\t{\n")
+			writef(buffer, "\t\t\t\tRoutePattern: %q,\n", routePattern(convention.RouteID))
+			writef(buffer, "\t\t\t\tFeed: %s.Feed,\n", convention.ImportAlias)
+			buffer.WriteString("\t\t\t},\n")
+		}
+		buffer.WriteString("\t\t},\n")
 	}
 	buffer.WriteString("\t}\n")
+	buffer.WriteString("}\n")
+	buffer.WriteString("\n")
+	buffer.WriteString("func DiscoveryExactHandlers() []framework.RouteHandler[*runtime.Context] {\n")
+	buffer.WriteString("\treturn discovery.ExactHandlers(DiscoveryBundle())\n")
 	buffer.WriteString("}\n")
 
 	formatted, err := format.Source(buffer.Bytes())
@@ -1461,6 +1616,7 @@ func generateBundleSource(paths projectlayout.ProjectLayout) ([]byte, error) {
 	buffer.WriteString("\t}\n\n")
 	buffer.WriteString("\treturn httpserver.AppBundle[*runtime.Context]{\n")
 	buffer.WriteString("\t\tContext:                       appContext,\n")
+	buffer.WriteString("\t\tExactHandlers:                 DiscoveryExactHandlers(),\n")
 	buffer.WriteString("\t\tHandlers:                      Handlers(NewRouteResolvers()),\n")
 	buffer.WriteString("\t\tDiscovery:                     DiscoveryBundle(),\n")
 	buffer.WriteString("\t\tI18n:                          i18nConfig,\n")
@@ -1916,6 +2072,52 @@ func routePattern(routeID string) string {
 		return "/"
 	}
 	return "/" + routeID
+}
+
+func routeIDForDiscoveryFile(relPath string) string {
+	routeDir := path.Dir(strings.TrimSpace(relPath))
+	if routeDir == "." || routeDir == "/" {
+		return ""
+	}
+	return routeDir
+}
+
+func segmentsFromRouteID(routeID string) []routeSegment {
+	trimmed := strings.Trim(strings.TrimSpace(routeID), "/")
+	if trimmed == "" {
+		return nil
+	}
+
+	parts := strings.Split(trimmed, "/")
+	segments := make([]routeSegment, 0, len(parts))
+	for _, part := range parts {
+		if strings.HasPrefix(part, "[") && strings.HasSuffix(part, "]") {
+			segments = append(segments, routeSegment{
+				ParamName: strings.TrimSpace(part[1 : len(part)-1]),
+			})
+			continue
+		}
+		segments = append(segments, routeSegment{StaticName: part})
+	}
+	return segments
+}
+
+func discoveryImportAlias(routeID string) string {
+	if strings.TrimSpace(routeID) == "" {
+		return "route_conventions_root"
+	}
+	return "route_conventions_" + safeIdentifier(routeID)
+}
+
+func conventionEndpointPattern(routeID string, leaf string) string {
+	leaf = strings.Trim(strings.TrimSpace(leaf), "/")
+	if leaf == "" {
+		return routePattern(routeID)
+	}
+	if strings.TrimSpace(routeID) == "" {
+		return "/" + leaf
+	}
+	return "/" + path.Join(strings.Trim(routeID, "/"), leaf)
 }
 
 func resolvePageMethod(meta routeMeta) string {

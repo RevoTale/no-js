@@ -569,19 +569,22 @@ func TestNewAppDiscoveryTakesPrecedenceOverPublicFilesAndExtraRoutes(t *testing.
 	publicDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(publicDir, "robots.txt"), []byte("public"), 0o644))
 
+	discoveryBundle := &frameworkdiscovery.Bundle[*struct{}]{
+		Robots: func(framework.RuntimeContext[*struct{}], *http.Request) (frameworkdiscovery.Robots, error) {
+			return frameworkdiscovery.Robots{
+				Rules: []frameworkdiscovery.RobotsRule{
+					{UserAgent: "*", Allow: []string{"/"}},
+				},
+				Sitemaps: []string{"https://example.com/sitemap-index"},
+			}, nil
+		},
+	}
+
 	handler, err := NewApp(Config[*struct{}]{
 		App: AppBundle[*struct{}]{
-			Context: &struct{}{},
-			Discovery: &frameworkdiscovery.Bundle[*struct{}]{
-				Robots: func(framework.RuntimeContext[*struct{}], *http.Request) (frameworkdiscovery.Robots, error) {
-					return frameworkdiscovery.Robots{
-						Rules: []frameworkdiscovery.RobotsRule{
-							{UserAgent: "*", Allow: []string{"/"}},
-						},
-						Sitemaps: []string{"https://example.com/sitemap-index"},
-					}, nil
-				},
-			},
+			Context:       &struct{}{},
+			ExactHandlers: frameworkdiscovery.ExactHandlers(discoveryBundle),
+			Discovery:     discoveryBundle,
 		},
 		Custom: CustomConfig{
 			PublicFiles: &PublicFilesConfig{Dir: publicDir},
@@ -602,6 +605,182 @@ func TestNewAppDiscoveryTakesPrecedenceOverPublicFilesAndExtraRoutes(t *testing.
 	require.Contains(t, rec.Body.String(), "Sitemap: https://example.com/sitemap-index")
 	require.NotContains(t, rec.Body.String(), "public")
 	require.NotContains(t, rec.Body.String(), "extra")
+}
+
+func TestNewAppGeneratedSitemapChunksTakePrecedenceOverPublicFilesAndExtraRoutes(t *testing.T) {
+	t.Parallel()
+
+	publicDir := t.TempDir()
+	chunkPath := filepath.Join(publicDir, "note", "sitemap", "0.xml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(chunkPath), 0o755))
+	require.NoError(t, os.WriteFile(chunkPath, []byte("public"), 0o644))
+
+	discoveryBundle := &frameworkdiscovery.Bundle[*struct{}]{
+		Sitemaps: []frameworkdiscovery.SitemapRoute[*struct{}]{
+			{
+				RoutePattern: "/",
+				GenerateSitemaps: func(framework.RuntimeContext[*struct{}], *http.Request) ([]frameworkdiscovery.SitemapID, error) {
+					return []frameworkdiscovery.SitemapID{
+						{ID: "note:0", Path: "/note/sitemap/0.xml", Location: "https://example.com/note/sitemap/0.xml"},
+					}, nil
+				},
+				SitemapByID: func(
+					framework.RuntimeContext[*struct{}],
+					*http.Request,
+					string,
+				) ([]frameworkdiscovery.SitemapEntry, error) {
+					return []frameworkdiscovery.SitemapEntry{
+						{URL: "https://example.com/note/hello-world"},
+					}, nil
+				},
+			},
+		},
+	}
+
+	handler, err := NewApp(Config[*struct{}]{
+		App: AppBundle[*struct{}]{
+			Context:   &struct{}{},
+			Discovery: discoveryBundle,
+		},
+		Custom: CustomConfig{
+			PublicFiles: &PublicFilesConfig{Dir: publicDir},
+			ExtraRoutes: func(mux *http.ServeMux) error {
+				mux.HandleFunc("/note/sitemap/0.xml", func(w http.ResponseWriter, _ *http.Request) {
+					_, _ = io.WriteString(w, "extra")
+				})
+				return nil
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/note/sitemap/0.xml", nil))
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "<urlset")
+	require.Contains(t, rec.Body.String(), "https://example.com/note/hello-world")
+	require.NotContains(t, rec.Body.String(), "public")
+	require.NotContains(t, rec.Body.String(), "extra")
+}
+
+func TestNewAppRootRouteDoesNotTriggerGeneratedSitemapFallback(t *testing.T) {
+	t.Parallel()
+
+	sitemapCalls := 0
+
+	handler, err := NewApp(Config[*struct{}]{
+		App: AppBundle[*struct{}]{
+			Context: &struct{}{},
+			Handlers: []framework.RouteHandler[*struct{}]{
+				framework.PageOnlyRouteHandler[*struct{}, framework.EmptyParams, string]{
+					Page: framework.PageModule[*struct{}, framework.EmptyParams, string]{
+						Pattern: "/",
+						ParseParams: func(path string) (framework.EmptyParams, bool) {
+							return framework.EmptyParams{}, path == "/"
+						},
+						Load: func(context.Context, *struct{}, *http.Request, framework.EmptyParams) (string, error) {
+							return "root-page", nil
+						},
+						Render: func(view string) templ.Component {
+							return textComponent(view)
+						},
+					},
+				},
+			},
+			Discovery: &frameworkdiscovery.Bundle[*struct{}]{
+				Sitemaps: []frameworkdiscovery.SitemapRoute[*struct{}]{
+					{
+						RoutePattern: "/",
+						GenerateSitemaps: func(
+							framework.RuntimeContext[*struct{}],
+							*http.Request,
+						) ([]frameworkdiscovery.SitemapID, error) {
+							sitemapCalls++
+							return nil, assert.AnError
+						},
+						SitemapByID: func(
+							framework.RuntimeContext[*struct{}],
+							*http.Request,
+							string,
+						) ([]frameworkdiscovery.SitemapEntry, error) {
+							return nil, nil
+						},
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "root-page", strings.TrimSpace(rec.Body.String()))
+	require.Zero(t, sitemapCalls)
+}
+
+func TestNewAppLocalizedRouteDoesNotTriggerGeneratedSitemapFallback(t *testing.T) {
+	t.Parallel()
+
+	sitemapCalls := 0
+
+	handler, err := NewApp(Config[*struct{}]{
+		App: AppBundle[*struct{}]{
+			Context: &struct{}{},
+			Handlers: []framework.RouteHandler[*struct{}]{
+				framework.PageOnlyRouteHandler[*struct{}, framework.EmptyParams, string]{
+					Page: framework.PageModule[*struct{}, framework.EmptyParams, string]{
+						Pattern: "/",
+						ParseParams: func(path string) (framework.EmptyParams, bool) {
+							return framework.EmptyParams{}, path == "/"
+						},
+						Load: func(context.Context, *struct{}, *http.Request, framework.EmptyParams) (string, error) {
+							return "localized-root", nil
+						},
+						Render: func(view string) templ.Component {
+							return textComponent(view)
+						},
+					},
+				},
+			},
+			Discovery: &frameworkdiscovery.Bundle[*struct{}]{
+				Sitemaps: []frameworkdiscovery.SitemapRoute[*struct{}]{
+					{
+						RoutePattern: "/",
+						GenerateSitemaps: func(
+							framework.RuntimeContext[*struct{}],
+							*http.Request,
+						) ([]frameworkdiscovery.SitemapID, error) {
+							sitemapCalls++
+							return nil, assert.AnError
+						},
+						SitemapByID: func(
+							framework.RuntimeContext[*struct{}],
+							*http.Request,
+							string,
+						) ([]frameworkdiscovery.SitemapEntry, error) {
+							return nil, nil
+						},
+					},
+				},
+			},
+			I18n: &frameworki18n.Config{
+				DefaultLocale: "en",
+				Locales:       []string{"en", "uk"},
+				PrefixMode:    frameworki18n.PrefixAsNeeded,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/uk", nil))
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "localized-root", strings.TrimSpace(rec.Body.String()))
+	require.Zero(t, sitemapCalls)
 }
 
 func drainResolverTimingEvents(events <-chan framework.ResolverTiming) []framework.ResolverTiming {

@@ -83,7 +83,8 @@ Localization: auto-wired when web/i18n exists
 
 ## Discovery Conventions
 
-Reserved files under `web/routes` return structured discovery data. The
+Reserved files under `web/routes` return structured discovery data. `sitemap.go`
+and `feed.go` may live at the route root or in nested route directories. The
 framework owns the transport, endpoint paths, and XML/text rendering:
 
 - `robots.go` returns `discovery.Robots`

@@ -178,6 +178,42 @@ import (
 	"github.com/RevoTale/no-js/framework/discovery"
 )
 
+	func Feed(runtime framework.RuntimeContext[*view.Context], r *http.Request) (discovery.FeedDocument, error) {
+		return discovery.FeedDocument{}, nil
+	}
+	`,
+	)
+	writeTestFile(
+		t,
+		filepath.Join(appRoot, "author", "[slug]", "sitemap.go"),
+		`package routes
+
+import (
+	"net/http"
+
+	view "example.com/app/web/view"
+	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/framework/discovery"
+)
+
+func Sitemap(runtime framework.RuntimeContext[*view.Context], r *http.Request) ([]discovery.SitemapEntry, error) {
+	return nil, nil
+}
+`,
+	)
+	writeTestFile(
+		t,
+		filepath.Join(appRoot, "author", "[slug]", "feed.go"),
+		`package routes
+
+import (
+	"net/http"
+
+	view "example.com/app/web/view"
+	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/framework/discovery"
+)
+
 func Feed(runtime framework.RuntimeContext[*view.Context], r *http.Request) (discovery.FeedDocument, error) {
 	return discovery.FeedDocument{}, nil
 }
@@ -187,8 +223,8 @@ func Feed(runtime framework.RuntimeContext[*view.Context], r *http.Request) (dis
 	routes, err := discoverRouteFiles(appRoot, genRoot)
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(appRoot, "robots.go"), routes.Discovery.RobotsFile)
-	require.Equal(t, filepath.Join(appRoot, "sitemap.go"), routes.Discovery.SitemapFile)
-	require.Equal(t, filepath.Join(appRoot, "feed.go"), routes.Discovery.FeedFile)
+	require.Len(t, routes.Discovery.Sitemaps, 2)
+	require.Len(t, routes.Discovery.Feeds, 2)
 
 	err = validateDiscoveryConventions(projectlayout.ProjectLayout{
 		AppModulePath: testAppModulePath,
@@ -197,10 +233,16 @@ func Feed(runtime framework.RuntimeContext[*view.Context], r *http.Request) (dis
 	}, &routes.Discovery)
 	require.NoError(t, err)
 	require.True(t, routes.Discovery.HasRobots)
-	require.True(t, routes.Discovery.HasSitemap)
-	require.True(t, routes.Discovery.HasGenerateSitemaps)
-	require.True(t, routes.Discovery.HasSitemapByID)
-	require.True(t, routes.Discovery.HasFeed)
+	require.Equal(t, "author/[slug]", routes.Discovery.Sitemaps[0].RouteID)
+	require.True(t, routes.Discovery.Sitemaps[0].HasSitemap)
+	require.False(t, routes.Discovery.Sitemaps[0].HasGenerateSitemaps)
+	require.False(t, routes.Discovery.Sitemaps[0].HasSitemapByID)
+	require.Equal(t, "", routes.Discovery.Sitemaps[1].RouteID)
+	require.True(t, routes.Discovery.Sitemaps[1].HasSitemap)
+	require.True(t, routes.Discovery.Sitemaps[1].HasGenerateSitemaps)
+	require.True(t, routes.Discovery.Sitemaps[1].HasSitemapByID)
+	require.Equal(t, "author/[slug]", routes.Discovery.Feeds[0].RouteID)
+	require.Equal(t, "", routes.Discovery.Feeds[1].RouteID)
 }
 
 func TestValidateDiscoveryConventionsRejectsGenerateWithoutSitemapByID(t *testing.T) {
@@ -241,6 +283,60 @@ func GenerateSitemaps(runtime framework.RuntimeContext[*view.Context], r *http.R
 	}, &routes.Discovery)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "GenerateSitemaps requires SitemapByID")
+}
+
+func TestValidateDiscoveryConventionsRejectsNestedPatternConflicts(t *testing.T) {
+	root := t.TempDir()
+	appRoot := filepath.Join(root, "app")
+	genRoot := filepath.Join(root, "gen")
+
+	writeTestFile(
+		t,
+		filepath.Join(appRoot, "author", "[slug]", "feed.go"),
+		`package routes
+
+import (
+	"net/http"
+
+	view "example.com/app/web/view"
+	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/framework/discovery"
+)
+
+func Feed(runtime framework.RuntimeContext[*view.Context], r *http.Request) (discovery.FeedDocument, error) {
+	return discovery.FeedDocument{}, nil
+}
+`,
+	)
+	writeTestFile(
+		t,
+		filepath.Join(appRoot, "author", "[id]", "feed.go"),
+		`package routes
+
+import (
+	"net/http"
+
+	view "example.com/app/web/view"
+	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/framework/discovery"
+)
+
+func Feed(runtime framework.RuntimeContext[*view.Context], r *http.Request) (discovery.FeedDocument, error) {
+	return discovery.FeedDocument{}, nil
+}
+`,
+	)
+
+	routes, err := discoverRouteFiles(appRoot, genRoot)
+	require.NoError(t, err)
+
+	err = validateDiscoveryConventions(projectlayout.ProjectLayout{
+		AppModulePath: testAppModulePath,
+		RoutesImport:  "web/routes",
+		ViewImport:    "web/view",
+	}, &routes.Discovery)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "discovery route pattern conflict")
 }
 
 func TestParsePageViewType(t *testing.T) {

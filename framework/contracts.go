@@ -101,8 +101,17 @@ type RouteHandler[C interface{}] interface {
 	TryServe(runtime RuntimeContext[C], w http.ResponseWriter, r *http.Request) bool
 }
 
+type PathMatcher interface {
+	MatchPath(path string) bool
+}
+
 type PageOnlyRouteHandler[C interface{}, P interface{}, VM interface{}] struct {
 	Page PageModule[C, P, VM]
+}
+
+func (h PageOnlyRouteHandler[C, P, VM]) MatchPath(path string) bool {
+	_, ok := h.Page.ParseParams(path)
+	return ok
 }
 
 func (h PageOnlyRouteHandler[C, P, VM]) TryServe(

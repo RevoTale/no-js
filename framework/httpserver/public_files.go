@@ -17,6 +17,11 @@ type PublicFilesConfig struct {
 	CachePolicy       string
 }
 
+type publicFilesHandler struct {
+	index       map[string]string
+	cachePolicy string
+}
+
 func (cfg PublicFilesConfig) WithPublicFileCachePolicy(policy string) PublicFilesConfig {
 	cfg.CachePolicy = strings.TrimSpace(policy)
 	return cfg
@@ -27,7 +32,7 @@ func (cfg PublicFilesConfig) WithRequestPathPrefix(prefix string) PublicFilesCon
 	return cfg
 }
 
-func WithPublicFiles(cfg PublicFilesConfig) (func(http.Handler) http.Handler, error) {
+func newPublicFilesHandler(cfg PublicFilesConfig) (*publicFilesHandler, error) {
 	publicDir := strings.TrimSpace(cfg.Dir)
 	if publicDir == "" {
 		return nil, fmt.Errorf("public dir is required")
@@ -51,34 +56,51 @@ func WithPublicFiles(cfg PublicFilesConfig) (func(http.Handler) http.Handler, er
 		cachePolicy = defaultPublicFilesCachePolicy
 	}
 
+	return &publicFilesHandler{
+		index:       index,
+		cachePolicy: cachePolicy,
+	}, nil
+}
+
+func WithPublicFiles(cfg PublicFilesConfig) (func(http.Handler) http.Handler, error) {
+	handler, err := newPublicFilesHandler(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if next == nil {
 				return
 			}
-			if r == nil || r.URL == nil {
+			if !handler.ServeHTTP(w, r) {
 				next.ServeHTTP(w, r)
-				return
 			}
-
-			publicPath := normalizePublicRequestPath(r.URL.Path)
-			filePath, ok := index[publicPath]
-			if !ok {
-				next.ServeHTTP(w, r)
-				return
-			}
-			if !isReadMethod(r.Method) {
-				w.WriteHeader(http.StatusMethodNotAllowed)
-				return
-			}
-
-			if contentType := publicFileContentType(filePath); contentType != "" {
-				w.Header().Set("Content-Type", contentType)
-			}
-			setCachePolicy(w, cachePolicy)
-			http.ServeFile(w, r, filePath)
 		})
 	}, nil
+}
+
+func (handler *publicFilesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) bool {
+	if handler == nil || r == nil || r.URL == nil {
+		return false
+	}
+
+	publicPath := normalizePublicRequestPath(r.URL.Path)
+	filePath, ok := handler.index[publicPath]
+	if !ok {
+		return false
+	}
+	if !isReadMethod(r.Method) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return true
+	}
+
+	if contentType := publicFileContentType(filePath); contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	}
+	setCachePolicy(w, handler.cachePolicy)
+	http.ServeFile(w, r, filePath)
+	return true
 }
 
 func buildPublicFilesIndex(publicDir string, requestPathPrefix string) (map[string]string, error) {

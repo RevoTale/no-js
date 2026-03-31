@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/RevoTale/no-js/framework"
+	frameworkrouter "github.com/RevoTale/no-js/framework/router"
 )
 
 const (
@@ -35,13 +36,28 @@ const (
 )
 
 // Bundle contains the optional reserved discovery conventions generated from
-// web/routes.
+// web/routes. Robots stays root-scoped, while sitemap/feed conventions may come
+// from the route root or nested route directories.
 type Bundle[C interface{}] struct {
-	Robots           func(runtime framework.RuntimeContext[C], r *http.Request) (Robots, error)
+	Robots   func(runtime framework.RuntimeContext[C], r *http.Request) (Robots, error)
+	Sitemaps []SitemapRoute[C]
+	Feeds    []FeedRoute[C]
+}
+
+type SitemapRoute[C interface{}] struct {
+	RoutePattern     string
 	Sitemap          func(runtime framework.RuntimeContext[C], r *http.Request) ([]SitemapEntry, error)
 	GenerateSitemaps func(runtime framework.RuntimeContext[C], r *http.Request) ([]SitemapID, error)
 	SitemapByID      func(runtime framework.RuntimeContext[C], r *http.Request, id string) ([]SitemapEntry, error)
-	Feed             func(runtime framework.RuntimeContext[C], r *http.Request) (FeedDocument, error)
+}
+
+func (route SitemapRoute[C]) HasDynamicSitemaps() bool {
+	return route.GenerateSitemaps != nil && route.SitemapByID != nil
+}
+
+type FeedRoute[C interface{}] struct {
+	RoutePattern string
+	Feed         func(runtime framework.RuntimeContext[C], r *http.Request) (FeedDocument, error)
 }
 
 // Robots is the app-facing robots.txt model returned from web/routes/robots.go.
@@ -67,7 +83,7 @@ type RobotsRule struct {
 	Disallow []string
 }
 
-// SitemapEntry is one <url> record returned from web/routes/sitemap.go or
+// SitemapEntry is one <url> record returned from a convention sitemap.go or
 // SitemapByID. The framework serializes it into the XML sitemap protocol and
 // related extensions.
 type SitemapEntry struct {
@@ -104,9 +120,9 @@ type SitemapID struct {
 	Location string
 }
 
-// FeedDocument is the app-facing RSS channel model returned from
-// web/routes/feed.go. The framework renders it as an RSS 2.0 feed with an Atom
-// self link when SelfURL is set.
+// FeedDocument is the app-facing RSS channel model returned from a convention
+// feed.go file. The framework renders it as an RSS 2.0 feed with an Atom self
+// link when SelfURL is set.
 type FeedDocument struct {
 	// Title maps to <channel><title>.
 	Title string
@@ -146,149 +162,210 @@ type FeedItem struct {
 	Categories []string
 }
 
-func MaybeServe[C interface{}](
+type exactHandler[C interface{}] struct {
+	pattern string
+	serve   func(runtime framework.RuntimeContext[C], w http.ResponseWriter, r *http.Request) bool
+}
+
+func (handler exactHandler[C]) MatchPath(pathValue string) bool {
+	_, ok := frameworkrouter.MatchPathPattern(handler.pattern, normalizePath(pathValue))
+	return ok
+}
+
+func (handler exactHandler[C]) TryServe(
+	runtime framework.RuntimeContext[C],
+	w http.ResponseWriter,
+	r *http.Request,
+) bool {
+	if r == nil || r.URL == nil || !handler.MatchPath(r.URL.Path) {
+		return false
+	}
+
+	return handler.serve(runtime, w, r)
+}
+
+func ExactHandlers[C interface{}](bundle *Bundle[C]) []framework.RouteHandler[C] {
+	if bundle == nil {
+		return nil
+	}
+
+	handlers := make([]framework.RouteHandler[C], 0, 5)
+	if bundle.Robots != nil {
+		handlers = append(handlers, exactHandler[C]{
+			pattern: RobotsPath,
+			serve: func(runtime framework.RuntimeContext[C], w http.ResponseWriter, r *http.Request) bool {
+				return serveRobots(runtime, bundle, w, r)
+			},
+		})
+	}
+	for _, route := range sortedFeedRoutes(bundle.Feeds) {
+		if route.Feed == nil {
+			continue
+		}
+		handlers = append(handlers, exactHandler[C]{
+			pattern: scopedDiscoveryPattern(route.RoutePattern, FeedPath),
+			serve: func(runtime framework.RuntimeContext[C], w http.ResponseWriter, r *http.Request) bool {
+				return serveFeed(runtime, route, w, r)
+			},
+		})
+	}
+	for _, route := range sortedSitemapRoutes(bundle.Sitemaps) {
+		if route.Sitemap == nil && !route.HasDynamicSitemaps() {
+			continue
+		}
+		if route.Sitemap != nil {
+			handlers = append(handlers, exactHandler[C]{
+				pattern: scopedDiscoveryPattern(route.RoutePattern, SitemapPath),
+				serve: func(runtime framework.RuntimeContext[C], w http.ResponseWriter, r *http.Request) bool {
+					return serveRootSitemap(runtime, route, w, r)
+				},
+			})
+		}
+		handlers = append(handlers, exactHandler[C]{
+			pattern: scopedDiscoveryPattern(route.RoutePattern, SitemapIndexPath),
+			serve: func(runtime framework.RuntimeContext[C], w http.ResponseWriter, r *http.Request) bool {
+				return serveSitemapIndex(runtime, route, w, r)
+			},
+		})
+		handlers = append(handlers,
+			exactHandler[C]{
+				pattern: scopedDiscoveryPattern(route.RoutePattern, SitemapIndexXMLPath),
+				serve: func(runtime framework.RuntimeContext[C], w http.ResponseWriter, r *http.Request) bool {
+					return serveSitemapIndex(runtime, route, w, r)
+				},
+			},
+		)
+	}
+
+	return handlers
+}
+
+func MaybeServeSitemapChunk[C interface{}](
 	runtime framework.RuntimeContext[C],
 	bundle *Bundle[C],
-	logServerError func(error),
 	w http.ResponseWriter,
 	r *http.Request,
 ) bool {
 	if bundle == nil || r == nil || r.URL == nil {
 		return false
 	}
-
-	requestPath := normalizePath(r.URL.Path)
-	switch requestPath {
-	case RobotsPath:
-		if bundle.Robots == nil {
-			return false
-		}
-		if !isReadMethod(r.Method) {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return true
-		}
-
-		document, err := bundle.Robots(runtime, r)
-		if err != nil {
-			writeInternalServerError(logServerError, w, fmt.Errorf("resolve robots: %w", err))
-			return true
-		}
-
-		payload := renderRobotsTXT(document)
-		writeResponse(w, r, http.StatusOK, defaultRobotsCachePolicy, contentTypePlainText, payload)
-		return true
-	case FeedPath:
-		if bundle.Feed == nil {
-			return false
-		}
-		if !isReadMethod(r.Method) {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return true
-		}
-
-		document, err := bundle.Feed(runtime, r)
-		if err != nil {
-			writeInternalServerError(logServerError, w, fmt.Errorf("resolve feed: %w", err))
-			return true
-		}
-
-		payload, err := renderFeedXML(document)
-		if err != nil {
-			writeInternalServerError(logServerError, w, fmt.Errorf("render feed: %w", err))
-			return true
-		}
-
-		writeResponse(w, r, http.StatusOK, defaultFeedCachePolicy, contentTypeRSSXML, payload)
-		return true
-	case SitemapPath:
-		if bundle.Sitemap != nil {
-			if !isReadMethod(r.Method) {
-				w.WriteHeader(http.StatusMethodNotAllowed)
-				return true
-			}
-
-			entries, err := bundle.Sitemap(runtime, r)
-			if err != nil {
-				writeInternalServerError(logServerError, w, fmt.Errorf("resolve sitemap: %w", err))
-				return true
-			}
-
-			payload, err := renderSitemapXML(entries)
-			if err != nil {
-				writeInternalServerError(logServerError, w, fmt.Errorf("render sitemap: %w", err))
-				return true
-			}
-
-			writeResponse(w, r, http.StatusOK, defaultSitemapCachePolicy, contentTypeApplicationXML, payload)
-			return true
-		}
-	case SitemapIndexPath, SitemapIndexXMLPath:
-		if bundle.Sitemap == nil && bundle.GenerateSitemaps == nil {
-			return false
-		}
-		if !isReadMethod(r.Method) {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return true
-		}
-
-		ids, err := sitemapIDsForRequest(runtime, bundle, r)
-		if err != nil {
-			writeInternalServerError(logServerError, w, fmt.Errorf("resolve sitemap index: %w", err))
-			return true
-		}
-
-		locations := make([]string, 0, len(ids)+1)
-		seen := map[string]struct{}{}
-		if bundle.Sitemap != nil {
-			rootLocation := requestAbsoluteURL(r, SitemapPath)
-			if rootID, ok := matchSitemapIDByPath(ids, SitemapPath); ok {
-				rootLocation = resolveSitemapLocation(rootID, r)
-			}
-			appendUniqueNonEmpty(&locations, seen, rootLocation)
-		}
-		for _, id := range ids {
-			if normalizePath(id.Path) == SitemapPath {
-				continue
-			}
-			appendUniqueNonEmpty(&locations, seen, resolveSitemapLocation(id, r))
-		}
-
-		payload, err := renderSitemapIndexXML(locations)
-		if err != nil {
-			writeInternalServerError(logServerError, w, fmt.Errorf("render sitemap index: %w", err))
-			return true
-		}
-
-		writeResponse(w, r, http.StatusOK, defaultSitemapIndexCachePolicy, contentTypeApplicationXML, payload)
-		return true
-	}
-
-	if bundle.GenerateSitemaps == nil || bundle.SitemapByID == nil {
-		return false
-	}
 	if !isReadMethod(r.Method) {
 		return false
 	}
 
-	ids, err := sitemapIDsForRequest(runtime, bundle, r)
-	if err != nil {
-		writeInternalServerError(logServerError, w, fmt.Errorf("resolve sitemap ids: %w", err))
+	requestPath := normalizePath(r.URL.Path)
+	for _, route := range bundle.Sitemaps {
+		if !route.HasDynamicSitemaps() {
+			continue
+		}
+
+		ids, err := sitemapIDsForRequest(runtime, route, r)
+		if err != nil {
+			writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("resolve sitemap ids: %w", err))
+			return true
+		}
+		matchedID, ok := matchSitemapIDByPath(ids, requestPath)
+		if !ok {
+			continue
+		}
+
+		entries, err := route.SitemapByID(runtime, r, strings.TrimSpace(matchedID.ID))
+		if err != nil {
+			writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("resolve sitemap %q: %w", matchedID.ID, err))
+			return true
+		}
+
+		payload, err := renderSitemapXML(entries)
+		if err != nil {
+			writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("render sitemap %q: %w", matchedID.ID, err))
+			return true
+		}
+
+		writeResponse(w, r, http.StatusOK, defaultSitemapCachePolicy, contentTypeApplicationXML, payload)
 		return true
 	}
-	matchedID, ok := matchSitemapIDByPath(ids, requestPath)
-	if !ok {
+
+	return false
+}
+
+func serveRobots[C interface{}](
+	runtime framework.RuntimeContext[C],
+	bundle *Bundle[C],
+	w http.ResponseWriter,
+	r *http.Request,
+) bool {
+	if bundle == nil || bundle.Robots == nil {
 		return false
 	}
+	if !isReadMethod(r.Method) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return true
+	}
 
-	entries, err := bundle.SitemapByID(runtime, r, strings.TrimSpace(matchedID.ID))
+	document, err := bundle.Robots(runtime, r)
 	if err != nil {
-		writeInternalServerError(logServerError, w, fmt.Errorf("resolve sitemap %q: %w", matchedID.ID, err))
+		writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("resolve robots: %w", err))
+		return true
+	}
+
+	payload := renderRobotsTXT(document)
+	writeResponse(w, r, http.StatusOK, defaultRobotsCachePolicy, contentTypePlainText, payload)
+	return true
+}
+
+func serveFeed[C interface{}](
+	runtime framework.RuntimeContext[C],
+	route FeedRoute[C],
+	w http.ResponseWriter,
+	r *http.Request,
+) bool {
+	if route.Feed == nil {
+		return false
+	}
+	if !isReadMethod(r.Method) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return true
+	}
+
+	document, err := route.Feed(runtime, r)
+	if err != nil {
+		writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("resolve feed: %w", err))
+		return true
+	}
+
+	payload, err := renderFeedXML(document)
+	if err != nil {
+		writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("render feed: %w", err))
+		return true
+	}
+
+	writeResponse(w, r, http.StatusOK, defaultFeedCachePolicy, contentTypeRSSXML, payload)
+	return true
+}
+
+func serveRootSitemap[C interface{}](
+	runtime framework.RuntimeContext[C],
+	route SitemapRoute[C],
+	w http.ResponseWriter,
+	r *http.Request,
+) bool {
+	if route.Sitemap == nil {
+		return false
+	}
+	if !isReadMethod(r.Method) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return true
+	}
+
+	entries, err := route.Sitemap(runtime, r)
+	if err != nil {
+		writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("resolve sitemap: %w", err))
 		return true
 	}
 
 	payload, err := renderSitemapXML(entries)
 	if err != nil {
-		writeInternalServerError(logServerError, w, fmt.Errorf("render sitemap %q: %w", matchedID.ID, err))
+		writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("render sitemap: %w", err))
 		return true
 	}
 
@@ -296,15 +373,62 @@ func MaybeServe[C interface{}](
 	return true
 }
 
+func serveSitemapIndex[C interface{}](
+	runtime framework.RuntimeContext[C],
+	route SitemapRoute[C],
+	w http.ResponseWriter,
+	r *http.Request,
+) bool {
+	if route.Sitemap == nil && route.GenerateSitemaps == nil {
+		return false
+	}
+	if !isReadMethod(r.Method) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return true
+	}
+
+	ids, err := sitemapIDsForRequest(runtime, route, r)
+	if err != nil {
+		writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("resolve sitemap index: %w", err))
+		return true
+	}
+
+	locations := make([]string, 0, len(ids)+1)
+	seen := map[string]struct{}{}
+	if route.Sitemap != nil {
+		rootPath := replaceLastPathSegment(normalizePath(r.URL.Path), strings.TrimPrefix(SitemapPath, "/"))
+		rootLocation := requestAbsoluteURL(r, rootPath)
+		if rootID, ok := matchSitemapIDByPath(ids, rootPath); ok {
+			rootLocation = resolveSitemapLocation(rootID, r)
+		}
+		appendUniqueNonEmpty(&locations, seen, rootLocation)
+	}
+	for _, id := range ids {
+		if normalizePath(id.Path) == replaceLastPathSegment(normalizePath(r.URL.Path), strings.TrimPrefix(SitemapPath, "/")) {
+			continue
+		}
+		appendUniqueNonEmpty(&locations, seen, resolveSitemapLocation(id, r))
+	}
+
+	payload, err := renderSitemapIndexXML(locations)
+	if err != nil {
+		writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("render sitemap index: %w", err))
+		return true
+	}
+
+	writeResponse(w, r, http.StatusOK, defaultSitemapIndexCachePolicy, contentTypeApplicationXML, payload)
+	return true
+}
+
 func sitemapIDsForRequest[C interface{}](
 	runtime framework.RuntimeContext[C],
-	bundle *Bundle[C],
+	route SitemapRoute[C],
 	r *http.Request,
 ) ([]SitemapID, error) {
-	if bundle == nil || bundle.GenerateSitemaps == nil {
+	if route.GenerateSitemaps == nil {
 		return nil, nil
 	}
-	return bundle.GenerateSitemaps(runtime, r)
+	return route.GenerateSitemaps(runtime, r)
 }
 
 func matchSitemapIDByPath(ids []SitemapID, requestPath string) (SitemapID, bool) {
@@ -315,6 +439,67 @@ func matchSitemapIDByPath(ids []SitemapID, requestPath string) (SitemapID, bool)
 		}
 	}
 	return SitemapID{}, false
+}
+
+func sortedFeedRoutes[C interface{}](routes []FeedRoute[C]) []FeedRoute[C] {
+	out := append([]FeedRoute[C](nil), routes...)
+	sort.Slice(out, func(i int, j int) bool {
+		return discoveryRouteLess(out[i].RoutePattern, out[j].RoutePattern)
+	})
+	return out
+}
+
+func sortedSitemapRoutes[C interface{}](routes []SitemapRoute[C]) []SitemapRoute[C] {
+	out := append([]SitemapRoute[C](nil), routes...)
+	sort.Slice(out, func(i int, j int) bool {
+		return discoveryRouteLess(out[i].RoutePattern, out[j].RoutePattern)
+	})
+	return out
+}
+
+func discoveryRouteLess(leftPattern string, rightPattern string) bool {
+	leftSegments := pathSegments(leftPattern)
+	rightSegments := pathSegments(rightPattern)
+
+	leftStatic := pathPatternStaticCount(leftSegments)
+	rightStatic := pathPatternStaticCount(rightSegments)
+	if leftStatic != rightStatic {
+		return leftStatic > rightStatic
+	}
+	if len(leftSegments) != len(rightSegments) {
+		return len(leftSegments) > len(rightSegments)
+	}
+	return leftPattern < rightPattern
+}
+
+func pathPatternStaticCount(segments []string) int {
+	count := 0
+	for _, segment := range segments {
+		if strings.HasPrefix(segment, "[") && strings.HasSuffix(segment, "]") {
+			continue
+		}
+		count++
+	}
+	return count
+}
+
+func scopedDiscoveryPattern(routePattern string, discoveryPath string) string {
+	leaf := strings.Trim(strings.TrimSpace(discoveryPath), "/")
+	base := normalizePath(routePattern)
+	if base == "/" {
+		return "/" + leaf
+	}
+	return normalizePath(path.Join(base, leaf))
+}
+
+func replaceLastPathSegment(currentPath string, leaf string) string {
+	currentPath = normalizePath(currentPath)
+	leaf = strings.Trim(strings.TrimSpace(leaf), "/")
+	dir := path.Dir(currentPath)
+	if dir == "." || dir == "" {
+		dir = "/"
+	}
+	return normalizePath(path.Join(dir, leaf))
 }
 
 func resolveSitemapLocation(id SitemapID, r *http.Request) string {
@@ -443,6 +628,15 @@ func normalizePath(pathValue string) string {
 		trimmed = "/" + trimmed
 	}
 	return path.Clean(trimmed)
+}
+
+func pathSegments(pathValue string) []string {
+	normalized := normalizePath(pathValue)
+	trimmed := strings.Trim(normalized, "/")
+	if trimmed == "" {
+		return nil
+	}
+	return strings.Split(trimmed, "/")
 }
 
 func requestAbsoluteURL(r *http.Request, routePath string) string {

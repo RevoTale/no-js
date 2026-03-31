@@ -20,6 +20,7 @@ const defaultPublicDir = "web/public"
 
 type AppBundle[C interface{}] struct {
 	Context                       C
+	ExactHandlers                 []framework.RouteHandler[C]
 	Handlers                      []framework.RouteHandler[C]
 	Discovery                     *frameworkdiscovery.Bundle[C]
 	I18n                          *frameworki18n.Config
@@ -77,6 +78,7 @@ func NewApp[C interface{}](cfg Config[C]) (http.Handler, error) {
 
 	return New(Config[C]{
 		AppContext:          app.Context,
+		ExactHandlers:       app.ExactHandlers,
 		Handlers:            app.Handlers,
 		Discovery:           app.Discovery,
 		I18n:                app.I18n,

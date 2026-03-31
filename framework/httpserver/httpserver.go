@@ -52,9 +52,10 @@ type Config[C interface{}] struct {
 	App    AppBundle[C]
 	Custom CustomConfig
 
-	AppContext C
-	Handlers   []framework.RouteHandler[C]
-	Discovery  *frameworkdiscovery.Bundle[C]
+	AppContext    C
+	ExactHandlers []framework.RouteHandler[C]
+	Handlers      []framework.RouteHandler[C]
+	Discovery     *frameworkdiscovery.Bundle[C]
 
 	I18n        *frameworki18n.Config
 	PublicFiles *PublicFilesConfig
@@ -84,6 +85,7 @@ type server[C interface{}] struct {
 	enableResolverDebug bool
 	healthPath          string
 	healthBody          string
+	i18nResolver        *frameworki18n.Resolver
 
 	routeEngine *engine.Engine[C]
 }
@@ -124,16 +126,22 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 	}
 	srv.routeEngine = routeEngine
 
-	mainMux := http.NewServeMux()
-	if strings.TrimSpace(cfg.Static.Dir) != "" {
-		prefix := normalizeStaticPrefix(cfg.Static.URLPrefix)
-		fs := http.FileServer(http.Dir(cfg.Static.Dir))
-		mainMux.Handle(prefix, withCachePolicy(cachePolicies.Static, http.StripPrefix(prefix, fs)))
+	if err := validatePathMatchers("exact", cfg.ExactHandlers); err != nil {
+		return nil, err
+	}
+	if err := validatePathMatchers("page", cfg.Handlers); err != nil {
+		return nil, err
 	}
 
-	mainMux.HandleFunc("/", srv.handleRoute)
+	staticPrefix := ""
+	var staticHandler http.Handler
+	if strings.TrimSpace(cfg.Static.Dir) != "" {
+		staticPrefix = normalizeStaticPrefix(cfg.Static.URLPrefix)
+		fs := http.FileServer(http.Dir(cfg.Static.Dir))
+		staticHandler = withCachePolicy(cachePolicies.Static, http.StripPrefix(staticPrefix, fs))
+	}
 
-	var mainHandler http.Handler = mainMux
+	var mainHandler http.Handler = http.HandlerFunc(srv.handleRoute)
 	for _, middleware := range cfg.MainMiddlewares {
 		if middleware == nil {
 			continue
@@ -146,10 +154,11 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 		if err != nil {
 			return nil, fmt.Errorf("create i18n resolver: %w", err)
 		}
+		srv.i18nResolver = resolver
 
 		bypassPrefixes := []string{}
 		if strings.TrimSpace(cfg.Static.Dir) != "" {
-			bypassPrefixes = append(bypassPrefixes, normalizeStaticPrefix(cfg.Static.URLPrefix))
+			bypassPrefixes = append(bypassPrefixes, staticPrefix)
 		}
 
 		bypassExact := []string{}
@@ -164,34 +173,130 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 		})(mainHandler)
 	}
 
+	var publicFilesHandler *publicFilesHandler
 	if cfg.PublicFiles != nil {
-		publicMiddleware, err := WithPublicFiles(*cfg.PublicFiles)
+		publicFilesHandler, err = newPublicFilesHandler(*cfg.PublicFiles)
 		if err != nil {
-			return nil, fmt.Errorf("build public files middleware: %w", err)
+			return nil, fmt.Errorf("build public files handler: %w", err)
 		}
-		mainHandler = publicMiddleware(mainHandler)
 	}
 
-	outerMux := http.NewServeMux()
+	var extraRoutes *http.ServeMux
 	if cfg.MountExtraRoutes != nil {
-		if err := cfg.MountExtraRoutes(outerMux); err != nil {
+		extraRoutes = http.NewServeMux()
+		if err := cfg.MountExtraRoutes(extraRoutes); err != nil {
 			return nil, fmt.Errorf("mount extra routes: %w", err)
 		}
 	}
-	outerMux.Handle("/", mainHandler)
 
-	var finalHandler http.Handler = outerMux
-	if cfg.Discovery != nil {
-		discoveryBundle := cfg.Discovery
-		finalHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if frameworkdiscovery.MaybeServe(srv.routeEngine, discoveryBundle, srv.logServerError, w, r) {
-				return
-			}
-			outerMux.ServeHTTP(w, r)
+	finalHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if srv.tryServeHealth(w, r) {
+			return
+		}
+		if tryServeStatic(staticPrefix, staticHandler, w, r) {
+			return
+		}
+		if tryServeRouteHandlers(srv.routeEngine, cfg.ExactHandlers, w, r) {
+			return
+		}
+		if srv.shouldServeMainRoute(cfg.Handlers, r) {
+			mainHandler.ServeHTTP(w, r)
+			return
+		}
+		if frameworkdiscovery.MaybeServeSitemapChunk(srv.routeEngine, cfg.Discovery, w, r) {
+			return
+		}
+		if tryServeMux(extraRoutes, w, r) {
+			return
+		}
+		if publicFilesHandler != nil && publicFilesHandler.ServeHTTP(w, r) {
+			return
+		}
+
+		srv.handleNotFound(w, r, framework.NotFoundContext{
+			RequestPath: normalizeRequestPath(r),
+			Locale:      srv.localeForRequest(r),
+			Source:      framework.NotFoundSourceUnmatchedRoute,
 		})
-	}
+	})
 
 	return withGzipCompression(finalHandler), nil
+}
+
+func validatePathMatchers[C interface{}](handlerSet string, handlers []framework.RouteHandler[C]) error {
+	for idx, handler := range handlers {
+		if handler == nil {
+			continue
+		}
+		if _, ok := handler.(framework.PathMatcher); ok {
+			continue
+		}
+		return fmt.Errorf("%s handler %d does not implement framework.PathMatcher", handlerSet, idx)
+	}
+	return nil
+}
+
+func tryServeRouteHandlers[C interface{}](
+	runtime framework.RuntimeContext[C],
+	handlers []framework.RouteHandler[C],
+	w http.ResponseWriter,
+	r *http.Request,
+) bool {
+	for _, handler := range handlers {
+		if handler == nil {
+			continue
+		}
+		if handler.TryServe(runtime, w, r) {
+			return true
+		}
+	}
+	return false
+}
+
+func tryServeStatic(staticPrefix string, staticHandler http.Handler, w http.ResponseWriter, r *http.Request) bool {
+	if staticHandler == nil || r == nil || r.URL == nil {
+		return false
+	}
+	if !strings.HasPrefix(normalizeRequestPath(r), staticPrefix) {
+		return false
+	}
+	staticHandler.ServeHTTP(w, r)
+	return true
+}
+
+func tryServeMux(mux *http.ServeMux, w http.ResponseWriter, r *http.Request) bool {
+	if mux == nil || r == nil {
+		return false
+	}
+	handler, pattern := mux.Handler(r)
+	if strings.TrimSpace(pattern) == "" || handler == nil {
+		return false
+	}
+	handler.ServeHTTP(w, r)
+	return true
+}
+
+func normalizeRequestPath(r *http.Request) string {
+	if r == nil || r.URL == nil {
+		return "/"
+	}
+	return frameworki18n.NormalizePath(r.URL.Path)
+}
+
+func matchesRoutePath[C interface{}](handlers []framework.RouteHandler[C], pathValue string) bool {
+	for _, handler := range handlers {
+		if handler == nil {
+			continue
+		}
+		matcher, ok := handler.(framework.PathMatcher)
+		if !ok {
+			continue
+		}
+		if matcher.MatchPath(pathValue) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *server[C]) handleRoute(w http.ResponseWriter, r *http.Request) {
@@ -209,6 +314,56 @@ func (s *server[C]) handleRoute(w http.ResponseWriter, r *http.Request) {
 		Locale:      frameworki18n.LocaleFromContext(r.Context()),
 		Source:      framework.NotFoundSourceUnmatchedRoute,
 	})
+}
+
+func (s *server[C]) tryServeHealth(w http.ResponseWriter, r *http.Request) bool {
+	if strings.TrimSpace(s.healthPath) == "" || r == nil || r.URL == nil {
+		return false
+	}
+	if normalizeRequestPath(r) != s.healthPath {
+		return false
+	}
+	s.handleHealth(w)
+	return true
+}
+
+func (s *server[C]) shouldServeMainRoute(handlers []framework.RouteHandler[C], r *http.Request) bool {
+	matchPath, ok := s.mainRouteMatchPath(r)
+	if !ok {
+		return false
+	}
+	return matchesRoutePath(handlers, matchPath)
+}
+
+func (s *server[C]) mainRouteMatchPath(r *http.Request) (string, bool) {
+	requestPath := normalizeRequestPath(r)
+	if s.i18nResolver == nil {
+		return requestPath, true
+	}
+
+	decision := s.i18nResolver.Resolve(requestPath)
+	if decision.NotFound {
+		return "", false
+	}
+
+	return decision.StrippedPath, true
+}
+
+func (s *server[C]) localeForRequest(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if locale := frameworki18n.LocaleFromContext(r.Context()); strings.TrimSpace(locale) != "" {
+		return locale
+	}
+	if s.i18nResolver == nil {
+		return ""
+	}
+	decision := s.i18nResolver.Resolve(normalizeRequestPath(r))
+	if decision.NotFound {
+		return ""
+	}
+	return decision.Locale
 }
 
 func (s *server[C]) renderPage(
