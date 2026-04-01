@@ -38,23 +38,32 @@ type PageMetaGen[C interface{}, P interface{}] func(
 	params P,
 ) (metagen.Metadata, error)
 
+type PageMetaGenContext[C interface{}, P interface{}] func(
+	ctx context.Context,
+	appCtx C,
+	meta MetadataContext,
+	params P,
+) (metagen.Metadata, error)
+
 type PageRenderer[VM interface{}] func(view VM) templ.Component
 
 type LayoutRenderer[VM interface{}] func(meta metagen.Metadata, view VM, child templ.Component) templ.Component
 
 type PageModule[C interface{}, P interface{}, VM interface{}] struct {
-	Pattern           string
-	ParseParams       ParamsParser[P]
-	MetaGen           PageMetaGen[C, P]
-	MetaGenName       string
-	MetaGenChain      []PageMetaGen[C, P]
-	MetaGenChainNames []string
-	Load              PageLoader[C, P, VM]
-	LoadName          string
-	Render            PageRenderer[VM]
-	Layouts           []LayoutRenderer[VM]
-	RootLayout        func(meta metagen.Metadata, locale string, child templ.Component) templ.Component
-	ErrorPage         func(locale string, path string) templ.Component
+	Pattern             string
+	ParseParams         ParamsParser[P]
+	MetaGen             PageMetaGen[C, P]
+	MetaGenContext      PageMetaGenContext[C, P]
+	MetaGenName         string
+	MetaGenChain        []PageMetaGen[C, P]
+	MetaGenContextChain []PageMetaGenContext[C, P]
+	MetaGenChainNames   []string
+	Load                PageLoader[C, P, VM]
+	LoadName            string
+	Render              PageRenderer[VM]
+	Layouts             []LayoutRenderer[VM]
+	RootLayout          func(meta metagen.Metadata, locale string, child templ.Component) templ.Component
+	ErrorPage           func(locale string, path string) templ.Component
 }
 
 type RuntimeContext[C interface{}] interface {
@@ -252,6 +261,23 @@ func resolveMetadata[C interface{}, P interface{}, VM interface{}](
 	params P,
 	module PageModule[C, P, VM],
 ) (metagen.Metadata, error) {
+	contextChain := module.MetaGenContextChain
+	if len(contextChain) == 0 && module.MetaGenContext != nil {
+		contextChain = append(contextChain, module.MetaGenContext)
+	}
+	if len(contextChain) > 0 {
+		return resolveMetadataWithContext(
+			runtime,
+			ctx,
+			appCtx,
+			r,
+			params,
+			module.Pattern,
+			contextChain,
+			module.MetaGenChainNames,
+		)
+	}
+
 	chain := module.MetaGenChain
 	if len(chain) == 0 && module.MetaGen != nil {
 		chain = append(chain, module.MetaGen)
@@ -280,6 +306,62 @@ func resolveMetadata[C interface{}, P interface{}, VM interface{}](
 				RoutePattern: module.Pattern,
 				Stage:        ResolverStageMetaGen,
 				Method:       metaGenMethodName(module, i, run),
+				Duration:     time.Since(startedAt),
+				Err:          err,
+			})
+			if err != nil {
+				errs[i] = err
+				cancel()
+				return
+			}
+			results[i] = meta
+		}(idx, fn)
+	}
+	wg.Wait()
+
+	for _, err := range errs {
+		if err != nil {
+			return metagen.Metadata{}, err
+		}
+	}
+	return metagen.MergeAll(results...), nil
+}
+
+func resolveMetadataWithContext[C interface{}, P interface{}](
+	runtime RuntimeContext[C],
+	ctx context.Context,
+	appCtx C,
+	r *http.Request,
+	params P,
+	routePattern string,
+	chain []PageMetaGenContext[C, P],
+	chainNames []string,
+) (metagen.Metadata, error) {
+	if len(chain) == 0 {
+		return metagen.Metadata{}, nil
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	metaCtx := NewMetadataContext(appCtx, r)
+	results := make([]metagen.Metadata, len(chain))
+	errs := make([]error, len(chain))
+
+	var wg sync.WaitGroup
+	for idx, fn := range chain {
+		wg.Add(1)
+		go func(i int, run PageMetaGenContext[C, P]) {
+			defer wg.Done()
+			if run == nil {
+				return
+			}
+			startedAt := time.Now()
+			meta, err := run(ctx, appCtx, metaCtx, params)
+			runtime.LogResolverTiming(ResolverTiming{
+				RoutePattern: routePattern,
+				Stage:        ResolverStageMetaGen,
+				Method:       metaGenChainMethodName(chainNames, i),
 				Duration:     time.Since(startedAt),
 				Err:          err,
 			})
@@ -335,10 +417,8 @@ func metaGenMethodName[C interface{}, P interface{}, VM interface{}](
 	index int,
 	run PageMetaGen[C, P],
 ) string {
-	if index >= 0 && index < len(module.MetaGenChainNames) {
-		if name := strings.TrimSpace(module.MetaGenChainNames[index]); name != "" {
-			return name
-		}
+	if name := metaGenChainMethodName(module.MetaGenChainNames, index); name != "" {
+		return name
 	}
 	if len(module.MetaGenChain) == 0 {
 		if name := strings.TrimSpace(module.MetaGenName); name != "" {
@@ -346,6 +426,15 @@ func metaGenMethodName[C interface{}, P interface{}, VM interface{}](
 		}
 	}
 	return resolverFuncName(run)
+}
+
+func metaGenChainMethodName(chainNames []string, index int) string {
+	if index >= 0 && index < len(chainNames) {
+		if name := strings.TrimSpace(chainNames[index]); name != "" {
+			return name
+		}
+	}
+	return ""
 }
 
 func resolverFuncName(fn interface{}) string {

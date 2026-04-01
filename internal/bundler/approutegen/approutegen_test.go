@@ -697,7 +697,7 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 	require.NotContains(t, text, "ParseRootLiveState")
 	require.Contains(t, text, "func NotFoundPage(notFound framework.NotFoundContext) templ.Component")
 	require.Contains(t, text, "RootLayout: r_root_root.RootLayout")
-	require.Contains(t, text, "MetaGenChain: []framework.PageMetaGen")
+	require.Contains(t, text, "MetaGenContextChain: []framework.PageMetaGenContext")
 	require.Contains(t, text, "ErrorPage: func(locale string, path string) templ.Component")
 }
 

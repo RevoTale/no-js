@@ -1278,6 +1278,7 @@ func generateResolverNamespaceSource(
 	buffer.WriteString(generatedGoHeader + "\n")
 	buffer.WriteString("package resolvers\n\n")
 	buffer.WriteString("import (\n")
+	buffer.WriteString("\t\"" + frameworkModulePath + "/framework\"\n")
 	buffer.WriteString("\t\"" + frameworkModulePath + "/framework/metagen\"\n")
 	buffer.WriteString("\t\"" + viewImportPath(paths) + "\"\n")
 	buffer.WriteString("\t\"context\"\n")
@@ -1290,7 +1291,8 @@ func generateResolverNamespaceSource(
 
 	buffer.WriteString("type RouteResolver interface {\n")
 	buffer.WriteString(
-		"\tMetaGenRootLayout(ctx context.Context, appCtx *runtime.Context, r *http.Request) (metagen.Metadata, error)\n",
+		"\tMetaGenRootLayout(ctx context.Context, appCtx *runtime.Context, meta framework.MetadataContext) " +
+			"(metagen.Metadata, error)\n",
 	)
 	for _, routeID := range layoutRouteIDs {
 		layout := layouts[routeID]
@@ -1300,7 +1302,8 @@ func generateResolverNamespaceSource(
 		}
 		writef(
 			buffer,
-			"\t%s(ctx context.Context, appCtx *runtime.Context, r *http.Request, params %s) (metagen.Metadata, error)\n",
+			"\t%s(ctx context.Context, appCtx *runtime.Context, meta framework.MetadataContext, params %s) "+
+				"(metagen.Metadata, error)\n",
 			metaGenLayoutMethod(layout),
 			contract.ParamsTypeName,
 		)
@@ -1308,7 +1311,8 @@ func generateResolverNamespaceSource(
 	for _, meta := range metas {
 		writef(
 			buffer,
-			"\t%s(ctx context.Context, appCtx *runtime.Context, r *http.Request, params %s) (metagen.Metadata, error)\n",
+			"\t%s(ctx context.Context, appCtx *runtime.Context, meta framework.MetadataContext, params %s) "+
+				"(metagen.Metadata, error)\n",
 			metaGenPageMethod(meta),
 			meta.ParamsTypeName,
 		)
@@ -1870,11 +1874,11 @@ func writePageModule(
 	writef(buffer, "\t\t\t\tParseParams: %s,\n", parseParamsFuncName(meta))
 	writef(
 		buffer,
-		"\t\t\t\tMetaGen: func(ctx context.Context, appCtx *runtime.Context, r *http.Request, "+
+		"\t\t\t\tMetaGenContext: func(ctx context.Context, appCtx *runtime.Context, meta framework.MetadataContext, "+
 			"params %s) (metagen.Metadata, error) {\n",
 		meta.ParamsTypeName,
 	)
-	writef(buffer, "\t\t\t\t\treturn resolvers.%s(ctx, appCtx, r, params)\n", metaGenPageMethod(meta))
+	writef(buffer, "\t\t\t\t\treturn resolvers.%s(ctx, appCtx, meta, params)\n", metaGenPageMethod(meta))
 	buffer.WriteString("\t\t\t\t},\n")
 	chain := layoutChain(meta.RouteID, layouts)
 	writef(buffer, "\t\t\t\tMetaGenName: %q,\n", resolverMethodQualified(metaGenPageMethod(meta)))
@@ -1895,13 +1899,18 @@ func writePageModule(
 		writef(buffer, "\t\t\t\t\t%q,\n", methodName)
 	}
 	buffer.WriteString("\t\t\t\t},\n")
-	writef(buffer, "\t\t\t\tMetaGenChain: []framework.PageMetaGen[*runtime.Context, %s]{\n", meta.ParamsTypeName)
 	writef(
 		buffer,
-		"\t\t\t\t\tfunc(ctx context.Context, appCtx *runtime.Context, r *http.Request, _ %s) (metagen.Metadata, error) {\n",
+		"\t\t\t\tMetaGenContextChain: []framework.PageMetaGenContext[*runtime.Context, %s]{\n",
 		meta.ParamsTypeName,
 	)
-	buffer.WriteString("\t\t\t\t\t\treturn resolvers.MetaGenRootLayout(ctx, appCtx, r)\n")
+	writef(
+		buffer,
+		"\t\t\t\t\tfunc(ctx context.Context, appCtx *runtime.Context, meta framework.MetadataContext, _ %s) "+
+			"(metagen.Metadata, error) {\n",
+		meta.ParamsTypeName,
+	)
+	buffer.WriteString("\t\t\t\t\t\treturn resolvers.MetaGenRootLayout(ctx, appCtx, meta)\n")
 	buffer.WriteString("\t\t\t\t\t},\n")
 	for _, layout := range chain {
 		if layout.RouteID == "" {
@@ -1918,7 +1927,7 @@ func writePageModule(
 		}
 		writef(
 			buffer,
-			"\t\t\t\t\tfunc(ctx context.Context, appCtx *runtime.Context, r *http.Request, "+
+			"\t\t\t\t\tfunc(ctx context.Context, appCtx *runtime.Context, meta framework.MetadataContext, "+
 				"params %s) (metagen.Metadata, error) {\n",
 			meta.ParamsTypeName,
 		)
@@ -1929,13 +1938,13 @@ func writePageModule(
 			}
 			writef(
 				buffer,
-				"\t\t\t\t\t\treturn resolvers.%s(ctx, appCtx, r, layoutParams)\n",
+				"\t\t\t\t\t\treturn resolvers.%s(ctx, appCtx, meta, layoutParams)\n",
 				metaGenLayoutMethod(layout),
 			)
 		} else {
 			writef(
 				buffer,
-				"\t\t\t\t\t\treturn resolvers.%s(ctx, appCtx, r, route_resolvers.%s{})\n",
+				"\t\t\t\t\t\treturn resolvers.%s(ctx, appCtx, meta, route_resolvers.%s{})\n",
 				metaGenLayoutMethod(layout),
 				contract.ParamsTypeName,
 			)
@@ -1944,11 +1953,11 @@ func writePageModule(
 	}
 	writef(
 		buffer,
-		"\t\t\t\t\tfunc(ctx context.Context, appCtx *runtime.Context, r *http.Request, "+
+		"\t\t\t\t\tfunc(ctx context.Context, appCtx *runtime.Context, meta framework.MetadataContext, "+
 			"params %s) (metagen.Metadata, error) {\n",
 		meta.ParamsTypeName,
 	)
-	writef(buffer, "\t\t\t\t\t\treturn resolvers.%s(ctx, appCtx, r, params)\n", metaGenPageMethod(meta))
+	writef(buffer, "\t\t\t\t\t\treturn resolvers.%s(ctx, appCtx, meta, params)\n", metaGenPageMethod(meta))
 	buffer.WriteString("\t\t\t\t\t},\n")
 	buffer.WriteString("\t\t\t\t},\n")
 	writef(
