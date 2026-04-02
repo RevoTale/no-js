@@ -60,4 +60,30 @@ func TestGenerateFromJSONStableOutput(t *testing.T) {
 	require.Equal(t, string(first), string(second))
 	require.Contains(t, string(first), "type Key string")
 	require.Contains(t, string(first), "var DefaultMessages = map[Key]string")
+	require.Contains(t, string(first), "frameworki18n.Context[Key]")
+}
+
+func TestGenerateFromJSONIncludesTypedArgsHelpers(t *testing.T) {
+	t.Parallel()
+
+	source := []byte(`[
+		{
+			"id":"seo.author.description",
+			"translation":"Browse notes by {{.Author}}.",
+			"args":[{"name":"Author","type":"string"}]
+		}
+	]`)
+
+	generated, err := GenerateFromJSON("i18nkeys", source)
+	require.NoError(t, err)
+
+	output := string(generated)
+	require.Contains(t, output, "type SeoAuthorDescriptionArgs struct")
+	require.Contains(t, output, "Author string")
+	require.Contains(
+		t,
+		output,
+		"func TSeoAuthorDescription(ctx frameworki18n.Context[Key], args SeoAuthorDescriptionArgs) string",
+	)
+	require.Contains(t, output, `"Author": args.Author`)
 }

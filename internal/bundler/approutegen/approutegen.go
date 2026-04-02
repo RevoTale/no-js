@@ -1291,7 +1291,7 @@ func generateResolverNamespaceSource(
 
 	buffer.WriteString("type RouteResolver interface {\n")
 	buffer.WriteString(
-		"\tMetaGenRootLayout(ctx context.Context, appCtx *runtime.Context, meta framework.MetadataContext) " +
+		"\tMetaGenRootLayout(meta framework.MetaContext[*runtime.Context]) " +
 			"(metagen.Metadata, error)\n",
 	)
 	for _, routeID := range layoutRouteIDs {
@@ -1302,7 +1302,7 @@ func generateResolverNamespaceSource(
 		}
 		writef(
 			buffer,
-			"\t%s(ctx context.Context, appCtx *runtime.Context, meta framework.MetadataContext, params %s) "+
+			"\t%s(meta framework.MetaContext[*runtime.Context], params %s) "+
 				"(metagen.Metadata, error)\n",
 			metaGenLayoutMethod(layout),
 			contract.ParamsTypeName,
@@ -1311,7 +1311,7 @@ func generateResolverNamespaceSource(
 	for _, meta := range metas {
 		writef(
 			buffer,
-			"\t%s(ctx context.Context, appCtx *runtime.Context, meta framework.MetadataContext, params %s) "+
+			"\t%s(meta framework.MetaContext[*runtime.Context], params %s) "+
 				"(metagen.Metadata, error)\n",
 			metaGenPageMethod(meta),
 			meta.ParamsTypeName,
@@ -1362,6 +1362,7 @@ func generateRegistrySource(
 
 	importLines := []string{
 		"\"context\"",
+		"\"fmt\"",
 		"\"net/http\"",
 		"\"strings\"",
 		fmt.Sprintf("%q", frameworkModulePath+"/framework"),
@@ -1874,11 +1875,11 @@ func writePageModule(
 	writef(buffer, "\t\t\t\tParseParams: %s,\n", parseParamsFuncName(meta))
 	writef(
 		buffer,
-		"\t\t\t\tMetaGenContext: func(ctx context.Context, appCtx *runtime.Context, meta framework.MetadataContext, "+
+		"\t\t\t\tMetaGenContext: func(meta framework.MetaContext[*runtime.Context], "+
 			"params %s) (metagen.Metadata, error) {\n",
 		meta.ParamsTypeName,
 	)
-	writef(buffer, "\t\t\t\t\treturn resolvers.%s(ctx, appCtx, meta, params)\n", metaGenPageMethod(meta))
+	writef(buffer, "\t\t\t\t\treturn resolvers.%s(meta, params)\n", metaGenPageMethod(meta))
 	buffer.WriteString("\t\t\t\t},\n")
 	chain := layoutChain(meta.RouteID, layouts)
 	writef(buffer, "\t\t\t\tMetaGenName: %q,\n", resolverMethodQualified(metaGenPageMethod(meta)))
@@ -1906,11 +1907,11 @@ func writePageModule(
 	)
 	writef(
 		buffer,
-		"\t\t\t\t\tfunc(ctx context.Context, appCtx *runtime.Context, meta framework.MetadataContext, _ %s) "+
+		"\t\t\t\t\tfunc(meta framework.MetaContext[*runtime.Context], _ %s) "+
 			"(metagen.Metadata, error) {\n",
 		meta.ParamsTypeName,
 	)
-	buffer.WriteString("\t\t\t\t\t\treturn resolvers.MetaGenRootLayout(ctx, appCtx, meta)\n")
+	buffer.WriteString("\t\t\t\t\t\treturn resolvers.MetaGenRootLayout(meta)\n")
 	buffer.WriteString("\t\t\t\t\t},\n")
 	for _, layout := range chain {
 		if layout.RouteID == "" {
@@ -1927,7 +1928,7 @@ func writePageModule(
 		}
 		writef(
 			buffer,
-			"\t\t\t\t\tfunc(ctx context.Context, appCtx *runtime.Context, meta framework.MetadataContext, "+
+			"\t\t\t\t\tfunc(meta framework.MetaContext[*runtime.Context], "+
 				"params %s) (metagen.Metadata, error) {\n",
 			meta.ParamsTypeName,
 		)
@@ -1938,13 +1939,13 @@ func writePageModule(
 			}
 			writef(
 				buffer,
-				"\t\t\t\t\t\treturn resolvers.%s(ctx, appCtx, meta, layoutParams)\n",
+				"\t\t\t\t\t\treturn resolvers.%s(meta, layoutParams)\n",
 				metaGenLayoutMethod(layout),
 			)
 		} else {
 			writef(
 				buffer,
-				"\t\t\t\t\t\treturn resolvers.%s(ctx, appCtx, meta, route_resolvers.%s{})\n",
+				"\t\t\t\t\t\treturn resolvers.%s(meta, route_resolvers.%s{})\n",
 				metaGenLayoutMethod(layout),
 				contract.ParamsTypeName,
 			)
@@ -1953,11 +1954,11 @@ func writePageModule(
 	}
 	writef(
 		buffer,
-		"\t\t\t\t\tfunc(ctx context.Context, appCtx *runtime.Context, meta framework.MetadataContext, "+
+		"\t\t\t\t\tfunc(meta framework.MetaContext[*runtime.Context], "+
 			"params %s) (metagen.Metadata, error) {\n",
 		meta.ParamsTypeName,
 	)
-	writef(buffer, "\t\t\t\t\t\treturn resolvers.%s(ctx, appCtx, meta, params)\n", metaGenPageMethod(meta))
+	writef(buffer, "\t\t\t\t\t\treturn resolvers.%s(meta, params)\n", metaGenPageMethod(meta))
 	buffer.WriteString("\t\t\t\t\t},\n")
 	buffer.WriteString("\t\t\t\t},\n")
 	writef(

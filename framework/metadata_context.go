@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -13,7 +14,8 @@ import (
 	frameworksite "github.com/RevoTale/no-js/framework/site"
 )
 
-type MetadataContext interface {
+type BaseMetadataContext interface {
+	Context() context.Context
 	Request() *http.Request
 	Locale() string
 	Root() *url.URL
@@ -23,7 +25,19 @@ type MetadataContext interface {
 	Alternates(locale string, types map[string]string) (metagen.Alternates, error)
 }
 
-type metadataContext struct {
+type MetaContext[C any] interface {
+	BaseMetadataContext
+	App() C
+}
+
+// MetadataContext remains as a compatibility bridge while callers move to MetaContext[C].
+type MetadataContext[K ~string] interface {
+	BaseMetadataContext
+}
+
+type metadataContext[C any] struct {
+	ctx        context.Context
+	app        C
 	request    *http.Request
 	root       *url.URL
 	i18nConfig frameworki18n.Config
@@ -42,13 +56,19 @@ type metadataI18nProvider interface {
 	I18nConfig() frameworki18n.Config
 }
 
-func NewMetadataContext[C any](appCtx C, r *http.Request) MetadataContext {
+func NewMetaContext[C any](ctx context.Context, appCtx C, r *http.Request) MetaContext[C] {
+	if ctx == nil {
+		ctx = requestContext(r)
+	}
+
 	cfg := frameworki18n.Config{}
 	if provider, ok := any(appCtx).(metadataI18nProvider); ok {
 		cfg = provider.I18nConfig()
 	}
 
-	return metadataContext{
+	return metadataContext[C]{
+		ctx:        ctx,
+		app:        appCtx,
 		request:    r,
 		root:       metadataRootForAppContext(appCtx, r),
 		i18nConfig: cfg,
@@ -56,19 +76,32 @@ func NewMetadataContext[C any](appCtx C, r *http.Request) MetadataContext {
 	}
 }
 
-func (ctx metadataContext) Request() *http.Request {
+// NewMetadataContext stays available for older call sites and tests that only need the URL helpers.
+func NewMetadataContext[K ~string, C any](appCtx C, r *http.Request) MetadataContext[K] {
+	return NewMetaContext(requestContext(r), appCtx, r)
+}
+
+func (ctx metadataContext[C]) Context() context.Context {
+	return ctx.ctx
+}
+
+func (ctx metadataContext[C]) App() C {
+	return ctx.app
+}
+
+func (ctx metadataContext[C]) Request() *http.Request {
 	return ctx.request
 }
 
-func (ctx metadataContext) Locale() string {
+func (ctx metadataContext[C]) Locale() string {
 	return strings.TrimSpace(ctx.locale)
 }
 
-func (ctx metadataContext) Root() *url.URL {
+func (ctx metadataContext[C]) Root() *url.URL {
 	return cloneURL(ctx.root)
 }
 
-func (ctx metadataContext) CurrentURL() *url.URL {
+func (ctx metadataContext[C]) CurrentURL() *url.URL {
 	if ctx.request == nil || ctx.request.URL == nil {
 		return nil
 	}
@@ -79,15 +112,15 @@ func (ctx metadataContext) CurrentURL() *url.URL {
 	)
 }
 
-func (ctx metadataContext) URL(pathValue string) *url.URL {
+func (ctx metadataContext[C]) URL(pathValue string) *url.URL {
 	return joinRootAndPath(ctx.root, pathValue, nil)
 }
 
-func (ctx metadataContext) LocalizedURL(locale string, pathValue string) *url.URL {
+func (ctx metadataContext[C]) LocalizedURL(locale string, pathValue string) *url.URL {
 	return joinRootAndPath(ctx.root, metadataLocalizedPath(ctx.i18nConfig, locale, pathValue), nil)
 }
 
-func (ctx metadataContext) Alternates(locale string, types map[string]string) (metagen.Alternates, error) {
+func (ctx metadataContext[C]) Alternates(locale string, types map[string]string) (metagen.Alternates, error) {
 	root := ctx.Root()
 	if root == nil {
 		return metagen.Alternates{}, fmt.Errorf("metadata root URL is required")
@@ -189,4 +222,11 @@ func cloneURL(value *url.URL) *url.URL {
 	}
 	clone := *value
 	return &clone
+}
+
+func requestContext(r *http.Request) context.Context {
+	if r == nil || r.Context() == nil {
+		return context.Background()
+	}
+	return r.Context()
 }

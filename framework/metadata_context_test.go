@@ -56,7 +56,7 @@ func (resolver metadataStringResolver) Resolve(*http.Request) string {
 func TestMetadataContextProvidesRequestScopedURLHelpers(t *testing.T) {
 	t.Parallel()
 
-	meta := NewMetadataContext(
+	meta := NewMetadataContext[string](
 		metadataTestApp{
 			root: mustParseMetadataURL(t, "https://example.com/blog"),
 			cfg: frameworki18n.Config{
@@ -90,7 +90,7 @@ func TestMetadataContextProvidesRequestScopedURLHelpers(t *testing.T) {
 func TestMetadataContextAlternatesUseResolvedRootAndStripInternalQueryMarkers(t *testing.T) {
 	t.Parallel()
 
-	meta := NewMetadataContext(
+	meta := NewMetadataContext[string](
 		metadataTestApp{
 			root: mustParseMetadataURL(t, "https://example.com/blog"),
 			cfg: frameworki18n.Config{
@@ -119,7 +119,7 @@ func TestMetadataContextAlternatesUseResolvedRootAndStripInternalQueryMarkers(t 
 func TestMetadataContextFallsBackToSiteResolver(t *testing.T) {
 	t.Parallel()
 
-	meta := NewMetadataContext(
+	meta := NewMetadataContext[string](
 		metadataResolverApp{
 			resolver: metadataStringResolver{canonical: "https://example.com/app"},
 			cfg: frameworki18n.Config{
@@ -138,7 +138,7 @@ func TestMetadataContextFallsBackToSiteResolver(t *testing.T) {
 func TestMetadataContextRootReturnsClone(t *testing.T) {
 	t.Parallel()
 
-	meta := NewMetadataContext(
+	meta := NewMetadataContext[string](
 		metadataTestApp{
 			root: mustParseMetadataURL(t, "https://example.com/blog"),
 			cfg: frameworki18n.Config{

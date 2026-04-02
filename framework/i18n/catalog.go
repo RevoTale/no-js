@@ -33,7 +33,11 @@ func LoadCatalog(fsys fs.FS, files []string, defaultLocale string) (*Catalog, er
 		if err != nil {
 			return nil, fmt.Errorf("read locale file %q: %w", file, err)
 		}
-		if _, err := bundle.ParseMessageFileBytes(content, file); err != nil {
+		sanitized, err := catalogMessageFileBytes(content)
+		if err != nil {
+			return nil, fmt.Errorf("prepare locale file %q: %w", file, err)
+		}
+		if _, err := bundle.ParseMessageFileBytes(sanitized, file); err != nil {
 			return nil, fmt.Errorf("parse locale file %q: %w", file, err)
 		}
 	}
@@ -92,4 +96,30 @@ func (catalog *Catalog) Localize(
 	}
 
 	return result
+}
+
+func catalogMessageFileBytes(content []byte) ([]byte, error) {
+	entries, err := parseMessages(content, "catalog")
+	if err != nil {
+		return nil, err
+	}
+
+	type catalogEntry struct {
+		ID          string `json:"id"`
+		Translation string `json:"translation"`
+	}
+
+	sanitized := make([]catalogEntry, 0, len(entries))
+	for _, entry := range entries {
+		sanitized = append(sanitized, catalogEntry{
+			ID:          entry.ID,
+			Translation: entry.Translation,
+		})
+	}
+
+	data, err := json.Marshal(sanitized)
+	if err != nil {
+		return nil, fmt.Errorf("marshal catalog entries: %w", err)
+	}
+	return data, nil
 }

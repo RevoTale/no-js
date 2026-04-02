@@ -39,9 +39,7 @@ type PageMetaGen[C interface{}, P interface{}] func(
 ) (metagen.Metadata, error)
 
 type PageMetaGenContext[C interface{}, P interface{}] func(
-	ctx context.Context,
-	appCtx C,
-	meta MetadataContext,
+	meta MetaContext[C],
 	params P,
 ) (metagen.Metadata, error)
 
@@ -344,7 +342,7 @@ func resolveMetadataWithContext[C interface{}, P interface{}](
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	metaCtx := NewMetadataContext(appCtx, r)
+	metaCtx := metadataContextForResolve(ctx, appCtx, r)
 	results := make([]metagen.Metadata, len(chain))
 	errs := make([]error, len(chain))
 
@@ -357,7 +355,7 @@ func resolveMetadataWithContext[C interface{}, P interface{}](
 				return
 			}
 			startedAt := time.Now()
-			meta, err := run(ctx, appCtx, metaCtx, params)
+			meta, err := run(metaCtx, params)
 			runtime.LogResolverTiming(ResolverTiming{
 				RoutePattern: routePattern,
 				Stage:        ResolverStageMetaGen,
@@ -381,6 +379,19 @@ func resolveMetadataWithContext[C interface{}, P interface{}](
 		}
 	}
 	return metagen.MergeAll(results...), nil
+}
+
+type metadataResolveProvider[C any] interface {
+	MetaContext(context.Context, *http.Request) MetaContext[C]
+}
+
+func metadataContextForResolve[C any](ctx context.Context, appCtx C, r *http.Request) MetaContext[C] {
+	if provider, ok := any(appCtx).(metadataResolveProvider[C]); ok {
+		if meta := provider.MetaContext(ctx, r); meta != nil {
+			return meta
+		}
+	}
+	return NewMetaContext(ctx, appCtx, r)
 }
 
 func handleModuleError[C interface{}](

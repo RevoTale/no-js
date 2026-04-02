@@ -13,11 +13,19 @@ func TestNormalizeConfig(t *testing.T) {
 		Locales:       []string{"EN", "uk", "uk", "de"},
 		DefaultLocale: "EN",
 		PrefixMode:    PrefixAsNeeded,
+		DisplayLabels: map[string]string{
+			"EN": "English",
+			"uk": "Українська",
+			"xx": "ignored",
+		},
+		DisplayOrder: []string{"uk", "en", "uk", "xx"},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "en", cfg.DefaultLocale)
 	require.Len(t, cfg.Locales, 3)
 	require.Equal(t, PrefixAsNeeded, cfg.PrefixMode)
+	require.Equal(t, "English", cfg.DisplayLabels["en"])
+	require.Equal(t, []string{"uk", "en"}, cfg.DisplayOrder)
 }
 
 func TestNormalizeConfigInvalid(t *testing.T) {

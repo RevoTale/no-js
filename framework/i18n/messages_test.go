@@ -10,8 +10,9 @@ import (
 )
 
 type localeEntry struct {
-	ID          string `json:"id"`
-	Translation string `json:"translation"`
+	ID          string       `json:"id"`
+	Translation string       `json:"translation"`
+	Args        []MessageArg `json:"args,omitempty"`
 }
 
 func TestDiscoverMessageFilesSorted(t *testing.T) {
@@ -121,6 +122,76 @@ func TestParseCanonicalMessagesRejectsDuplicateIDs(t *testing.T) {
 	]`))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "duplicate message id")
+}
+
+func TestParseCanonicalMessagesAcceptsTypedArgs(t *testing.T) {
+	t.Parallel()
+
+	source := []byte(`[
+		{
+			"id":"seo.author.description",
+			"translation":"Browse notes by {{.Author}}.",
+			"args":[{"name":"Author","type":"string"}]
+		}
+	]`)
+
+	messages, err := ParseCanonicalMessages(source)
+	require.NoError(t, err)
+	require.Len(t, messages, 1)
+	require.Len(t, messages[0].Args, 1)
+	require.Equal(t, "Author", messages[0].Args[0].Name)
+}
+
+func TestParseCanonicalMessagesRejectsUndeclaredPlaceholder(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParseCanonicalMessages([]byte(`[
+		{"id":"seo.author.description","translation":"Browse notes by {{.Author}}."}
+	]`))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "undeclared placeholder")
+}
+
+func TestParseCanonicalMessagesRejectsUnsupportedTemplateAction(t *testing.T) {
+	t.Parallel()
+
+	source := []byte(`[
+		{
+			"id":"seo.author.description",
+			"translation":"Browse notes by {{printf \"%s\" .Author}}.",
+			"args":[{"name":"Author","type":"string"}]
+		}
+	]`)
+
+	_, err := ParseCanonicalMessages(source)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unsupported template action")
+}
+
+func TestValidateMessageCatalogRejectsPlaceholderParityMismatch(t *testing.T) {
+	t.Parallel()
+
+	filesystem := fstest.MapFS{
+		"messages/active.en.json": &fstest.MapFile{Data: []byte(`[
+			{
+				"id":"seo.author.description",
+				"translation":"Browse notes by {{.Author}}.",
+				"args":[{"name":"Author","type":"string"}]
+			}
+		]`)},
+		"messages/active.de.json": &fstest.MapFile{Data: []byte(`[
+			{"id":"seo.author.description","translation":"Browse notes by {{.Autor}}."}
+		]`)},
+	}
+
+	err := ValidateMessageCatalog(
+		filesystem,
+		[]string{"messages/active.en.json", "messages/active.de.json"},
+		"messages/active.en.json",
+		[]string{"seo.author.description"},
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "placeholder mismatch")
 }
 
 func buildLocalePayload(t *testing.T, keys []string) []byte {

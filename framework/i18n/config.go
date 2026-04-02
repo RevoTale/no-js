@@ -21,6 +21,8 @@ type Config struct {
 	Locales       []string
 	DefaultLocale string
 	PrefixMode    PrefixMode
+	DisplayLabels map[string]string
+	DisplayOrder  []string
 }
 
 func NormalizeConfig(cfg Config) (Config, error) {
@@ -65,10 +67,39 @@ func NormalizeConfig(cfg Config) (Config, error) {
 		return Config{}, fmt.Errorf("default locale %q is not in locales", defaultLocale)
 	}
 
+	displayLabels := make(map[string]string, len(cfg.DisplayLabels))
+	for rawLocale, rawLabel := range cfg.DisplayLabels {
+		locale := normalizeLocale(rawLocale)
+		if locale == "" || !slices.Contains(locales, locale) {
+			continue
+		}
+		label := strings.TrimSpace(rawLabel)
+		if label == "" {
+			continue
+		}
+		displayLabels[locale] = label
+	}
+
+	displayOrder := make([]string, 0, len(cfg.DisplayOrder))
+	displaySeen := make(map[string]struct{}, len(cfg.DisplayOrder))
+	for _, rawLocale := range cfg.DisplayOrder {
+		locale := normalizeLocale(rawLocale)
+		if locale == "" || !slices.Contains(locales, locale) {
+			continue
+		}
+		if _, ok := displaySeen[locale]; ok {
+			continue
+		}
+		displaySeen[locale] = struct{}{}
+		displayOrder = append(displayOrder, locale)
+	}
+
 	return Config{
 		Locales:       locales,
 		DefaultLocale: defaultLocale,
 		PrefixMode:    prefixMode,
+		DisplayLabels: displayLabels,
+		DisplayOrder:  displayOrder,
 	}, nil
 }
 
