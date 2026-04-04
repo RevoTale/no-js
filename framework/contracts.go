@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"reflect"
 	goruntime "runtime"
 	"strings"
@@ -61,11 +62,13 @@ type PageModule[C interface{}, P interface{}, VM interface{}] struct {
 	Render              PageRenderer[VM]
 	Layouts             []LayoutRenderer[VM]
 	RootLayout          func(meta metagen.Metadata, locale string, child templ.Component) templ.Component
-	ErrorPage           func(locale string, path string) templ.Component
+	ErrorPage           func(appCtx C, r *http.Request) templ.Component
 }
 
 type RuntimeContext[C interface{}] interface {
 	AppContext() C
+	I18n() *frameworki18n.Resolver
+	ResolveRoot(r *http.Request) *url.URL
 	IsPartialRequest(r *http.Request) bool
 	RenderPage(r *http.Request, w http.ResponseWriter, component templ.Component, meta metagen.Metadata) error
 	RespondNotFound(w http.ResponseWriter, r *http.Request, notFoundContext NotFoundContext)
@@ -229,7 +232,7 @@ func servePageModule[C interface{}, P interface{}, VM interface{}](
 			if module.ErrorPage == nil {
 				return nil
 			}
-			errorComponent := module.ErrorPage(locale, r.URL.Path)
+			errorComponent := module.ErrorPage(appCtx, r)
 			if errorComponent == nil {
 				return nil
 			}
@@ -342,7 +345,7 @@ func resolveMetadataWithContext[C interface{}, P interface{}](
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	metaCtx := metadataContextForResolve(ctx, appCtx, r)
+	metaCtx := metadataContextForResolve(runtime, ctx, appCtx, r)
 	results := make([]metagen.Metadata, len(chain))
 	errs := make([]error, len(chain))
 
@@ -381,17 +384,13 @@ func resolveMetadataWithContext[C interface{}, P interface{}](
 	return metagen.MergeAll(results...), nil
 }
 
-type metadataResolveProvider[C any] interface {
-	MetaContext(context.Context, *http.Request) MetaContext[C]
-}
-
-func metadataContextForResolve[C any](ctx context.Context, appCtx C, r *http.Request) MetaContext[C] {
-	if provider, ok := any(appCtx).(metadataResolveProvider[C]); ok {
-		if meta := provider.MetaContext(ctx, r); meta != nil {
-			return meta
-		}
-	}
-	return NewMetaContext(ctx, appCtx, r)
+func metadataContextForResolve[C any](
+	runtime RuntimeContext[C],
+	ctx context.Context,
+	appCtx C,
+	r *http.Request,
+) MetaContext[C] {
+	return NewMetaContext(ctx, appCtx, r, runtime.ResolveRoot(r), runtime.I18n())
 }
 
 func handleModuleError[C interface{}](

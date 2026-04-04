@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -58,6 +59,7 @@ type Config[C interface{}] struct {
 	Discovery     *frameworkdiscovery.Bundle[C]
 
 	I18n        *frameworki18n.Config
+	ResolveRoot func(r *http.Request) *url.URL
 	PublicFiles *PublicFilesConfig
 
 	MountExtraRoutes func(*http.ServeMux) error
@@ -67,7 +69,7 @@ type Config[C interface{}] struct {
 
 	CachePolicies CachePolicies
 
-	NotFoundPage        func(notFoundContext framework.NotFoundContext) templ.Component
+	NotFoundPage        func(appCtx C, r *http.Request, notFoundContext framework.NotFoundContext) templ.Component
 	LogServerError      func(err error)
 	LogResolverTiming   func(event framework.ResolverTiming)
 	EnableResolverDebug bool
@@ -79,7 +81,8 @@ type Config[C interface{}] struct {
 
 type server[C interface{}] struct {
 	cachePolicies       CachePolicies
-	notFoundPage        func(notFoundContext framework.NotFoundContext) templ.Component
+	notFoundPage        func(appCtx C, r *http.Request, notFoundContext framework.NotFoundContext) templ.Component
+	appContext          C
 	logServerErr        func(err error)
 	logResolverTimingFn func(event framework.ResolverTiming)
 	enableResolverDebug bool
@@ -103,6 +106,7 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 
 	srv := &server[C]{
 		cachePolicies:       cachePolicies,
+		appContext:          cfg.AppContext,
 		notFoundPage:        cfg.NotFoundPage,
 		logServerErr:        cfg.LogServerError,
 		logResolverTimingFn: cfg.LogResolverTiming,
@@ -111,9 +115,19 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 		healthBody:          healthBody,
 	}
 
+	if cfg.I18n != nil {
+		resolver, err := frameworki18n.NewResolver(*cfg.I18n)
+		if err != nil {
+			return nil, fmt.Errorf("create i18n resolver: %w", err)
+		}
+		srv.i18nResolver = resolver
+	}
+
 	routeEngine, err := engine.New(engine.Config[C]{
 		AppContext:        cfg.AppContext,
 		Handlers:          cfg.Handlers,
+		I18nResolver:      srv.i18nResolver,
+		ResolveRoot:       cfg.ResolveRoot,
 		IsPartialRequest:  srv.isHTMXRequest,
 		RenderPage:        srv.renderPage,
 		HandleNotFound:    srv.handleNotFound,
@@ -149,13 +163,7 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 		mainHandler = middleware(mainHandler)
 	}
 
-	if cfg.I18n != nil {
-		resolver, err := frameworki18n.NewResolver(*cfg.I18n)
-		if err != nil {
-			return nil, fmt.Errorf("create i18n resolver: %w", err)
-		}
-		srv.i18nResolver = resolver
-
+	if srv.i18nResolver != nil {
 		bypassPrefixes := []string{}
 		if strings.TrimSpace(cfg.Static.Dir) != "" {
 			bypassPrefixes = append(bypassPrefixes, staticPrefix)
@@ -167,7 +175,7 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 		}
 
 		mainHandler = frameworki18n.Middleware(frameworki18n.MiddlewareConfig{
-			Resolver:       resolver,
+			Resolver:       srv.i18nResolver,
 			BypassPrefixes: bypassPrefixes,
 			BypassExact:    bypassExact,
 		})(mainHandler)
@@ -432,7 +440,7 @@ func (s *server[C]) handleNotFound(
 		return
 	}
 
-	component := s.notFoundPage(notFoundContext)
+	component := s.notFoundPage(s.appContext, r, notFoundContext)
 	if component == nil {
 		setCachePolicy(w, s.cachePolicies.Error)
 		http.NotFound(w, r)

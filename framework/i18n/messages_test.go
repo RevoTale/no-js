@@ -19,13 +19,14 @@ func TestDiscoverMessageFilesSorted(t *testing.T) {
 	t.Parallel()
 
 	filesystem := fstest.MapFS{
-		"messages/active.de.json": &fstest.MapFile{Data: []byte("[]")},
-		"messages/active.en.json": &fstest.MapFile{Data: []byte("[]")},
+		"messages/layout.de.json": &fstest.MapFile{Data: []byte("[]")},
+		"messages/seo.en.json":    &fstest.MapFile{Data: []byte("[]")},
+		"messages/notes.en.json":  &fstest.MapFile{Data: []byte("[]")},
 	}
 
 	files, err := DiscoverMessageFiles(filesystem)
 	require.NoError(t, err)
-	require.Equal(t, "messages/active.de.json,messages/active.en.json", strings.Join(files, ","))
+	require.Equal(t, "messages/layout.de.json,messages/notes.en.json,messages/seo.en.json", strings.Join(files, ","))
 }
 
 func TestDiscoverMessageFilesRejectsSubdirectories(t *testing.T) {
@@ -51,6 +52,54 @@ func TestDiscoverMessageFilesRejectsNonJSON(t *testing.T) {
 	_, err := DiscoverMessageFiles(filesystem)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "must contain only json files")
+}
+
+func TestDiscoverMessageFilesRejectsInvalidLocaleSuffix(t *testing.T) {
+	t.Parallel()
+
+	filesystem := fstest.MapFS{
+		"messages/layout.english.json": &fstest.MapFile{Data: []byte("[]")},
+	}
+
+	_, err := DiscoverMessageFiles(filesystem)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must end with .<locale>.json")
+}
+
+func TestLoadMessageDefinitionsMergesLocaleShards(t *testing.T) {
+	t.Parallel()
+
+	filesystem := fstest.MapFS{
+		"messages/layout.en.json": &fstest.MapFile{Data: []byte(`[
+			{"id":"layout.title","translation":"Blog"}
+		]`)},
+		"messages/seo.en.json": &fstest.MapFile{Data: []byte(`[
+			{
+				"id":"seo.author.description",
+				"translation":"Browse notes by {{.Author}}.",
+				"args":[{"name":"Author","type":"string"}]
+			}
+		]`)},
+		"messages/layout.de.json": &fstest.MapFile{Data: []byte(`[
+			{"id":"layout.title","translation":"Blog DE"}
+		]`)},
+		"messages/seo.de.json": &fstest.MapFile{Data: []byte(`[
+			{"id":"seo.author.description","translation":"Notizen von {{.Author}}."}
+		]`)},
+	}
+
+	definitions, canonicalLocale, err := LoadMessageDefinitions(
+		filesystem,
+		[]string{"messages/layout.en.json", "messages/seo.en.json", "messages/layout.de.json", "messages/seo.de.json"},
+		"en",
+	)
+	require.NoError(t, err)
+	require.Equal(t, "en", canonicalLocale)
+	require.Len(t, definitions["en"], 2)
+	require.Len(t, definitions["de"], 2)
+	require.Equal(t, "layout.title", definitions["en"][0].ID)
+	require.Equal(t, "seo.author.description", definitions["en"][1].ID)
+	require.Len(t, definitions["en"][1].Args, 1)
 }
 
 func TestValidateMessageKeyParityPasses(t *testing.T) {
@@ -109,6 +158,28 @@ func TestValidateMessageKeyParityRejectsDuplicateIDs(t *testing.T) {
 	}
 
 	err = ValidateMessageKeyParity(filesystem, []string{"messages/active.en.json"}, []string{"one"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "duplicate message id")
+}
+
+func TestValidateMessageCatalogRejectsDuplicateIDsAcrossShards(t *testing.T) {
+	t.Parallel()
+
+	filesystem := fstest.MapFS{
+		"messages/layout.en.json": &fstest.MapFile{Data: []byte(`[
+			{"id":"layout.title","translation":"Blog"}
+		]`)},
+		"messages/seo.en.json": &fstest.MapFile{Data: []byte(`[
+			{"id":"layout.title","translation":"Duplicate"}
+		]`)},
+	}
+
+	err := ValidateMessageCatalog(
+		filesystem,
+		[]string{"messages/layout.en.json", "messages/seo.en.json"},
+		"en",
+		[]string{"layout.title"},
+	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "duplicate message id")
 }
@@ -187,7 +258,7 @@ func TestValidateMessageCatalogRejectsPlaceholderParityMismatch(t *testing.T) {
 	err := ValidateMessageCatalog(
 		filesystem,
 		[]string{"messages/active.en.json", "messages/active.de.json"},
-		"messages/active.en.json",
+		"en",
 		[]string{"seo.author.description"},
 	)
 	require.Error(t, err)

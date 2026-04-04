@@ -101,7 +101,7 @@ func TestHTTPServerCachePoliciesAndHTMX(t *testing.T) {
 			Health:         "health-cache",
 			Error:          "error-cache",
 		},
-		NotFoundPage: func(framework.NotFoundContext) templ.Component {
+		NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) templ.Component {
 			return textComponent("not-found")
 		},
 	})
@@ -201,9 +201,11 @@ func TestHTTPServerCanDisableHealthEndpoint(t *testing.T) {
 	t.Parallel()
 
 	handler, err := New(Config[*struct{}]{
-		AppContext:     &struct{}{},
-		DisableHealth:  true,
-		NotFoundPage:   func(framework.NotFoundContext) templ.Component { return textComponent("not-found") },
+		AppContext:    &struct{}{},
+		DisableHealth: true,
+		NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) templ.Component {
+			return textComponent("not-found")
+		},
 		CachePolicies:  DefaultCachePolicies(),
 		LogServerError: func(error) {},
 	})
@@ -275,7 +277,7 @@ func TestNewAppUsesBundleAndCustomConfig(t *testing.T) {
 					},
 				},
 			},
-			NotFoundPage: func(framework.NotFoundContext) templ.Component {
+			NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) templ.Component {
 				return textComponent("not-found")
 			},
 			OnStaticAssetBasePathResolved: func(prefix string) {
@@ -348,7 +350,7 @@ func TestHTTPServerNotFoundContextForLoadAndUnmatched(t *testing.T) {
 				},
 			},
 		},
-		NotFoundPage: func(notFoundContext framework.NotFoundContext) templ.Component {
+		NotFoundPage: func(_ *struct{}, _ *http.Request, notFoundContext framework.NotFoundContext) templ.Component {
 			ctxs = append(ctxs, notFoundContext)
 			return textComponent("missing")
 		},

@@ -31,9 +31,10 @@ type Context[K ~string] interface {
 }
 
 type Runtime[K ~string] struct {
-	cfg             Config
-	catalog         *Catalog
-	defaultMessages map[K]string
+	cfg              Config
+	catalog          *Catalog
+	compiledMessages map[string]map[K]CompiledMessage
+	defaultMessages  map[K]string
 }
 
 type contextState[K ~string] struct {
@@ -51,15 +52,27 @@ func NewRuntime[K ~string](cfg Config, catalog *Catalog, defaultMessages map[K]s
 		return nil, err
 	}
 
-	clonedDefaults := make(map[K]string, len(defaultMessages))
-	for key, value := range defaultMessages {
-		clonedDefaults[key] = strings.TrimSpace(value)
-	}
-
 	return &Runtime[K]{
 		cfg:             normalized,
 		catalog:         catalog,
-		defaultMessages: clonedDefaults,
+		defaultMessages: cloneDefaultMessages(defaultMessages),
+	}, nil
+}
+
+func NewStaticRuntime[K ~string](
+	cfg Config,
+	compiledMessages map[string]map[K]CompiledMessage,
+	defaultMessages map[K]string,
+) (*Runtime[K], error) {
+	normalized, err := NormalizeConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Runtime[K]{
+		cfg:              normalized,
+		compiledMessages: cloneCompiledMessages(compiledMessages),
+		defaultMessages:  cloneDefaultMessages(defaultMessages),
 	}, nil
 }
 
@@ -78,6 +91,15 @@ func (runtime *Runtime[K]) Localize(locale string, key K, vars map[string]any) s
 	normalizedLocale := normalizeLocale(locale)
 	if normalizedLocale == "" || !slices.Contains(runtime.cfg.Locales, normalizedLocale) {
 		normalizedLocale = runtime.cfg.DefaultLocale
+	}
+
+	if message, ok := runtime.lookupCompiledMessage(normalizedLocale, key); ok {
+		return message.Render(vars)
+	}
+	if normalizedLocale != runtime.cfg.DefaultLocale {
+		if message, ok := runtime.lookupCompiledMessage(runtime.cfg.DefaultLocale, key); ok {
+			return message.Render(vars)
+		}
 	}
 
 	fallback := strings.TrimSpace(runtime.defaultMessages[key])
@@ -131,6 +153,52 @@ func (runtime *Runtime[K]) Context(r *http.Request, root *url.URL) Context[K] {
 		currentPath:  NormalizePath(currentPath),
 		currentQuery: cloneQuery(currentQuery),
 	}
+}
+
+func (runtime *Runtime[K]) lookupCompiledMessage(locale string, key K) (CompiledMessage, bool) {
+	if runtime == nil || len(runtime.compiledMessages) == 0 {
+		return CompiledMessage{}, false
+	}
+
+	localeMessages, ok := runtime.compiledMessages[normalizeLocale(locale)]
+	if !ok {
+		return CompiledMessage{}, false
+	}
+
+	message, ok := localeMessages[key]
+	if !ok {
+		return CompiledMessage{}, false
+	}
+	return message, true
+}
+
+func cloneDefaultMessages[K ~string](defaultMessages map[K]string) map[K]string {
+	clonedDefaults := make(map[K]string, len(defaultMessages))
+	for key, value := range defaultMessages {
+		clonedDefaults[key] = strings.TrimSpace(value)
+	}
+	return clonedDefaults
+}
+
+func cloneCompiledMessages[K ~string](input map[string]map[K]CompiledMessage) map[string]map[K]CompiledMessage {
+	if len(input) == 0 {
+		return nil
+	}
+
+	out := make(map[string]map[K]CompiledMessage, len(input))
+	for locale, messages := range input {
+		normalizedLocale := normalizeLocale(locale)
+		if normalizedLocale == "" {
+			continue
+		}
+		clonedMessages := make(map[K]CompiledMessage, len(messages))
+		for key, message := range messages {
+			clonedParts := append([]CompiledMessagePart(nil), message.Parts...)
+			clonedMessages[key] = CompiledMessage{Parts: clonedParts}
+		}
+		out[normalizedLocale] = clonedMessages
+	}
+	return out
 }
 
 func (ctx contextState[K]) Locale() string {

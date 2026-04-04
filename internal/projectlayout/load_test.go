@@ -52,6 +52,17 @@ func TestLoadConfigFileRejectsInvalidFeatureMode(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid feature mode")
 }
 
+func TestLoadConfigFileAcceptsBuiltInI18nMode(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "no-js.bundle.yaml")
+	writeBundlerTestFile(t, configPath, "version: 1\ni18n:\n  mode: disabled\n")
+
+	cfg, err := LoadConfigFile(configPath)
+	require.NoError(t, err)
+	require.Equal(t, FeatureDisabled, cfg.I18n.Mode)
+}
+
 func TestResolveProjectLayoutFromRootUsesConfigOverrides(t *testing.T) {
 	t.Parallel()
 

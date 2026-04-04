@@ -31,19 +31,23 @@ func LocalizePath(cfg Config, locale string, strippedPath string) string {
 		return NormalizePath(strippedPath)
 	}
 
+	return localizeNormalizedPath(normalizedCfg, locale, strippedPath)
+}
+
+func localizeNormalizedPath(cfg Config, locale string, strippedPath string) string {
 	normalizedLocale := normalizeLocale(locale)
-	if !containsLocale(normalizedCfg, normalizedLocale) {
-		normalizedLocale = normalizedCfg.DefaultLocale
+	if !containsLocale(cfg, normalizedLocale) {
+		normalizedLocale = cfg.DefaultLocale
 	}
 
 	normalizedPath := NormalizePath(strippedPath)
-	switch normalizedCfg.PrefixMode {
+	switch cfg.PrefixMode {
 	case PrefixNever:
 		return normalizedPath
 	case PrefixAlways:
 		return prefixedPath(normalizedLocale, normalizedPath)
 	case PrefixAsNeeded:
-		if normalizedLocale == normalizedCfg.DefaultLocale {
+		if normalizedLocale == cfg.DefaultLocale {
 			return normalizedPath
 		}
 		return prefixedPath(normalizedLocale, normalizedPath)

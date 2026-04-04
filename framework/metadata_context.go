@@ -6,12 +6,10 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"slices"
 	"strings"
 
 	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
 	"github.com/RevoTale/no-js/framework/metagen"
-	frameworksite "github.com/RevoTale/no-js/framework/site"
 )
 
 type BaseMetadataContext interface {
@@ -30,55 +28,34 @@ type MetaContext[C any] interface {
 	App() C
 }
 
-// MetadataContext remains as a compatibility bridge while callers move to MetaContext[C].
-type MetadataContext[K ~string] interface {
-	BaseMetadataContext
-}
-
 type metadataContext[C any] struct {
-	ctx        context.Context
-	app        C
-	request    *http.Request
-	root       *url.URL
-	i18nConfig frameworki18n.Config
-	locale     string
+	ctx     context.Context
+	app     C
+	request *http.Request
+	root    *url.URL
+	i18n    *frameworki18n.Resolver
+	locale  string
 }
 
-type metadataRootProvider interface {
-	ResolveRoot(*http.Request) *url.URL
-}
-
-type metadataSiteResolverProvider interface {
-	SiteResolver() frameworksite.Resolver
-}
-
-type metadataI18nProvider interface {
-	I18nConfig() frameworki18n.Config
-}
-
-func NewMetaContext[C any](ctx context.Context, appCtx C, r *http.Request) MetaContext[C] {
+func NewMetaContext[C any](
+	ctx context.Context,
+	appCtx C,
+	r *http.Request,
+	root *url.URL,
+	i18n *frameworki18n.Resolver,
+) MetaContext[C] {
 	if ctx == nil {
 		ctx = requestContext(r)
 	}
 
-	cfg := frameworki18n.Config{}
-	if provider, ok := any(appCtx).(metadataI18nProvider); ok {
-		cfg = provider.I18nConfig()
-	}
-
 	return metadataContext[C]{
-		ctx:        ctx,
-		app:        appCtx,
-		request:    r,
-		root:       metadataRootForAppContext(appCtx, r),
-		i18nConfig: cfg,
-		locale:     metadataLocaleForRequest(r, cfg),
+		ctx:     ctx,
+		app:     appCtx,
+		request: r,
+		root:    cloneURL(root),
+		i18n:    i18n,
+		locale:  metadataLocaleForRequest(r, i18n),
 	}
-}
-
-// NewMetadataContext stays available for older call sites and tests that only need the URL helpers.
-func NewMetadataContext[K ~string, C any](appCtx C, r *http.Request) MetadataContext[K] {
-	return NewMetaContext(requestContext(r), appCtx, r)
 }
 
 func (ctx metadataContext[C]) Context() context.Context {
@@ -117,7 +94,7 @@ func (ctx metadataContext[C]) URL(pathValue string) *url.URL {
 }
 
 func (ctx metadataContext[C]) LocalizedURL(locale string, pathValue string) *url.URL {
-	return joinRootAndPath(ctx.root, metadataLocalizedPath(ctx.i18nConfig, locale, pathValue), nil)
+	return joinRootAndPath(ctx.root, metadataLocalizedPath(ctx.i18n, locale, pathValue), nil)
 }
 
 func (ctx metadataContext[C]) Alternates(locale string, types map[string]string) (metagen.Alternates, error) {
@@ -125,49 +102,35 @@ func (ctx metadataContext[C]) Alternates(locale string, types map[string]string)
 	if root == nil {
 		return metagen.Alternates{}, fmt.Errorf("metadata root URL is required")
 	}
+	if ctx.i18n == nil {
+		return metagen.Alternates{}, fmt.Errorf("metadata i18n resolver is required")
+	}
 
 	return metagen.BuildAlternates(
 		root.String(),
-		ctx.i18nConfig,
+		ctx.i18n.Config(),
 		locale,
 		requestPathWithQuery(ctx.request),
 		types,
 	)
 }
 
-func metadataRootForAppContext[C any](appCtx C, r *http.Request) *url.URL {
-	if provider, ok := any(appCtx).(metadataRootProvider); ok {
-		return cloneURL(provider.ResolveRoot(r))
+func metadataLocaleForRequest(r *http.Request, i18n *frameworki18n.Resolver) string {
+	if i18n == nil {
+		if r == nil {
+			return ""
+		}
+		return strings.TrimSpace(strings.ToLower(frameworki18n.LocaleFromContext(r.Context())))
 	}
-	if provider, ok := any(appCtx).(metadataSiteResolverProvider); ok {
-		return frameworksite.ResolveRoot(provider.SiteResolver(), r)
-	}
-	return nil
+
+	return i18n.LocaleForRequest(r)
 }
 
-func metadataLocaleForRequest(r *http.Request, cfg frameworki18n.Config) string {
-	requestLocale := ""
-	if r != nil {
-		requestLocale = frameworki18n.LocaleFromContext(r.Context())
-	}
-
-	normalized := strings.TrimSpace(strings.ToLower(requestLocale))
-	normalizedCfg, err := frameworki18n.NormalizeConfig(cfg)
-	if err != nil {
-		return normalized
-	}
-	if normalized == "" || !slices.Contains(normalizedCfg.Locales, normalized) {
-		return normalizedCfg.DefaultLocale
-	}
-	return normalized
-}
-
-func metadataLocalizedPath(cfg frameworki18n.Config, locale string, pathValue string) string {
-	normalizedCfg, err := frameworki18n.NormalizeConfig(cfg)
-	if err != nil {
+func metadataLocalizedPath(i18n *frameworki18n.Resolver, locale string, pathValue string) string {
+	if i18n == nil {
 		return frameworki18n.NormalizePath(pathValue)
 	}
-	return frameworki18n.LocalizePath(normalizedCfg, strings.TrimSpace(strings.ToLower(locale)), pathValue)
+	return i18n.LocalizedPath(strings.TrimSpace(strings.ToLower(locale)), pathValue)
 }
 
 func requestPathWithQuery(r *http.Request) string {

@@ -45,6 +45,9 @@ func DiscoverMessageFiles(fsys fs.FS) ([]string, error) {
 		if !strings.HasSuffix(strings.ToLower(name), ".json") {
 			return nil, fmt.Errorf("messages directory %q must contain only json files: %q", MessagesDir, name)
 		}
+		if localeFromPath(name) == "" {
+			return nil, fmt.Errorf("message file %q must end with .<locale>.json", name)
+		}
 		files = append(files, path.Join(MessagesDir, name))
 	}
 
@@ -60,54 +63,35 @@ func ValidateMessageKeyParity(fsys fs.FS, files []string, expectedKeys []string)
 	return ValidateMessageCatalog(fsys, files, "", expectedKeys)
 }
 
-func ValidateMessageCatalog(fsys fs.FS, files []string, canonicalFile string, expectedKeys []string) error {
+func ValidateMessageCatalog(fsys fs.FS, files []string, canonicalRef string, expectedKeys []string) error {
 	expectedKeySet := buildExpectedKeySet(expectedKeys)
 	if len(expectedKeySet) == 0 {
 		return fmt.Errorf("expected key set is empty")
 	}
 
-	canonicalFile = strings.TrimSpace(canonicalFile)
-	if canonicalFile == "" {
-		canonicalFile = detectCanonicalFile(files)
-	}
-	if canonicalFile == "" {
-		return fmt.Errorf("canonical locale file is required")
+	localeMessages, canonicalLocale, err := LoadMessageDefinitions(fsys, files, canonicalRef)
+	if err != nil {
+		return err
 	}
 
-	canonicalContent, err := fs.ReadFile(fsys, canonicalFile)
-	if err != nil {
-		return fmt.Errorf("read canonical locale file %q: %w", canonicalFile, err)
+	canonicalMessages, ok := localeMessages[canonicalLocale]
+	if !ok || len(canonicalMessages) == 0 {
+		return fmt.Errorf("canonical locale %q has no messages", canonicalLocale)
 	}
-	canonicalMessages, err := ParseCanonicalMessages(canonicalContent)
-	if err != nil {
-		return fmt.Errorf("parse canonical locale file %q: %w", canonicalFile, err)
-	}
+
 	canonicalByID := make(map[string]Message, len(canonicalMessages))
 	for _, message := range canonicalMessages {
 		canonicalByID[message.ID] = message
 	}
 
-	for _, file := range files {
-		file = strings.TrimSpace(file)
-		if file == "" {
-			continue
-		}
+	locales := make([]string, 0, len(localeMessages))
+	for locale := range localeMessages {
+		locales = append(locales, locale)
+	}
+	sort.Strings(locales)
 
-		content, err := fs.ReadFile(fsys, file)
-		if err != nil {
-			return fmt.Errorf("read locale file %q: %w", file, err)
-		}
-
-		var messages []Message
-		if file == canonicalFile {
-			messages = canonicalMessages
-		} else {
-			messages, err = ParseLocaleMessages(content)
-		}
-		if err != nil {
-			return fmt.Errorf("parse locale file %q: %w", file, err)
-		}
-
+	for _, locale := range locales {
+		messages := localeMessages[locale]
 		localeKeys := make(map[string]struct{}, len(messages))
 		for _, message := range messages {
 			localeKeys[message.ID] = struct{}{}
@@ -115,8 +99,8 @@ func ValidateMessageCatalog(fsys fs.FS, files []string, canonicalFile string, ex
 			if !ok {
 				continue
 			}
-			if err := validatePlaceholderParity(canonicalMessage, message, file == canonicalFile); err != nil {
-				return fmt.Errorf("locale %q message %q: %w", localeFromPath(file), message.ID, err)
+			if err := validatePlaceholderParity(canonicalMessage, message, locale == canonicalLocale); err != nil {
+				return fmt.Errorf("locale %q message %q: %w", locale, message.ID, err)
 			}
 		}
 
@@ -137,16 +121,55 @@ func ValidateMessageCatalog(fsys fs.FS, files []string, canonicalFile string, ex
 		sort.Strings(extra)
 
 		if len(missing) > 0 || len(extra) > 0 {
-			return fmt.Errorf(
-				"locale %q key parity mismatch: missing=%v extra=%v",
-				localeFromPath(file),
-				missing,
-				extra,
-			)
+			return fmt.Errorf("locale %q key parity mismatch: missing=%v extra=%v", locale, missing, extra)
 		}
 	}
 
 	return nil
+}
+
+func LoadMessageDefinitions(fsys fs.FS, files []string, canonicalRef string) (map[string][]Message, string, error) {
+	grouped, err := groupMessageFilesByLocale(files)
+	if err != nil {
+		return nil, "", err
+	}
+
+	canonicalLocale := resolveCanonicalLocale(canonicalRef, files)
+	if canonicalLocale == "" {
+		return nil, "", fmt.Errorf("canonical locale is required")
+	}
+	if _, ok := grouped[canonicalLocale]; !ok {
+		return nil, "", fmt.Errorf("canonical locale %q is missing from message files", canonicalLocale)
+	}
+
+	out := make(map[string][]Message, len(grouped))
+	for locale, localeFiles := range grouped {
+		merged := make([]Message, 0)
+		for _, file := range localeFiles {
+			content, err := fs.ReadFile(fsys, file)
+			if err != nil {
+				return nil, "", fmt.Errorf("read locale file %q: %w", file, err)
+			}
+
+			var messages []Message
+			if locale == canonicalLocale {
+				messages, err = ParseCanonicalMessages(content)
+			} else {
+				messages, err = ParseLocaleMessages(content)
+			}
+			if err != nil {
+				return nil, "", fmt.Errorf("parse locale file %q: %w", file, err)
+			}
+
+			merged, err = mergeMessages(merged, messages)
+			if err != nil {
+				return nil, "", fmt.Errorf("parse locale file %q: %w", file, err)
+			}
+		}
+		out[locale] = merged
+	}
+
+	return out, canonicalLocale, nil
 }
 
 func ParseCanonicalMessages(data []byte) ([]Message, error) {
@@ -230,18 +253,80 @@ func buildExpectedKeySet(keys []string) map[string]struct{} {
 }
 
 func localeFromPath(pathValue string) string {
-	trimmed := strings.TrimSpace(pathValue)
-	fileName := trimmed
-	if slash := strings.LastIndex(trimmed, "/"); slash >= 0 {
-		fileName = trimmed[slash+1:]
+	fileName := strings.TrimSpace(path.Base(strings.TrimSpace(pathValue)))
+	if !strings.HasSuffix(strings.ToLower(fileName), ".json") {
+		return ""
 	}
 
-	const prefix = "active."
-	const suffix = ".json"
-	if strings.HasPrefix(fileName, prefix) && strings.HasSuffix(fileName, suffix) {
-		return strings.TrimSuffix(strings.TrimPrefix(fileName, prefix), suffix)
+	baseName := strings.TrimSuffix(fileName, path.Ext(fileName))
+	segments := strings.Split(baseName, ".")
+	if len(segments) == 0 {
+		return ""
 	}
-	return fileName
+
+	locale := normalizeLocale(segments[len(segments)-1])
+	if !localeCodePattern.MatchString(locale) {
+		return ""
+	}
+	return locale
+}
+
+func groupMessageFilesByLocale(files []string) (map[string][]string, error) {
+	grouped := make(map[string][]string)
+	for _, file := range files {
+		trimmed := strings.TrimSpace(file)
+		if trimmed == "" {
+			continue
+		}
+		locale := localeFromPath(trimmed)
+		if locale == "" {
+			return nil, fmt.Errorf("message file %q must end with .<locale>.json", trimmed)
+		}
+		grouped[locale] = append(grouped[locale], trimmed)
+	}
+
+	for locale := range grouped {
+		sort.Strings(grouped[locale])
+	}
+	if len(grouped) == 0 {
+		return nil, fmt.Errorf("message files are empty")
+	}
+	return grouped, nil
+}
+
+func resolveCanonicalLocale(canonicalRef string, files []string) string {
+	if locale := localeFromPath(canonicalRef); locale != "" {
+		return locale
+	}
+
+	normalizedRef := normalizeLocale(canonicalRef)
+	if normalizedRef != "" {
+		return normalizedRef
+	}
+
+	return detectCanonicalLocale(files)
+}
+
+func mergeMessages(base []Message, incoming []Message) ([]Message, error) {
+	merged := make(map[string]Message, len(base)+len(incoming))
+	for _, message := range base {
+		merged[message.ID] = message
+	}
+	for _, message := range incoming {
+		if _, exists := merged[message.ID]; exists {
+			return nil, fmt.Errorf("duplicate message id %q", message.ID)
+		}
+		merged[message.ID] = message
+	}
+
+	out := make([]Message, 0, len(merged))
+	for _, message := range merged {
+		out = append(out, message)
+	}
+	sort.Slice(out, func(i int, j int) bool {
+		return out[i].ID < out[j].ID
+	})
+	return out, nil
 }
 
 func validateArgs(args []MessageArg) error {
@@ -293,19 +378,11 @@ func validatePlaceholderParity(canonical Message, localized Message, isCanonical
 		return err
 	}
 	if len(canonicalPlaceholders) != len(localizedPlaceholders) {
-		return fmt.Errorf(
-			"placeholder mismatch: expected=%v actual=%v",
-			canonicalPlaceholders,
-			localizedPlaceholders,
-		)
+		return fmt.Errorf("placeholder mismatch: expected=%v actual=%v", canonicalPlaceholders, localizedPlaceholders)
 	}
 	for index := range canonicalPlaceholders {
 		if canonicalPlaceholders[index] != localizedPlaceholders[index] {
-			return fmt.Errorf(
-				"placeholder mismatch: expected=%v actual=%v",
-				canonicalPlaceholders,
-				localizedPlaceholders,
-			)
+			return fmt.Errorf("placeholder mismatch: expected=%v actual=%v", canonicalPlaceholders, localizedPlaceholders)
 		}
 	}
 	if isCanonical {
@@ -345,16 +422,30 @@ func isSupportedArgType(typeName string) bool {
 	}
 }
 
-func detectCanonicalFile(files []string) string {
+func detectCanonicalLocale(files []string) string {
+	locales := make([]string, 0, len(files))
+	seen := make(map[string]struct{}, len(files))
 	for _, file := range files {
-		if localeFromPath(file) == "en" {
-			return strings.TrimSpace(file)
+		locale := localeFromPath(file)
+		if locale == "" {
+			continue
+		}
+		if _, ok := seen[locale]; ok {
+			continue
+		}
+		seen[locale] = struct{}{}
+		locales = append(locales, locale)
+	}
+	sort.Strings(locales)
+	for _, locale := range locales {
+		if locale == "en" {
+			return locale
 		}
 	}
-	if len(files) == 0 {
+	if len(locales) == 0 {
 		return ""
 	}
-	return strings.TrimSpace(files[0])
+	return locales[0]
 }
 
 func slicesContains(values []string, needle string) bool {

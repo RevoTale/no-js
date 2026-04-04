@@ -7,69 +7,26 @@ import (
 	"testing"
 
 	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
-	frameworksite "github.com/RevoTale/no-js/framework/site"
 	"github.com/stretchr/testify/require"
 )
-
-type metadataTestApp struct {
-	root *url.URL
-	cfg  frameworki18n.Config
-}
-
-func (app metadataTestApp) ResolveRoot(*http.Request) *url.URL {
-	if app.root == nil {
-		return nil
-	}
-	clone := *app.root
-	return &clone
-}
-
-func (app metadataTestApp) I18nConfig() frameworki18n.Config {
-	return app.cfg
-}
-
-type metadataResolverApp struct {
-	resolver frameworksite.Resolver
-	cfg      frameworki18n.Config
-}
-
-func (app metadataResolverApp) SiteResolver() frameworksite.Resolver {
-	return app.resolver
-}
-
-func (app metadataResolverApp) I18nConfig() frameworki18n.Config {
-	return app.cfg
-}
-
-type metadataStringResolver struct {
-	canonical string
-}
-
-func (resolver metadataStringResolver) CanonicalURL() string {
-	return resolver.canonical
-}
-
-func (resolver metadataStringResolver) Resolve(*http.Request) string {
-	return ""
-}
 
 func TestMetadataContextProvidesRequestScopedURLHelpers(t *testing.T) {
 	t.Parallel()
 
-	meta := NewMetadataContext[string](
-		metadataTestApp{
-			root: mustParseMetadataURL(t, "https://example.com/blog"),
-			cfg: frameworki18n.Config{
-				Locales:       []string{"en", "de"},
-				DefaultLocale: "en",
-				PrefixMode:    frameworki18n.PrefixAsNeeded,
-			},
-		},
+	meta := NewMetaContext(
+		requestContext(nil),
+		struct{}{},
 		newMetadataRequest(
 			t,
 			"https://request.example/note/hello?tag=go&__live=navigation",
 			"de",
 		),
+		mustParseMetadataURL(t, "https://example.com/blog"),
+		mustNewMetadataResolver(t, frameworki18n.Config{
+			Locales:       []string{"en", "de"},
+			DefaultLocale: "en",
+			PrefixMode:    frameworki18n.PrefixAsNeeded,
+		}),
 	)
 
 	require.Equal(t, "de", meta.Locale())
@@ -90,20 +47,20 @@ func TestMetadataContextProvidesRequestScopedURLHelpers(t *testing.T) {
 func TestMetadataContextAlternatesUseResolvedRootAndStripInternalQueryMarkers(t *testing.T) {
 	t.Parallel()
 
-	meta := NewMetadataContext[string](
-		metadataTestApp{
-			root: mustParseMetadataURL(t, "https://example.com/blog"),
-			cfg: frameworki18n.Config{
-				Locales:       []string{"en", "de"},
-				DefaultLocale: "en",
-				PrefixMode:    frameworki18n.PrefixAsNeeded,
-			},
-		},
+	meta := NewMetaContext(
+		requestContext(nil),
+		struct{}{},
 		newMetadataRequest(
 			t,
 			"https://request.example/note/hello?tag=go&__live=navigation",
 			"de",
 		),
+		mustParseMetadataURL(t, "https://example.com/blog"),
+		mustNewMetadataResolver(t, frameworki18n.Config{
+			Locales:       []string{"en", "de"},
+			DefaultLocale: "en",
+			PrefixMode:    frameworki18n.PrefixAsNeeded,
+		}),
 	)
 
 	alternates, err := meta.Alternates("de", map[string]string{
@@ -116,38 +73,38 @@ func TestMetadataContextAlternatesUseResolvedRootAndStripInternalQueryMarkers(t 
 	require.Equal(t, "https://example.com/blog/feed.xml", alternates.Types["application/rss+xml"])
 }
 
-func TestMetadataContextFallsBackToSiteResolver(t *testing.T) {
+func TestMetadataContextAllowsNilRoot(t *testing.T) {
 	t.Parallel()
 
-	meta := NewMetadataContext[string](
-		metadataResolverApp{
-			resolver: metadataStringResolver{canonical: "https://example.com/app"},
-			cfg: frameworki18n.Config{
-				Locales:       []string{"en", "de"},
-				DefaultLocale: "en",
-				PrefixMode:    frameworki18n.PrefixAsNeeded,
-			},
-		},
+	meta := NewMetaContext(
+		requestContext(nil),
+		struct{}{},
 		newMetadataRequest(t, "https://request.example/note/hello", "en"),
+		nil,
+		mustNewMetadataResolver(t, frameworki18n.Config{
+			Locales:       []string{"en", "de"},
+			DefaultLocale: "en",
+			PrefixMode:    frameworki18n.PrefixAsNeeded,
+		}),
 	)
 
-	require.Equal(t, "https://example.com/app", meta.Root().String())
-	require.Equal(t, "https://example.com/app/note/hello", meta.CurrentURL().String())
+	require.Nil(t, meta.Root())
+	require.Nil(t, meta.CurrentURL())
 }
 
 func TestMetadataContextRootReturnsClone(t *testing.T) {
 	t.Parallel()
 
-	meta := NewMetadataContext[string](
-		metadataTestApp{
-			root: mustParseMetadataURL(t, "https://example.com/blog"),
-			cfg: frameworki18n.Config{
-				Locales:       []string{"en"},
-				DefaultLocale: "en",
-				PrefixMode:    frameworki18n.PrefixAsNeeded,
-			},
-		},
+	meta := NewMetaContext(
+		requestContext(nil),
+		struct{}{},
 		newMetadataRequest(t, "https://request.example/", "en"),
+		mustParseMetadataURL(t, "https://example.com/blog"),
+		mustNewMetadataResolver(t, frameworki18n.Config{
+			Locales:       []string{"en"},
+			DefaultLocale: "en",
+			PrefixMode:    frameworki18n.PrefixAsNeeded,
+		}),
 	)
 
 	root := meta.Root()
@@ -163,6 +120,14 @@ func mustParseMetadataURL(t *testing.T, raw string) *url.URL {
 	parsed, err := url.Parse(raw)
 	require.NoError(t, err)
 	return parsed
+}
+
+func mustNewMetadataResolver(t *testing.T, cfg frameworki18n.Config) *frameworki18n.Resolver {
+	t.Helper()
+
+	resolver, err := frameworki18n.NewResolver(cfg)
+	require.NoError(t, err)
+	return resolver
 }
 
 func newMetadataRequest(t *testing.T, rawURL string, locale string) *http.Request {

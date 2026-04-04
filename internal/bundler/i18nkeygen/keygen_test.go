@@ -21,10 +21,10 @@ func TestBuildKeyDefsDeterministicNames(t *testing.T) {
 	require.Len(t, defs, len(messages))
 
 	expectedByID := map[string]string{
-		"composer.readOnly":     "KeyComposerReadOnly",
-		"layout.channelsButton": "KeyLayoutChannelsButton",
-		"markdown.code.copy":    "KeyMarkdownCodeCopy",
-		"note.publishedPrefix":  "KeyNotePublishedPrefix",
+		"composer.readOnly":     "ComposerReadOnly",
+		"layout.channelsButton": "LayoutChannelsButton",
+		"markdown.code.copy":    "MarkdownCodeCopy",
+		"note.publishedPrefix":  "NotePublishedPrefix",
 	}
 	for _, def := range defs {
 		expectedName, ok := expectedByID[def.ID]
@@ -44,6 +44,16 @@ func TestBuildKeyDefsDetectsConstNameCollision(t *testing.T) {
 	require.Contains(t, err.Error(), "collide")
 }
 
+func TestBuildKeyDefsRejectsReservedGeneratedNames(t *testing.T) {
+	t.Parallel()
+
+	_, err := BuildKeyDefs([]Message{
+		{ID: "keys", Translation: "reserved"},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "reserved generated var")
+}
+
 func TestGenerateFromJSONStableOutput(t *testing.T) {
 	t.Parallel()
 
@@ -59,7 +69,7 @@ func TestGenerateFromJSONStableOutput(t *testing.T) {
 
 	require.Equal(t, string(first), string(second))
 	require.Contains(t, string(first), "type Key string")
-	require.Contains(t, string(first), "var DefaultMessages = map[Key]string")
+	require.Contains(t, string(first), "var Keys = []Key")
 	require.Contains(t, string(first), "frameworki18n.Context[Key]")
 }
 
@@ -74,7 +84,7 @@ func TestGenerateFromJSONIncludesTypedArgsHelpers(t *testing.T) {
 		}
 	]`)
 
-	generated, err := GenerateFromJSON("i18nkeys", source)
+	generated, err := GenerateFromJSON("i18n", source)
 	require.NoError(t, err)
 
 	output := string(generated)

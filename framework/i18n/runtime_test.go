@@ -11,7 +11,10 @@ import (
 
 type runtimeTestKey string
 
-const runtimeTestGreeting runtimeTestKey = "greeting"
+const (
+	runtimeTestGreeting runtimeTestKey = "greeting"
+	runtimeTestAuthor   runtimeTestKey = "author.description"
+)
 
 func TestRuntimeContextProvidesPathsURLsAndLocaleLinks(t *testing.T) {
 	t.Parallel()
@@ -60,4 +63,60 @@ func TestRuntimeContextProvidesPathsURLsAndLocaleLinks(t *testing.T) {
 	require.Equal(t, "en", links[1].Code)
 	require.Equal(t, "English", links[1].Label)
 	require.Equal(t, "fr", links[2].Code)
+}
+
+func TestStaticRuntimeLocalizesCompiledMessages(t *testing.T) {
+	t.Parallel()
+
+	compiledAuthor, err := CompileMessage("Browse notes by {{.Author}}.")
+	require.NoError(t, err)
+	compiledAuthorDE, err := CompileMessage("Notizen von {{.Author}}.")
+	require.NoError(t, err)
+
+	bundle, err := NewStaticBundle(Config{
+		Locales:       []string{"en", "de"},
+		DefaultLocale: "en",
+		PrefixMode:    PrefixAsNeeded,
+	}, map[string]map[runtimeTestKey]CompiledMessage{
+		"en": {
+			runtimeTestGreeting: {Parts: []CompiledMessagePart{{Text: "Hello"}}},
+			runtimeTestAuthor:   compiledAuthor,
+		},
+		"de": {
+			runtimeTestGreeting: {Parts: []CompiledMessagePart{{Text: "Hallo"}}},
+			runtimeTestAuthor:   compiledAuthorDE,
+		},
+	}, map[runtimeTestKey]string{
+		runtimeTestGreeting: "Hello",
+		runtimeTestAuthor:   "Browse notes by {{.Author}}.",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "en", bundle.Config().DefaultLocale)
+
+	request := httptest.NewRequest(http.MethodGet, "https://example.com/de/", nil)
+	request = request.WithContext(WithRequestInfo(request.Context(), RequestInfo{
+		Locale:       "de",
+		StrippedPath: "/",
+	}))
+
+	i18n := bundle.Context(request, nil)
+	require.NotNil(t, i18n)
+	require.Equal(t, "Hallo", i18n.T(runtimeTestGreeting, nil))
+	require.Equal(t, "Notizen von Ada.", i18n.T(runtimeTestAuthor, map[string]any{"Author": "Ada"}))
+	require.Equal(t, "Browse notes by Ada.", bundle.Localize("fr", runtimeTestAuthor, map[string]any{"Author": "Ada"}))
+}
+
+func TestNewBundleWrapsCatalogRuntime(t *testing.T) {
+	t.Parallel()
+
+	bundle, err := NewBundle(Config{
+		Locales:       []string{"en", "de"},
+		DefaultLocale: "en",
+		PrefixMode:    PrefixAsNeeded,
+	}, nil, map[runtimeTestKey]string{
+		runtimeTestGreeting: "Hello",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "en", bundle.Config().DefaultLocale)
+	require.Equal(t, "Hello", bundle.Localize("en", runtimeTestGreeting, nil))
 }

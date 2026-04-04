@@ -3,15 +3,19 @@ package engine
 import (
 	"errors"
 	"net/http"
+	"net/url"
 
 	"github.com/RevoTale/no-js/framework"
+	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
 	"github.com/RevoTale/no-js/framework/metagen"
 	"github.com/a-h/templ"
 )
 
 type Config[C interface{}] struct {
-	AppContext C
-	Handlers   []framework.RouteHandler[C]
+	AppContext   C
+	Handlers     []framework.RouteHandler[C]
+	I18nResolver *frameworki18n.Resolver
+	ResolveRoot  func(r *http.Request) *url.URL
 
 	IsPartialRequest func(r *http.Request) bool
 	RenderPage       func(r *http.Request, w http.ResponseWriter, component templ.Component, meta metagen.Metadata) error
@@ -23,8 +27,10 @@ type Config[C interface{}] struct {
 }
 
 type Engine[C interface{}] struct {
-	appContext C
-	handlers   []framework.RouteHandler[C]
+	appContext   C
+	handlers     []framework.RouteHandler[C]
+	i18nResolver *frameworki18n.Resolver
+	resolveRoot  func(r *http.Request) *url.URL
 
 	isPartialRequest func(r *http.Request) bool
 	renderPage       func(r *http.Request, w http.ResponseWriter, component templ.Component, meta metagen.Metadata) error
@@ -70,6 +76,8 @@ func New[C interface{}](cfg Config[C]) (*Engine[C], error) {
 	return &Engine[C]{
 		appContext:        cfg.AppContext,
 		handlers:          cfg.Handlers,
+		i18nResolver:      cfg.I18nResolver,
+		resolveRoot:       cfg.ResolveRoot,
 		isPartialRequest:  isPartialRequest,
 		renderPage:        cfg.RenderPage,
 		notFound:          notFound,
@@ -91,6 +99,17 @@ func (engine *Engine[C]) ServeRoute(w http.ResponseWriter, r *http.Request) bool
 
 func (engine *Engine[C]) AppContext() C {
 	return engine.appContext
+}
+
+func (engine *Engine[C]) I18n() *frameworki18n.Resolver {
+	return engine.i18nResolver
+}
+
+func (engine *Engine[C]) ResolveRoot(r *http.Request) *url.URL {
+	if engine.resolveRoot == nil {
+		return nil
+	}
+	return engine.resolveRoot(r)
 }
 
 func (engine *Engine[C]) IsPartialRequest(r *http.Request) bool {

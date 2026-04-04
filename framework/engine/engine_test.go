@@ -485,7 +485,11 @@ func TestLoadFailureAfterRootRenderUsesErrorPage(t *testing.T) {
 							return err
 						})
 					},
-					ErrorPage: func(_ string, path string) templ.Component {
+					ErrorPage: func(_ *testAppContext, r *http.Request) templ.Component {
+						path := "/"
+						if r != nil && r.URL != nil {
+							path = r.URL.Path
+						}
 						return textComponent("error:" + path)
 					},
 				},

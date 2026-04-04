@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/RevoTale/no-js/internal/bundler/approutegen"
+	"github.com/RevoTale/no-js/internal/bundler/i18ngen"
 	bundlerstaticassets "github.com/RevoTale/no-js/internal/bundler/staticassets"
 	"github.com/RevoTale/no-js/internal/projectlayout"
 )
@@ -105,6 +106,9 @@ func resolveLayout(rootDir string, configPath string) (projectlayout.ProjectLayo
 func generateRoutes(layout projectlayout.ProjectLayout) error {
 	if err := approutegen.Run(approutegen.Config{Layout: layout}); err != nil {
 		return fmt.Errorf("generate routes: %w", err)
+	}
+	if err := i18ngen.Run(i18ngen.Config{Layout: layout}); err != nil {
+		return fmt.Errorf("generate i18n: %w", err)
 	}
 	return nil
 }

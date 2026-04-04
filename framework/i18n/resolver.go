@@ -1,6 +1,9 @@
 package i18n
 
-import "strings"
+import (
+	"net/http"
+	"strings"
+)
 
 type RouteDecision struct {
 	Locale          string
@@ -23,6 +26,37 @@ func NewResolver(cfg Config) (*Resolver, error) {
 	}
 
 	return &Resolver{config: normalized}, nil
+}
+
+func (resolver *Resolver) Config() Config {
+	if resolver == nil {
+		return Config{}
+	}
+
+	return cloneConfig(resolver.config)
+}
+
+func (resolver *Resolver) LocaleForRequest(r *http.Request) string {
+	requestLocale := ""
+	if r != nil {
+		requestLocale = LocaleFromContext(r.Context())
+	}
+
+	normalized := normalizeLocale(requestLocale)
+	if resolver == nil {
+		return normalized
+	}
+	if normalized == "" || !containsLocale(resolver.config, normalized) {
+		return resolver.config.DefaultLocale
+	}
+	return normalized
+}
+
+func (resolver *Resolver) LocalizedPath(locale string, pathValue string) string {
+	if resolver == nil {
+		return NormalizePath(pathValue)
+	}
+	return localizeNormalizedPath(resolver.config, locale, pathValue)
 }
 
 func (resolver *Resolver) Resolve(requestPath string) RouteDecision {
@@ -48,7 +82,7 @@ func (resolver *Resolver) Resolve(requestPath string) RouteDecision {
 	decision.Locale = locale
 	decision.StrippedPath = strippedPath
 	decision.HadLocalePrefix = hadPrefix
-	decision.CanonicalPath = LocalizePath(resolver.config, locale, strippedPath)
+	decision.CanonicalPath = localizeNormalizedPath(resolver.config, locale, strippedPath)
 	decision.ShouldRedirect = decision.CanonicalPath != normalizedPath
 
 	switch resolver.config.PrefixMode {
@@ -74,4 +108,20 @@ func (resolver *Resolver) Resolve(requestPath string) RouteDecision {
 	}
 
 	return decision
+}
+
+func cloneConfig(cfg Config) Config {
+	cloned := Config{
+		Locales:       append([]string(nil), cfg.Locales...),
+		DefaultLocale: cfg.DefaultLocale,
+		PrefixMode:    cfg.PrefixMode,
+		DisplayOrder:  append([]string(nil), cfg.DisplayOrder...),
+	}
+	if len(cfg.DisplayLabels) > 0 {
+		cloned.DisplayLabels = make(map[string]string, len(cfg.DisplayLabels))
+		for locale, label := range cfg.DisplayLabels {
+			cloned.DisplayLabels[locale] = label
+		}
+	}
+	return cloned
 }

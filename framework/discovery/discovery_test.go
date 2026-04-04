@@ -3,11 +3,13 @@ package discovery
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/RevoTale/no-js/framework"
+	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
 	"github.com/RevoTale/no-js/framework/metagen"
 	"github.com/a-h/templ"
 	"github.com/stretchr/testify/require"
@@ -19,6 +21,14 @@ type testRuntime[C interface{}] struct {
 
 func (runtime testRuntime[C]) AppContext() C {
 	return runtime.appContext
+}
+
+func (testRuntime[C]) ResolveRoot(*http.Request) *url.URL {
+	return nil
+}
+
+func (testRuntime[C]) I18n() *frameworki18n.Resolver {
+	return nil
 }
 
 func (testRuntime[C]) IsPartialRequest(*http.Request) bool {

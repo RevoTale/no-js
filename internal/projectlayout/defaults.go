@@ -50,6 +50,7 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 	if err != nil {
 		return ProjectLayout{}, fmt.Errorf("resolve i18n dir: %w", err)
 	}
+	i18nMessagesDir := filepath.ToSlash(filepath.Join(i18nDir, defaultI18nMessagesDir))
 	staticSourceDir, _, err := resolveModuleDir(resolvedRoot, cfg.Project.AssetsDir, defaultAssetsDir)
 	if err != nil {
 		return ProjectLayout{}, fmt.Errorf("resolve assets dir: %w", err)
@@ -83,6 +84,14 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 		return ProjectLayout{}, fmt.Errorf("strict i18n root missing: expected %s", i18nImport)
 	}
 
+	builtInI18n := BuiltInI18nLayout{
+		Enabled:     cfg.I18n.Mode.Resolve(filesystem.PathExists(i18nMessagesDir)),
+		MessagesDir: i18nMessagesDir,
+	}
+	if builtInI18n.Enabled && !filesystem.PathExists(i18nMessagesDir) {
+		return ProjectLayout{}, fmt.Errorf("strict i18n messages root missing: expected %s/messages", i18nImport)
+	}
+
 	appModulePath, err := readModulePath(resolvedRoot)
 	if err != nil {
 		return ProjectLayout{}, err
@@ -101,6 +110,7 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 		ViewImport:      viewImport,
 		I18nDir:         i18nDir,
 		I18nImport:      i18nImport,
+		BuiltInI18n:     builtInI18n,
 		StaticAssets: StaticAssetsLayout{
 			SourceDir:    staticSourceDir,
 			OutDir:       staticOutDir,

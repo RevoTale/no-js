@@ -3,6 +3,7 @@ package httpserver
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -19,12 +20,17 @@ const defaultStaticManifestPath = "web/assets-build/manifest.json"
 const defaultPublicDir = "web/public"
 
 type AppBundle[C interface{}] struct {
-	Context                       C
-	ExactHandlers                 []framework.RouteHandler[C]
-	Handlers                      []framework.RouteHandler[C]
-	Discovery                     *frameworkdiscovery.Bundle[C]
-	I18n                          *frameworki18n.Config
-	NotFoundPage                  func(notFoundContext framework.NotFoundContext) templ.Component
+	Context       C
+	ExactHandlers []framework.RouteHandler[C]
+	Handlers      []framework.RouteHandler[C]
+	Discovery     *frameworkdiscovery.Bundle[C]
+	I18n          *frameworki18n.Config
+	ResolveRoot   func(r *http.Request) *url.URL
+	NotFoundPage  func(
+		appCtx C,
+		r *http.Request,
+		notFoundContext framework.NotFoundContext,
+	) templ.Component
 	OnStaticAssetBasePathResolved func(prefix string)
 }
 
@@ -82,6 +88,7 @@ func NewApp[C interface{}](cfg Config[C]) (http.Handler, error) {
 		Handlers:            app.Handlers,
 		Discovery:           app.Discovery,
 		I18n:                app.I18n,
+		ResolveRoot:         app.ResolveRoot,
 		PublicFiles:         publicFiles,
 		MountExtraRoutes:    custom.ExtraRoutes,
 		MainMiddlewares:     custom.MainMiddlewares,
@@ -98,12 +105,7 @@ func NewApp[C interface{}](cfg Config[C]) (http.Handler, error) {
 }
 
 func appContextIsNil[C interface{}](value C) bool {
-	raw := any(value)
-	if raw == nil {
-		return true
-	}
-
-	rv := reflect.ValueOf(raw)
+	rv := reflect.ValueOf(value)
 	if !rv.IsValid() {
 		return true
 	}

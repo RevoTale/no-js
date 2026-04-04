@@ -36,21 +36,27 @@ func BuildKeyDefs(messages []Message) ([]KeyDef, error) {
 	}
 
 	defs := make([]KeyDef, 0, len(messages))
-	seenNames := make(map[string]string, len(messages))
+	seenSymbols := map[string]string{
+		"Key":  "reserved generated type",
+		"Keys": "reserved generated var",
+	}
 	for _, msg := range messages {
 		name := constNameForID(msg.ID)
 		if name == "" {
 			return nil, fmt.Errorf("message id %q cannot be converted to key constant name", msg.ID)
 		}
-		if existingID, exists := seenNames[name]; exists {
-			return nil, fmt.Errorf(
-				"message ids %q and %q collide to the same key constant %q",
-				existingID,
-				msg.ID,
-				name,
-			)
+		helperName := "T" + name
+		argsName := name + "Args"
+		for symbol, kind := range map[string]string{
+			name:       "key constant",
+			helperName: "translation helper",
+			argsName:   "args type",
+		} {
+			if existingOwner, exists := seenSymbols[symbol]; exists {
+				return nil, fmt.Errorf("%s for message id %q collides with %s %q", kind, msg.ID, existingOwner, symbol)
+			}
+			seenSymbols[symbol] = fmt.Sprintf("%s for message id %q", kind, msg.ID)
 		}
-		seenNames[name] = msg.ID
 		args := make([]ArgDef, 0, len(msg.Args))
 		for _, arg := range msg.Args {
 			args = append(args, ArgDef{
@@ -61,8 +67,8 @@ func BuildKeyDefs(messages []Message) ([]KeyDef, error) {
 		defs = append(defs, KeyDef{
 			ID:         msg.ID,
 			Name:       name,
-			HelperName: "T" + strings.TrimPrefix(name, "Key"),
-			ArgsName:   strings.TrimPrefix(name, "Key") + "Args",
+			HelperName: helperName,
+			ArgsName:   argsName,
 			Default:    msg.Translation,
 			Args:       args,
 		})
@@ -112,13 +118,13 @@ func GenerateFile(packageName string, defs []KeyDef) ([]byte, error) {
 	}
 	buffer.WriteString(")\n\n")
 
-	buffer.WriteString("var AllKeys = []Key{\n")
+	buffer.WriteString("var Keys = []Key{\n")
 	for _, def := range sortedDefs {
 		fmt.Fprintf(&buffer, "\t%s,\n", def.Name)
 	}
 	buffer.WriteString("}\n\n")
 
-	buffer.WriteString("var DefaultMessages = map[Key]string{\n")
+	buffer.WriteString("var defaultMessages = map[Key]string{\n")
 	for _, def := range sortedDefs {
 		fmt.Fprintf(&buffer, "\t%s: %q,\n", def.Name, def.Default)
 	}
@@ -126,7 +132,7 @@ func GenerateFile(packageName string, defs []KeyDef) ([]byte, error) {
 
 	buffer.WriteString("func translate(ctx frameworki18n.Context[Key], key Key, vars map[string]any) string {\n")
 	buffer.WriteString("\tif ctx == nil {\n")
-	buffer.WriteString("\t\treturn strings.TrimSpace(DefaultMessages[key])\n")
+	buffer.WriteString("\t\treturn strings.TrimSpace(defaultMessages[key])\n")
 	buffer.WriteString("\t}\n")
 	buffer.WriteString("\treturn ctx.T(key, vars)\n")
 	buffer.WriteString("}\n\n")
@@ -175,7 +181,6 @@ func constNameForID(id string) string {
 	}
 
 	var builder strings.Builder
-	builder.WriteString("Key")
 	for _, part := range parts {
 		builder.WriteString(toPascalPreservingInnerCaps(part))
 	}

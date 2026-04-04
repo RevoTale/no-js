@@ -13,6 +13,7 @@ const (
 	defaultResolversDir           = "web/resolvers"
 	defaultViewDir                = "web/view"
 	defaultI18nDir                = "web/i18n"
+	defaultI18nMessagesDir        = "messages"
 	defaultAssetsDir              = "web/assets"
 	defaultAssetsBuildDir         = "web/assets-build"
 	defaultStaticManifestFileName = "manifest.json"
@@ -70,6 +71,11 @@ type ServerFeaturesConfig struct {
 	HealthEndpoint FeatureMode `yaml:"health_endpoint"`
 }
 
+type BuiltInI18nConfig struct {
+	// Mode controls whether generation should emit the built-in i18n bundle and typed keys.
+	Mode FeatureMode `yaml:"mode"`
+}
+
 type ProjectConfig struct {
 	// RoutesDir is the route tree directory relative to the application root.
 	RoutesDir string `yaml:"routes_dir"`
@@ -109,6 +115,7 @@ type Config struct {
 
 	Project      ProjectConfig      `yaml:"project"`
 	Server       ServerConfig       `yaml:"server"`
+	I18n         BuiltInI18nConfig  `yaml:"i18n"`
 	StaticAssets StaticAssetsConfig `yaml:"static_assets"`
 }
 
@@ -116,6 +123,11 @@ type ServerFeatures struct {
 	I18nRouting    bool
 	StaticAssets   bool
 	HealthEndpoint bool
+}
+
+type BuiltInI18nLayout struct {
+	Enabled     bool
+	MessagesDir string
 }
 
 type StaticAssetsLayout struct {
@@ -163,6 +175,7 @@ type ProjectLayout struct {
 	// I18nImport is the module-relative import path that corresponds to I18nDir.
 	I18nImport string
 
+	BuiltInI18n    BuiltInI18nLayout
 	StaticAssets   StaticAssetsLayout
 	ServerFeatures ServerFeatures
 

@@ -289,6 +289,14 @@ func resolversImportPath(paths projectlayout.ProjectLayout) string {
 	return appImportPath(paths.AppModulePath, relativePath)
 }
 
+func generatedI18nMessagesImportPath(paths projectlayout.ProjectLayout) string {
+	relativePath := strings.TrimSpace(paths.GeneratedImport)
+	if relativePath == "" {
+		relativePath = "web/generated"
+	}
+	return appImportPath(paths.AppModulePath, path.Join(relativePath, "i18n", "messages"))
+}
+
 func viewImportPath(paths projectlayout.ProjectLayout) string {
 	relativePath := strings.TrimSpace(paths.ViewImport)
 	if relativePath == "" {
@@ -1362,7 +1370,6 @@ func generateRegistrySource(
 
 	importLines := []string{
 		"\"context\"",
-		"\"fmt\"",
 		"\"net/http\"",
 		"\"strings\"",
 		fmt.Sprintf("%q", frameworkModulePath+"/framework"),
@@ -1610,13 +1617,14 @@ func generateBundleSource(paths projectlayout.ProjectLayout) ([]byte, error) {
 	buffer.WriteString("import (\n")
 	writef(buffer, "\t%q\n", frameworkModulePath+"/framework/httpserver")
 	writef(buffer, "\t%q\n", frameworkModulePath+"/framework/i18n")
+	writef(buffer, "\tmessages %q\n", generatedI18nMessagesImportPath(paths))
 	writef(buffer, "\t%q\n", viewImportPath(paths))
 	buffer.WriteString(")\n\n")
 
 	buffer.WriteString("func Bundle(appContext *runtime.Context) httpserver.AppBundle[*runtime.Context] {\n")
 	buffer.WriteString("\tvar i18nConfig *i18n.Config\n")
-	buffer.WriteString("\tif appContext != nil {\n")
-	buffer.WriteString("\t\tcfg := appContext.I18nConfig()\n")
+	buffer.WriteString("\tcfg := messages.Config()\n")
+	buffer.WriteString("\tif len(cfg.Locales) > 0 {\n")
 	buffer.WriteString("\t\ti18nConfig = &cfg\n")
 	buffer.WriteString("\t}\n\n")
 	buffer.WriteString("\treturn httpserver.AppBundle[*runtime.Context]{\n")
@@ -1625,6 +1633,7 @@ func generateBundleSource(paths projectlayout.ProjectLayout) ([]byte, error) {
 	buffer.WriteString("\t\tHandlers:                      Handlers(NewRouteResolvers()),\n")
 	buffer.WriteString("\t\tDiscovery:                     DiscoveryBundle(),\n")
 	buffer.WriteString("\t\tI18n:                          i18nConfig,\n")
+	buffer.WriteString("\t\tResolveRoot:                   appContext.ResolveRoot,\n")
 	buffer.WriteString("\t\tNotFoundPage:                  NotFoundPage,\n")
 	buffer.WriteString("\t\tOnStaticAssetBasePathResolved: runtime.SetStaticAssetBasePath,\n")
 	buffer.WriteString("\t}\n")
@@ -1661,13 +1670,16 @@ func writeNotFoundPageFunc(
 		return dynamicNotFoundKeys[i] < dynamicNotFoundKeys[j]
 	})
 
-	buffer.WriteString("func NotFoundPage(notFound framework.NotFoundContext) templ.Component {\n")
+	buffer.WriteString(
+		"func NotFoundPage(appCtx *runtime.Context, r *http.Request, " +
+			"notFound framework.NotFoundContext) templ.Component {\n",
+	)
 	buffer.WriteString("\tpathValue := strings.TrimSpace(notFound.RequestPath)\n")
 	buffer.WriteString("\tif pathValue == \"\" {\n")
 	buffer.WriteString("\t\tpathValue = \"/\"\n")
 	buffer.WriteString("\t}\n")
 	buffer.WriteString("\trouteID := nearestNotFoundRouteID(notFound)\n")
-	buffer.WriteString("\tview := runtime.NewNotFoundView(notFound.Locale)\n")
+	buffer.WriteString("\tview := runtime.NewNotFoundView(appCtx.I18n(r))\n")
 	buffer.WriteString("\tmeta := metagen.Metadata{\n")
 	buffer.WriteString("\t\tTitle: view.LayoutPageTitle(),\n")
 	buffer.WriteString("\t\tRobots: &metagen.Robots{\n")
@@ -1973,12 +1985,15 @@ func writePageModule(
 	writef(buffer, "\t\t\t\tLoadName: %q,\n", resolverMethodQualified(resolvePageMethod(meta)))
 	writef(buffer, "\t\t\t\tRender: %s.Page,\n", meta.Page.ModuleName)
 	writef(buffer, "\t\t\t\tRootLayout: %s.RootLayout,\n", root.ModuleName)
-	buffer.WriteString("\t\t\t\tErrorPage: func(locale string, path string) templ.Component {\n")
-	buffer.WriteString("\t\t\t\t\tpathValue := strings.TrimSpace(path)\n")
-	buffer.WriteString("\t\t\t\t\tif pathValue == \"\" {\n")
-	buffer.WriteString("\t\t\t\t\t\tpathValue = \"/\"\n")
+	buffer.WriteString("\t\t\t\tErrorPage: func(appCtx *runtime.Context, r *http.Request) templ.Component {\n")
+	buffer.WriteString("\t\t\t\t\tpathValue := \"/\"\n")
+	buffer.WriteString("\t\t\t\t\tif r != nil && r.URL != nil {\n")
+	buffer.WriteString("\t\t\t\t\t\tpathValue = strings.TrimSpace(r.URL.Path)\n")
+	buffer.WriteString("\t\t\t\t\t\tif pathValue == \"\" {\n")
+	buffer.WriteString("\t\t\t\t\t\t\tpathValue = \"/\"\n")
+	buffer.WriteString("\t\t\t\t\t\t}\n")
 	buffer.WriteString("\t\t\t\t\t}\n")
-	buffer.WriteString("\t\t\t\t\tview := runtime.NewErrorView(locale)\n")
+	buffer.WriteString("\t\t\t\t\tview := runtime.NewErrorView(appCtx.I18n(r))\n")
 	buffer.WriteString("\t\t\t\t\tmeta := metagen.Metadata{\n")
 	buffer.WriteString("\t\t\t\t\t\tTitle: view.LayoutPageTitle(),\n")
 	buffer.WriteString("\t\t\t\t\t\tRobots: &metagen.Robots{\n")
