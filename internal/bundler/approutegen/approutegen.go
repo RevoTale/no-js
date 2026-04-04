@@ -31,7 +31,7 @@ var childLayoutSignaturePattern = regexp.MustCompile(
 	`templ\s+Layout\s*\(\s*view\s+([A-Za-z0-9_.]+)\s*,\s*child\s+templ\.Component\s*\)`,
 )
 var notFoundSignaturePattern = regexp.MustCompile(
-	`templ\s+Page\s*\(\s*view\s+([A-Za-z0-9_.]+)\s*,\s*path\s+string\s*\)`,
+	`templ\s+NotFound\s*\(\s*view\s+([A-Za-z0-9_.]+)\s*,\s*path\s+string\s*\)`,
 )
 var errorSignaturePattern = regexp.MustCompile(
 	`templ\s+Error\s*\(\s*view\s+([A-Za-z0-9_.]+)\s*,\s*path\s+string\s*\)`,
@@ -1020,7 +1020,7 @@ func validateNotFoundTemplateSignature(notFoundTemplatePath string) error {
 	matches := notFoundSignaturePattern.FindStringSubmatch(string(source))
 	if len(matches) < 2 {
 		return fmt.Errorf(
-			"%q must declare templ Page(view runtime.RootLayoutView, path string)",
+			"%q must declare templ NotFound(view runtime.RootLayoutView, path string)",
 			filepath.ToSlash(notFoundTemplatePath),
 		)
 	}
@@ -1694,7 +1694,7 @@ func writeNotFoundPageFunc(
 		}
 		notFound := notFounds[routeID]
 		writef(buffer, "\tcase %q:\n", routeID)
-		writef(buffer, "\t\tcomponent := %s.Page(view, pathValue)\n", notFound.ModuleName)
+		writef(buffer, "\t\tcomponent := %s.NotFound(view, pathValue)\n", notFound.ModuleName)
 		chain := layoutChain(routeID, layouts)
 		for idx := len(chain) - 1; idx >= 0; idx-- {
 			if chain[idx].RouteID == "" {
@@ -1708,7 +1708,7 @@ func writeNotFoundPageFunc(
 
 	rootNotFound := notFounds[""]
 	buffer.WriteString("\tdefault:\n")
-	writef(buffer, "\t\tcomponent := %s.Page(view, pathValue)\n", rootNotFound.ModuleName)
+	writef(buffer, "\t\tcomponent := %s.NotFound(view, pathValue)\n", rootNotFound.ModuleName)
 	rootChain := layoutChain("", layouts)
 	for idx := len(rootChain) - 1; idx >= 0; idx-- {
 		if rootChain[idx].RouteID == "" {

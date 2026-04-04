@@ -78,7 +78,7 @@ func TestDiscoverRouteFilesCollectsNotFoundTemplates(t *testing.T) {
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 `,
 	)
 	writeTestFile(
@@ -88,7 +88,7 @@ templ Page(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 `,
 	)
 	writeTestFile(
@@ -443,7 +443,7 @@ func TestValidateNotFoundTemplateSignature(t *testing.T) {
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 `,
 	)
 	writeTestFile(
@@ -860,7 +860,7 @@ templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { 
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 `)
 	writeTestFile(t, filepath.Join(appDir, "error.templ"), `package appsrc
 
