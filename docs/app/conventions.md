@@ -29,6 +29,9 @@ your-app/
   and `<body>`.
 - Route-local `components/` directories are rejected by the generator.
 
+See [Routing and Generation](features/routing-and-generation.md) for the normal
+page/resolver flow.
+
 ## Generated Output
 
 Generated files are written to:
@@ -46,6 +49,9 @@ Generated code imports:
 Do not edit generated files manually. Change the source route tree or resolver
 contracts, then regenerate.
 
+See [Routing and Generation](features/routing-and-generation.md) for the public
+contract behind the generated `App Bundle`.
+
 ## View Contract Rules
 
 Current generated contracts still expect:
@@ -55,6 +61,10 @@ Current generated contracts still expect:
 - layout and not-found contracts through `runtime.RootLayoutView`
 
 This is a framework contract today, even though the directory name is `web/view`.
+
+See [Metadata and Head](features/metadata-and-head.md) and
+[Request Cache and Partials](features/request-cache-and-partials.md) for the
+request-scoped runtime surface built on top of these contracts.
 
 ## Discovery Conventions
 
@@ -74,6 +84,8 @@ Nested discovery files inherit their route directory. Examples:
 
 See `framework/discovery/discovery.go` for the field-level return contracts.
 
+See [Discovery](features/discovery.md) for the app-facing usage model.
+
 ## Runtime Happy Path
 
 The preferred runtime integration is:
@@ -91,6 +103,9 @@ Terminology used across the framework:
 - `Site Resolver`: app-owned domain and canonical-URL policy
 - `Advanced composition`: any app-owned package used only when the happy path is
   not enough
+
+See [HTTP Server and Runtime](features/httpserver-and-runtime.md) and
+[Site Resolution](features/site-resolution.md).
 
 ## Build Config
 
@@ -111,3 +126,6 @@ Do not use it for:
 - app service wiring
 
 Those belong in app-owned Go runtime code.
+
+See [i18n](features/i18n.md) and [Static Assets](features/static-assets.md) for
+the main build-time features currently controlled through `no-js.bundle.yaml`.

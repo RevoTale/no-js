@@ -4,17 +4,8 @@
 
 `no-js` is an opinionated Go framework for server-rendered web applications.
 
-## What You Build With It
-
-`no-js` is for apps that want:
-
-- server-rendered pages with typed loaders and layouts
-- generated route wiring from a strict file-based app tree
-- metadata composition for `<head>`
-- i18n-aware routing
-- static asset fingerprinting
-- optimized data streaming 
-- optional HTMX partial navigation support
+It is built around a strict `web/*` app tree, a generated `App Bundle`, and a
+convention-first runtime.
 
 ## Start Here
 
@@ -24,6 +15,8 @@ For app developers using `no-js`:
   The shortest path from empty app tree to `httpserver.NewApp(...)`.
 - [App Conventions](docs/app/conventions.md)
   The strict `web/*` contract, generated outputs, and reserved route files.
+- [Feature Guides Overview](docs/app/features/overview.md)
+  The module-by-module guide for public framework features.
 
 For contributors developing `no-js` itself:
 
@@ -31,6 +24,28 @@ For contributors developing `no-js` itself:
   Repository boundaries, main implementation areas, and contributor rules.
 - [AI Agents](docs/framework/ai-agents.md)
   A framework-repo reading order and editing guide for agents.
+
+## Feature Guides
+
+- [Routing and Generation](docs/app/features/routing-and-generation.md)
+  Route tree conventions, generated handlers, resolver contracts, and the
+  `App Bundle`.
+- [HTTP Server and Runtime](docs/app/features/httpserver-and-runtime.md)
+  `httpserver.NewApp(...)`, default runtime wiring, and `Custom Config`.
+- [Metadata and Head](docs/app/features/metadata-and-head.md)
+  `MetaContext`, `<head>` composition, alternates, and HTMX metadata patches.
+- [i18n](docs/app/features/i18n.md)
+  Localized routing, generated message keys, and request-scoped translation
+  context.
+- [Discovery](docs/app/features/discovery.md)
+  `robots.go`, `feed.go`, `sitemap.go`, and generated sitemap chunks.
+- [Static Assets](docs/app/features/static-assets.md)
+  Fingerprinted asset output, manifests, runtime prefixes, and public-file
+  boundaries.
+- [Site Resolution](docs/app/features/site-resolution.md)
+  `Site Resolver` contracts and request-aware canonical roots.
+- [Request Cache and Partials](docs/app/features/request-cache-and-partials.md)
+  Request-scoped cache sharing and HTMX partial rendering behavior.
 
 ## Using `no-js` In An App
 
@@ -78,7 +93,7 @@ Convention defaults:
 Assets manifest: web/assets-build/manifest.json
 Static prefix: /_assets/
 Public files: web/public
-Localization: auto-wired when web/i18n exists
+Localization: auto-wired when built-in i18n is enabled and `web/i18n/messages` exists
 ```
 
 ## Discovery Conventions
@@ -148,6 +163,9 @@ server:
     static_assets: auto
     health_endpoint: auto
 
+i18n:
+  mode: auto
+
 static_assets:
   manifest_path: web/assets-build/manifest.json
 ```
@@ -162,7 +180,7 @@ the final versioned asset prefix. The happy path uses runtime convention default
 - The preferred runtime integration is `generated.Bundle(appContext)` with `httpserver.NewApp(...)`.
 - Generated code imports `web/view`, but current view contracts still use the package identifier `runtime`.
 - The generator is module-aware: framework imports point to `github.com/RevoTale/no-js`, but generated app imports are resolved from the consuming app's `go.mod`.
-- Localization is convention-first: when `web/i18n` exists, the target runtime model auto-wires locale support.
+- Localization is convention-first: built-in i18n is generated when enabled and `web/i18n/messages` exists.
 - Advanced composition is supported, but it is not tied to a reserved package or directory name.
 - Site and canonical-domain policy should be centralized through a `Site Resolver`.
 - i18n locales are currently normalized to two-letter lowercase codes.
