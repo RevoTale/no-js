@@ -2152,6 +2152,9 @@ func generateRegistrySource(
 		fmt.Sprintf("route_resolvers %q", resolversImportPath(paths)),
 		"\"github.com/a-h/templ\"",
 	}
+	if len(slotOwners) > 0 {
+		importLines = append(importLines, "\"sync\"")
+	}
 	if anyParamsUseSlice(contracts) {
 		importLines = append(importLines, "\"slices\"")
 	}
@@ -3169,6 +3172,30 @@ func writeComposeFunc(
 	buffer.WriteString("\t\treturn component, nil\n")
 	buffer.WriteString("\t}\n")
 
+	hasSlots := false
+	for _, layout := range chain {
+		if len(slotOwners[layout.RouteID]) > 0 {
+			hasSlots = true
+			break
+		}
+	}
+	if hasSlots {
+		buffer.WriteString("\tslotCtx, cancel := context.WithCancel(ctx)\n")
+		buffer.WriteString("\tdefer cancel()\n")
+		buffer.WriteString("\tvar slotWG sync.WaitGroup\n")
+		buffer.WriteString("\tvar slotErr error\n")
+		buffer.WriteString("\tvar slotErrOnce sync.Once\n")
+		buffer.WriteString("\tsetSlotErr := func(err error) {\n")
+		buffer.WriteString("\t\tif err == nil {\n")
+		buffer.WriteString("\t\t\treturn\n")
+		buffer.WriteString("\t\t}\n")
+		buffer.WriteString("\t\tslotErrOnce.Do(func() {\n")
+		buffer.WriteString("\t\t\tslotErr = err\n")
+		buffer.WriteString("\t\t\tcancel()\n")
+		buffer.WriteString("\t\t})\n")
+		buffer.WriteString("\t}\n")
+	}
+
 	for _, layout := range chain {
 		slots := slotOwners[layout.RouteID]
 		if len(slots) == 0 {
@@ -3177,16 +3204,39 @@ func writeComposeFunc(
 		for _, slot := range slots {
 			varName := slotComponentVarName(layout.RouteID, slot.Name)
 			writef(buffer, "\tvar %s templ.Component\n", varName)
-			writef(
-				buffer,
-				"\t%s, err := %s(ctx, runtime, r, view, resolvers)\n",
-				varName,
-				slotResolveFuncName(layout.RouteID, slot.Name),
-			)
-			buffer.WriteString("\tif err != nil {\n")
-			buffer.WriteString("\t\treturn nil, err\n")
-			buffer.WriteString("\t}\n")
+			if hasSlots {
+				buffer.WriteString("\tslotWG.Add(1)\n")
+				buffer.WriteString("\tgo func() {\n")
+				buffer.WriteString("\t\tdefer slotWG.Done()\n")
+				writef(
+					buffer,
+					"\t\tcomponent, err := %s(slotCtx, runtime, r, view, resolvers)\n",
+					slotResolveFuncName(layout.RouteID, slot.Name),
+				)
+				buffer.WriteString("\t\tif err != nil {\n")
+				buffer.WriteString("\t\t\tsetSlotErr(err)\n")
+				buffer.WriteString("\t\t\treturn\n")
+				buffer.WriteString("\t\t}\n")
+				writef(buffer, "\t\t%s = component\n", varName)
+				buffer.WriteString("\t}()\n")
+			} else {
+				writef(
+					buffer,
+					"\t%s, err := %s(ctx, runtime, r, view, resolvers)\n",
+					varName,
+					slotResolveFuncName(layout.RouteID, slot.Name),
+				)
+				buffer.WriteString("\tif err != nil {\n")
+				buffer.WriteString("\t\treturn nil, err\n")
+				buffer.WriteString("\t}\n")
+			}
 		}
+	}
+	if hasSlots {
+		buffer.WriteString("\tslotWG.Wait()\n")
+		buffer.WriteString("\tif slotErr != nil {\n")
+		buffer.WriteString("\t\treturn nil, slotErr\n")
+		buffer.WriteString("\t}\n")
 	}
 
 	for idx := len(chain) - 1; idx >= 0; idx-- {

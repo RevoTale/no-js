@@ -1123,7 +1123,10 @@ templ Page(view runtime.NotesPageView) { <div>analytics</div> }
 	registryText := string(registrySource)
 	require.Contains(t, registryText, "func resolveDashboardAnalyticsSlot(")
 	require.Contains(t, registryText, "func composeDashboardPage(")
-	require.Contains(t, registryText, "dashboardAnalyticsSlot, err := resolveDashboardAnalyticsSlot")
+	require.Contains(t, registryText, "var slotWG sync.WaitGroup")
+	require.Contains(t, registryText, "go func() {")
+	require.Contains(t, registryText, "component, err := resolveDashboardAnalyticsSlot")
+	require.Contains(t, registryText, "dashboardAnalyticsSlot = component")
 	require.Contains(t, registryText, "r_layout_dashboard.Layout(view, component, dashboardAnalyticsSlot)")
 	require.Contains(t, registryText, "component := r_default_dashboard_slot_analytics.Default(view)")
 
@@ -1234,11 +1237,14 @@ func GET(
 	require.Contains(t, registryText, `"/dashboard"`)
 	require.Contains(t, registryText, "func resolveGroupMarketingDashboardAnalyticsSlot(")
 	require.Contains(t, registryText, "func composeGroupMarketingDashboardPage(")
+	require.Contains(t, registryText, "var slotWG sync.WaitGroup")
+	require.Contains(t, registryText, "go func() {")
 	require.Contains(
 		t,
 		registryText,
-		"groupmarketingdashboardAnalyticsSlot, err := resolveGroupMarketingDashboardAnalyticsSlot",
+		"component, err := resolveGroupMarketingDashboardAnalyticsSlot",
 	)
+	require.Contains(t, registryText, "groupmarketingdashboardAnalyticsSlot = component")
 	require.Contains(
 		t,
 		registryText,
