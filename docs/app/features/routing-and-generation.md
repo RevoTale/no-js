@@ -24,7 +24,19 @@ web/routes/
   error.templ
   page.templ
   note/
-    [slug]/
+    _param__slug/
+      page.templ
+  api/
+    health/
+      route.go
+  _group__marketing/
+    about/
+      page.templ
+  dashboard/
+    layout.templ
+    page.templ
+    _slot__analytics/
+      default.templ
       page.templ
 ```
 
@@ -53,7 +65,34 @@ if err != nil {
 
 ## Focused Example
 
-For a dynamic page under `web/routes/note/[slug]/page.templ`, the generated
+Control directories are reserved. The generator accepts only these forms:
+
+- `_param__slug`
+- `_catchall__slug`
+- `_optional_catchall__slug`
+- `_group__marketing`
+- `_slot__analytics`
+
+Any other `_...` route directory is a generation error.
+
+## Why This Syntax Exists
+
+`no-js` does not use Next.js symbols like `[slug]`, `(group)`, or `@slot` on
+disk because route directories may also contain `.go` files such as `route.go`,
+`feed.go`, and `sitemap.go`.
+
+Those symbolic names are not valid Go package path segments. The reserved
+`_...__` form keeps the route tree:
+
+- valid for Go source packages
+- unambiguous for the generator
+- visually distinct from normal URL segments
+- strict enough to fail fast on unknown control directories
+
+So the tradeoff is deliberate: slightly noisier directory names in exchange for
+a route tree that works with both templates and Go source files.
+
+For a dynamic page under `web/routes/note/_param__slug/page.templ`, the generated
 resolver contract uses typed params:
 
 ```go
@@ -76,6 +115,22 @@ func (Resolver) MetaGenNotePage(
 
 The template and route path define the shape. Generated code keeps the handler
 wiring in sync.
+
+For method-only routes, use `route.go` instead of `page.templ`:
+
+```go
+func GET(
+	runtime framework.RuntimeContext[*runtime.Context],
+	w http.ResponseWriter,
+	r *http.Request,
+	params NoteParamSlugParams,
+) error {
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+```
+
+`route.go` and `page.templ` are mutually exclusive at the same route.
 
 ## Related Docs
 

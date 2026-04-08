@@ -6,39 +6,120 @@ import (
 	"io/fs"
 	"path"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 )
 
 const pageTemplateName = "page.templ"
 
-var dynamicSegmentNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
-var slugPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
+var (
+	dynamicSegmentNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
+	slotSegmentNamePattern    = regexp.MustCompile(`^[a-z][a-zA-Z0-9]*$`)
+	reservedSegmentPattern    = regexp.MustCompile(`^_([a-z_]+)__([a-zA-Z][a-zA-Z0-9_]*)$`)
+)
 
-type pathSegment struct {
-	name    string
-	isParam bool
+const (
+	reservedGroupKind            = "group"
+	reservedSlotKind             = "slot"
+	reservedParamKind            = "param"
+	reservedCatchAllKind         = "catchall"
+	reservedOptionalCatchAllKind = "optional_catchall"
+)
+
+type SegmentKind string
+
+const (
+	SegmentStatic           SegmentKind = "static"
+	SegmentDynamic          SegmentKind = "dynamic"
+	SegmentCatchAll         SegmentKind = "catch_all"
+	SegmentOptionalCatchAll SegmentKind = "optional_catch_all"
+	SegmentGroup            SegmentKind = "group"
+	SegmentSlot             SegmentKind = "slot"
+)
+
+type Segment struct {
+	Kind SegmentKind
+	Name string
 }
 
-type appRoute struct {
-	id          string
-	segments    []pathSegment
-	staticCount int
-	patternKey  string
+func (segment Segment) RawPart() string {
+	switch segment.Kind {
+	case SegmentDynamic:
+		return "_param__" + segment.Name
+	case SegmentCatchAll:
+		return "_catchall__" + segment.Name
+	case SegmentOptionalCatchAll:
+		return "_optional_catchall__" + segment.Name
+	case SegmentGroup:
+		return "_group__" + segment.Name
+	case SegmentSlot:
+		return "_slot__" + segment.Name
+	default:
+		return segment.Name
+	}
 }
+
+func (segment Segment) ContributesToPublicPath() bool {
+	switch segment.Kind {
+	case SegmentGroup, SegmentSlot:
+		return false
+	default:
+		return true
+	}
+}
+
+func (segment Segment) IsParam() bool {
+	switch segment.Kind {
+	case SegmentDynamic, SegmentCatchAll, SegmentOptionalCatchAll:
+		return true
+	default:
+		return false
+	}
+}
+
+func (segment Segment) PublicPart() string {
+	if !segment.ContributesToPublicPath() {
+		return ""
+	}
+	return segment.RawPart()
+}
+
+func (segment Segment) PatternKeyPart() string {
+	switch segment.Kind {
+	case SegmentStatic:
+		return segment.Name
+	case SegmentDynamic:
+		return ":"
+	case SegmentCatchAll:
+		return "*"
+	case SegmentOptionalCatchAll:
+		return "**"
+	default:
+		return ""
+	}
+}
+
+type ParamValues map[string][]string
 
 type AppRouteMatch struct {
 	ID     string
-	Params map[string]string
+	Params ParamValues
 }
 
-func (m AppRouteMatch) Param(name string) (string, bool) {
-	if m.Params == nil {
-		return "", false
+func (match AppRouteMatch) Param(name string) ([]string, bool) {
+	if match.Params == nil {
+		return nil, false
 	}
 
-	value, ok := m.Params[name]
-	return value, ok
+	value, ok := match.Params[name]
+	return slices.Clone(value), ok
+}
+
+type appRoute struct {
+	id            string
+	internalParts []Segment
+	publicParts   []Segment
+	patternKey    string
 }
 
 type AppRouter struct {
@@ -74,6 +155,12 @@ func NewAppRouter(embedded fs.FS, root string) (*AppRouter, error) {
 		if parseErr != nil {
 			return parseErr
 		}
+		if len(route.publicParts) == 0 && containsSlotSegment(route.internalParts) {
+			return nil
+		}
+		if containsSlotSegment(route.internalParts) {
+			return nil
+		}
 
 		if existing, ok := seenPattern[route.patternKey]; ok {
 			return fmt.Errorf("route pattern conflict: %q and %q", existing, route.id)
@@ -90,20 +177,172 @@ func NewAppRouter(embedded fs.FS, root string) (*AppRouter, error) {
 		return nil, errors.New("no page.templ routes found")
 	}
 
-	sort.Slice(routes, func(i int, j int) bool {
-		left := routes[i]
-		right := routes[j]
-
-		if left.staticCount != right.staticCount {
-			return left.staticCount > right.staticCount
-		}
-		if len(left.segments) != len(right.segments) {
-			return len(left.segments) > len(right.segments)
-		}
-		return left.id < right.id
-	})
-
 	return &AppRouter{routes: routes}, nil
+}
+
+func ParseDirectorySegments(routeDir string) ([]Segment, error) {
+	if strings.TrimSpace(routeDir) == "" {
+		return []Segment{}, nil
+	}
+
+	parts := strings.Split(routeDir, "/")
+	segments := make([]Segment, 0, len(parts))
+	for _, part := range parts {
+		segment, err := ParseDirectorySegment(part)
+		if err != nil {
+			return nil, err
+		}
+		segments = append(segments, segment)
+	}
+
+	return segments, nil
+}
+
+func ParseDirectorySegment(part string) (Segment, error) {
+	trimmed := strings.TrimSpace(part)
+	if trimmed == "" {
+		return Segment{}, errors.New("route segment cannot be empty")
+	}
+
+	switch {
+	case strings.HasPrefix(trimmed, "_"):
+		return parseReservedDirectorySegment(trimmed)
+	}
+
+	if strings.ContainsAny(trimmed, "[]()@") {
+		return Segment{}, fmt.Errorf("invalid static segment %q", part)
+	}
+
+	return Segment{Kind: SegmentStatic, Name: trimmed}, nil
+}
+
+func parseReservedDirectorySegment(part string) (Segment, error) {
+	matches := reservedSegmentPattern.FindStringSubmatch(part)
+	if len(matches) != 3 {
+		return Segment{}, fmt.Errorf(
+			"invalid reserved route segment %q; use _group__, _slot__, _param__, _catchall__, or _optional_catchall__",
+			part,
+		)
+	}
+
+	kind := matches[1]
+	name := matches[2]
+	if !dynamicSegmentNamePattern.MatchString(name) {
+		return Segment{}, fmt.Errorf("invalid reserved route name %q", name)
+	}
+
+	switch kind {
+	case reservedGroupKind:
+		return Segment{Kind: SegmentGroup, Name: name}, nil
+	case reservedSlotKind:
+		if !slotSegmentNamePattern.MatchString(name) {
+			return Segment{}, fmt.Errorf("invalid slot name %q", part)
+		}
+		return Segment{Kind: SegmentSlot, Name: name}, nil
+	case reservedParamKind:
+		return Segment{Kind: SegmentDynamic, Name: name}, nil
+	case reservedCatchAllKind:
+		return Segment{Kind: SegmentCatchAll, Name: name}, nil
+	case reservedOptionalCatchAllKind:
+		return Segment{Kind: SegmentOptionalCatchAll, Name: name}, nil
+	default:
+		return Segment{}, fmt.Errorf(
+			"unknown reserved route segment %q; use _group__, _slot__, _param__, _catchall__, or _optional_catchall__",
+			part,
+		)
+	}
+}
+
+func InternalRouteID(segments []Segment) string {
+	parts := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		parts = append(parts, segment.RawPart())
+	}
+	return strings.Join(parts, "/")
+}
+
+func PatternKey(segments []Segment) string {
+	parts := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		key := segment.PatternKeyPart()
+		if key == "" {
+			continue
+		}
+		parts = append(parts, key)
+	}
+	if len(parts) == 0 {
+		return "/"
+	}
+	return "/" + strings.Join(parts, "/")
+}
+
+func MatchPathPattern(pattern string, requestPath string) (ParamValues, bool) {
+	segments, err := ParsePatternSegments(pattern)
+	if err != nil {
+		return nil, false
+	}
+	return MatchSegments(segments, requestPath)
+}
+
+func ParsePatternSegments(pattern string) ([]Segment, error) {
+	trimmed := strings.Trim(strings.TrimSpace(pattern), "/")
+	if trimmed == "" {
+		return []Segment{}, nil
+	}
+
+	parts := strings.Split(trimmed, "/")
+	segments := make([]Segment, 0, len(parts))
+	for _, part := range parts {
+		segment, err := ParseDirectorySegment(part)
+		if err != nil {
+			return nil, err
+		}
+		if !segment.ContributesToPublicPath() {
+			return nil, fmt.Errorf("pattern segment %q does not contribute to the public path", part)
+		}
+		segments = append(segments, segment)
+	}
+	return segments, nil
+}
+
+func MatchSegments(pattern []Segment, requestPath string) (ParamValues, bool) {
+	requestSegments := splitPathSegments(requestPath)
+	params, matched := matchSegments(pattern, requestSegments)
+	if !matched {
+		return nil, false
+	}
+	return params, true
+}
+
+func (router *AppRouter) Match(requestPath string) (AppRouteMatch, bool) {
+	requestSegments := splitPathSegments(requestPath)
+	matched := make([]appRoute, 0, 2)
+	valuesByRoute := make(map[string]ParamValues)
+
+	for _, route := range router.routes {
+		params, ok := matchSegments(route.publicParts, requestSegments)
+		if !ok {
+			continue
+		}
+		matched = append(matched, route)
+		valuesByRoute[route.id] = params
+	}
+	if len(matched) == 0 {
+		return AppRouteMatch{}, false
+	}
+
+	best := matched[0]
+	for _, candidate := range matched[1:] {
+		if compareRouteSpecificity(candidate.publicParts, best.publicParts) > 0 {
+			best = candidate
+		}
+	}
+
+	params := valuesByRoute[best.id]
+	if len(params) == 0 {
+		return AppRouteMatch{ID: best.id}, true
+	}
+	return AppRouteMatch{ID: best.id, Params: params}, true
 }
 
 func parseAppRoute(relPath string) (appRoute, error) {
@@ -112,161 +351,158 @@ func parseAppRoute(relPath string) (appRoute, error) {
 		return appRoute{}, errors.New("route path cannot be empty")
 	}
 
-	id := ""
+	routeDir := ""
 	if cleaned != pageTemplateName {
 		suffix := "/" + pageTemplateName
 		if !strings.HasSuffix(cleaned, suffix) {
 			return appRoute{}, fmt.Errorf("route file %q must end with %q", relPath, suffix)
 		}
-		id = strings.TrimSuffix(cleaned, suffix)
+		routeDir = strings.TrimSuffix(cleaned, suffix)
 	}
 
-	parts := []string{}
-	if id != "" {
-		parts = strings.Split(id, "/")
+	internalParts, err := ParseDirectorySegments(routeDir)
+	if err != nil {
+		return appRoute{}, fmt.Errorf("route file %q: %w", relPath, err)
 	}
-
-	segments := make([]pathSegment, 0, len(parts))
-	patternParts := make([]string, 0, len(parts))
-	normalizedIDParts := make([]string, 0, len(parts))
-	staticCount := 0
-
-	for _, part := range parts {
-		if strings.TrimSpace(part) == "" {
-			return appRoute{}, fmt.Errorf("route file %q has empty path segment", relPath)
-		}
-
-		name, isParam, normalizedIDPart, err := parseWildcardSegment(part)
-		if err != nil {
-			return appRoute{}, fmt.Errorf("route file %q: %w", relPath, err)
-		}
-
-		if isParam {
-			segments = append(segments, pathSegment{name: name, isParam: true})
-			patternParts = append(patternParts, ":")
-			normalizedIDParts = append(normalizedIDParts, normalizedIDPart)
-			continue
-		}
-
-		segments = append(segments, pathSegment{name: part, isParam: false})
-		patternParts = append(patternParts, part)
-		normalizedIDParts = append(normalizedIDParts, part)
-		staticCount++
-	}
-
-	normalizedID := strings.Join(normalizedIDParts, "/")
-
-	patternKey := "/"
-	if len(patternParts) > 0 {
-		patternKey = "/" + strings.Join(patternParts, "/")
-	}
+	publicParts := PublicSegments(internalParts)
 
 	return appRoute{
-		id:          normalizedID,
-		segments:    segments,
-		staticCount: staticCount,
-		patternKey:  patternKey,
+		id:            InternalRouteID(internalParts),
+		internalParts: internalParts,
+		publicParts:   publicParts,
+		patternKey:    PatternKey(internalParts),
 	}, nil
 }
 
-func parseWildcardSegment(segment string) (string, bool, string, error) {
-	if strings.HasPrefix(segment, "_") {
-		name := strings.TrimSpace(strings.TrimPrefix(segment, "_"))
-		if !dynamicSegmentNamePattern.MatchString(name) {
-			return "", false, "", fmt.Errorf("invalid wildcard name %q", name)
-		}
-		return name, true, "[" + name + "]", nil
-	}
-
-	if strings.HasPrefix(segment, "[") || strings.HasSuffix(segment, "]") {
-		if !strings.HasPrefix(segment, "[") || !strings.HasSuffix(segment, "]") {
-			return "", false, "", fmt.Errorf("invalid wildcard segment %q", segment)
-		}
-
-		name := strings.TrimSpace(segment[1 : len(segment)-1])
-		if !dynamicSegmentNamePattern.MatchString(name) {
-			return "", false, "", fmt.Errorf("invalid wildcard name %q", name)
-		}
-
-		return name, true, "[" + name + "]", nil
-	}
-
-	if strings.ContainsAny(segment, "[]") {
-		return "", false, "", fmt.Errorf("invalid static segment %q", segment)
-	}
-	if strings.TrimSpace(segment) == "_" {
-		return "", false, "", fmt.Errorf("invalid wildcard segment %q", segment)
-	}
-
-	return "", false, "", nil
-}
-
-func (router *AppRouter) Match(requestPath string) (AppRouteMatch, bool) {
-	requestSegments := splitPathSegments(requestPath)
-
-	for _, route := range router.routes {
-		if len(route.segments) != len(requestSegments) {
+func PublicSegments(segments []Segment) []Segment {
+	out := make([]Segment, 0, len(segments))
+	for _, segment := range segments {
+		if !segment.ContributesToPublicPath() {
 			continue
 		}
-
-		params := make(map[string]string, 2)
-		matched := true
-
-		for idx, segment := range route.segments {
-			requestValue := requestSegments[idx]
-			if segment.isParam {
-				params[segment.name] = requestValue
-				continue
-			}
-			if segment.name != requestValue {
-				matched = false
-				break
-			}
-		}
-
-		if !matched {
-			continue
-		}
-
-		if len(params) == 0 {
-			return AppRouteMatch{ID: route.id}, true
-		}
-		return AppRouteMatch{ID: route.id, Params: params}, true
+		out = append(out, segment)
 	}
-
-	return AppRouteMatch{}, false
+	return out
 }
 
-func MatchPathPattern(pattern string, requestPath string) (map[string]string, bool) {
-	patternSegments := splitPathSegments(pattern)
-	requestSegments := splitPathSegments(requestPath)
-	if len(patternSegments) != len(requestSegments) {
+func matchSegments(pattern []Segment, requestSegments []string) (ParamValues, bool) {
+	params := make(ParamValues)
+	patternIdx := 0
+	requestIdx := 0
+
+	for patternIdx < len(pattern) {
+		segment := pattern[patternIdx]
+		switch segment.Kind {
+		case SegmentStatic:
+			if requestIdx >= len(requestSegments) || requestSegments[requestIdx] != segment.Name {
+				return nil, false
+			}
+			patternIdx++
+			requestIdx++
+		case SegmentDynamic:
+			if requestIdx >= len(requestSegments) {
+				return nil, false
+			}
+			params[segment.Name] = []string{requestSegments[requestIdx]}
+			patternIdx++
+			requestIdx++
+		case SegmentCatchAll:
+			if requestIdx >= len(requestSegments) {
+				return nil, false
+			}
+			params[segment.Name] = slices.Clone(requestSegments[requestIdx:])
+			patternIdx = len(pattern)
+			requestIdx = len(requestSegments)
+		case SegmentOptionalCatchAll:
+			if requestIdx >= len(requestSegments) {
+				params[segment.Name] = nil
+			} else {
+				params[segment.Name] = slices.Clone(requestSegments[requestIdx:])
+				requestIdx = len(requestSegments)
+			}
+			patternIdx = len(pattern)
+		default:
+			return nil, false
+		}
+	}
+
+	if requestIdx != len(requestSegments) {
 		return nil, false
 	}
 
-	params := make(map[string]string, 2)
-	for idx, patternSegment := range patternSegments {
-		name, isParam, _, err := parseWildcardSegment(patternSegment)
-		if err != nil {
-			return nil, false
-		}
-
-		requestSegment := requestSegments[idx]
-		if !isParam {
-			if patternSegment != requestSegment {
-				return nil, false
-			}
-			continue
-		}
-
-		params[name] = requestSegment
+	if len(params) == 0 {
+		return nil, true
 	}
-
 	return params, true
 }
 
-func IsValidSlug(slug string) bool {
-	return slugPattern.MatchString(strings.TrimSpace(slug))
+func compareRouteSpecificity(left []Segment, right []Segment) int {
+	limit := len(left)
+	if len(right) < limit {
+		limit = len(right)
+	}
+	for idx := 0; idx < limit; idx++ {
+		leftWeight := segmentSpecificity(left[idx])
+		rightWeight := segmentSpecificity(right[idx])
+		if leftWeight == rightWeight {
+			continue
+		}
+		if leftWeight > rightWeight {
+			return 1
+		}
+		return -1
+	}
+
+	switch {
+	case len(left) == len(right):
+		return 0
+	case len(left) < len(right):
+		if remainingOnlyOptionalCatchAll(right[limit:]) {
+			return 1
+		}
+		return -1
+	default:
+		if remainingOnlyOptionalCatchAll(left[limit:]) {
+			return -1
+		}
+		return 1
+	}
+}
+
+func segmentSpecificity(segment Segment) int {
+	switch segment.Kind {
+	case SegmentStatic:
+		return 4
+	case SegmentDynamic:
+		return 3
+	case SegmentCatchAll:
+		return 2
+	case SegmentOptionalCatchAll:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func remainingOnlyOptionalCatchAll(segments []Segment) bool {
+	if len(segments) == 0 {
+		return false
+	}
+	for _, segment := range segments {
+		if segment.Kind != SegmentOptionalCatchAll {
+			return false
+		}
+	}
+	return true
+}
+
+func containsSlotSegment(segments []Segment) bool {
+	for _, segment := range segments {
+		if segment.Kind == SegmentSlot {
+			return true
+		}
+	}
+	return false
 }
 
 func splitPathSegments(raw string) []string {

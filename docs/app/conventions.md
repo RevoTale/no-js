@@ -20,11 +20,22 @@ your-app/
 ## Route Tree Rules
 
 - Routes live under `web/routes`.
-- Dynamic segments use `[param]` directory names.
+- Dynamic and namespaced route directories use reserved control names:
+  - `_param__slug`
+  - `_catchall__slug`
+  - `_optional_catchall__slug`
+  - `_group__marketing`
+  - `_slot__analytics`
+- Any other `_...` route directory name is a generation error.
 - `root.templ` is required at `web/routes/root.templ`.
 - Root `404.templ` and root `error.templ` are required.
 - Route templates use fixed names: `root.templ`, `layout.templ`, `page.templ`,
-  `404.templ`, and `error.templ`.
+  `default.templ`, `404.templ`, and `error.templ`.
+- `route.go` is a reserved method-route file. It may not exist at the same
+  route as `page.templ`.
+- `default.templ` is allowed only at a slot root such as
+  `web/routes/dashboard/_slot__analytics/default.templ`.
+- Slots require a same-level owning `layout.templ`.
 - Only `root.templ` may contain document-level tags such as `<html>`, `<head>`,
   and `<body>`.
 - Route-local `components/` directories are rejected by the generator.
@@ -78,7 +89,7 @@ framework owns HTTP transport and serialization:
 Nested discovery files inherit their route directory. Examples:
 
 - `web/routes/feed.go` serves `/feed.xml`
-- `web/routes/author/[slug]/feed.go` serves `/author/:slug/feed.xml`
+- `web/routes/author/_param__slug/feed.go` serves `/author/:slug/feed.xml`
 - `web/routes/notes/sitemap.go` serves `/notes/sitemap.xml` and nested sitemap
   index endpoints under `/notes/...`
 

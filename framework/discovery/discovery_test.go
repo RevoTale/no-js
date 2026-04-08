@@ -153,7 +153,7 @@ func TestExactHandlersSupportNestedDiscoveryRoutes(t *testing.T) {
 	handler := &Bundle[*struct{}]{
 		Sitemaps: []SitemapRoute[*struct{}]{
 			{
-				RoutePattern: "/author/[slug]",
+				RoutePattern: "/author/_param__slug",
 				Sitemap: func(framework.RuntimeContext[*struct{}], *http.Request) ([]SitemapEntry, error) {
 					return []SitemapEntry{{URL: "https://example.com/author/nina"}}, nil
 				},
@@ -161,7 +161,7 @@ func TestExactHandlersSupportNestedDiscoveryRoutes(t *testing.T) {
 		},
 		Feeds: []FeedRoute[*struct{}]{
 			{
-				RoutePattern: "/author/[slug]",
+				RoutePattern: "/author/_param__slug",
 				Feed: func(framework.RuntimeContext[*struct{}], *http.Request) (FeedDocument, error) {
 					return FeedDocument{
 						Title:       "Author Feed",

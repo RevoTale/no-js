@@ -43,7 +43,7 @@ Placed at `web/routes/feed.go`, this serves `/feed.xml`.
 Nested discovery files inherit their route directory. For example:
 
 ```text
-web/routes/author/[slug]/feed.go
+web/routes/author/_param__slug/feed.go
 ```
 
 serves:

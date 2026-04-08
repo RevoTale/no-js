@@ -48,7 +48,25 @@ type PageRenderer[VM interface{}] func(view VM) templ.Component
 
 type LayoutRenderer[VM interface{}] func(meta metagen.Metadata, view VM, child templ.Component) templ.Component
 
+type PageComposer[C interface{}, P interface{}, VM interface{}] func(
+	ctx context.Context,
+	runtime RuntimeContext[C],
+	r *http.Request,
+	meta metagen.Metadata,
+	view VM,
+	params P,
+	partial bool,
+) (templ.Component, error)
+
+type MethodRouteAction[C interface{}, P interface{}] func(
+	runtime RuntimeContext[C],
+	w http.ResponseWriter,
+	r *http.Request,
+	params P,
+) error
+
 type PageModule[C interface{}, P interface{}, VM interface{}] struct {
+	RouteID             string
 	Pattern             string
 	ParseParams         ParamsParser[P]
 	MetaGen             PageMetaGen[C, P]
@@ -59,10 +77,24 @@ type PageModule[C interface{}, P interface{}, VM interface{}] struct {
 	MetaGenChainNames   []string
 	Load                PageLoader[C, P, VM]
 	LoadName            string
+	Compose             PageComposer[C, P, VM]
 	Render              PageRenderer[VM]
 	Layouts             []LayoutRenderer[VM]
 	RootLayout          func(meta metagen.Metadata, locale string, child templ.Component) templ.Component
 	ErrorPage           func(appCtx C, r *http.Request) templ.Component
+}
+
+type MethodRouteModule[C interface{}, P interface{}] struct {
+	RouteID     string
+	Pattern     string
+	ParseParams ParamsParser[P]
+	GET         MethodRouteAction[C, P]
+	POST        MethodRouteAction[C, P]
+	PUT         MethodRouteAction[C, P]
+	PATCH       MethodRouteAction[C, P]
+	DELETE      MethodRouteAction[C, P]
+	HEAD        MethodRouteAction[C, P]
+	OPTIONS     MethodRouteAction[C, P]
 }
 
 type RuntimeContext[C interface{}] interface {
@@ -102,6 +134,7 @@ const (
 
 type NotFoundContext struct {
 	RequestPath         string
+	MatchedRouteID      string
 	MatchedRoutePattern string
 	Locale              string
 	Source              NotFoundSource
@@ -119,6 +152,10 @@ type PageOnlyRouteHandler[C interface{}, P interface{}, VM interface{}] struct {
 	Page PageModule[C, P, VM]
 }
 
+type MethodOnlyRouteHandler[C interface{}, P interface{}] struct {
+	Route MethodRouteModule[C, P]
+}
+
 func (h PageOnlyRouteHandler[C, P, VM]) MatchPath(path string) bool {
 	_, ok := h.Page.ParseParams(path)
 	return ok
@@ -130,6 +167,19 @@ func (h PageOnlyRouteHandler[C, P, VM]) TryServe(
 	r *http.Request,
 ) bool {
 	return servePageModule(runtime, w, r, h.Page)
+}
+
+func (h MethodOnlyRouteHandler[C, P]) MatchPath(path string) bool {
+	_, ok := h.Route.ParseParams(path)
+	return ok
+}
+
+func (h MethodOnlyRouteHandler[C, P]) TryServe(
+	runtime RuntimeContext[C],
+	w http.ResponseWriter,
+	r *http.Request,
+) bool {
+	return serveMethodRoute(runtime, w, r, h.Route)
 }
 
 func applyLayouts[VM interface{}](
@@ -192,7 +242,7 @@ func servePageModule[C interface{}, P interface{}, VM interface{}](
 
 	metaResult := <-metaCh
 	if metaResult.err != nil {
-		handleModuleError(runtime, w, r, metaResult.err, module.Pattern, NotFoundSourceMetaGen, "meta")
+		handleModuleError(runtime, w, r, metaResult.err, module.RouteID, module.Pattern, NotFoundSourceMetaGen, "meta")
 		return true
 	}
 	meta := metagen.Normalize(metaResult.meta)
@@ -210,13 +260,14 @@ func servePageModule[C interface{}, P interface{}, VM interface{}](
 	if partial || module.RootLayout == nil {
 		result := awaitLoad()
 		if result.err != nil {
-			handleModuleError(runtime, w, r, result.err, module.Pattern, NotFoundSourcePageLoad, "load")
+			handleModuleError(runtime, w, r, result.err, module.RouteID, module.Pattern, NotFoundSourcePageLoad, "load")
 			return true
 		}
 
-		component := module.Render(result.view)
-		if !partial {
-			component = applyLayouts(module.Layouts, meta, result.view, component)
+		component, err := composePageComponent(ctx, runtime, r, meta, result.view, params, partial, module)
+		if err != nil {
+			handleModuleError(runtime, w, r, err, module.RouteID, module.Pattern, NotFoundSourcePageLoad, "compose")
+			return true
 		}
 		if err := runtime.RenderPage(r, w, component, meta); err != nil {
 			runtime.RespondServerError(w, fmt.Errorf("render route %q: %w", module.Pattern, err))
@@ -239,8 +290,10 @@ func servePageModule[C interface{}, P interface{}, VM interface{}](
 			return errorComponent.Render(renderCtx, writer)
 		}
 
-		component := module.Render(result.view)
-		component = applyLayouts(module.Layouts, meta, result.view, component)
+		component, err := composePageComponent(ctx, runtime, r, meta, result.view, params, false, module)
+		if err != nil {
+			return fmt.Errorf("compose route %q: %w", module.Pattern, err)
+		}
 		return component.Render(renderCtx, writer)
 	})
 
@@ -252,6 +305,133 @@ func servePageModule[C interface{}, P interface{}, VM interface{}](
 		runtime.RespondServerError(w, fmt.Errorf("render route %q: %w", module.Pattern, err))
 	}
 	return true
+}
+
+func composePageComponent[C interface{}, P interface{}, VM interface{}](
+	ctx context.Context,
+	runtime RuntimeContext[C],
+	r *http.Request,
+	meta metagen.Metadata,
+	view VM,
+	params P,
+	partial bool,
+	module PageModule[C, P, VM],
+) (templ.Component, error) {
+	if module.Compose != nil {
+		return module.Compose(ctx, runtime, r, meta, view, params, partial)
+	}
+
+	component := module.Render(view)
+	if !partial {
+		component = applyLayouts(module.Layouts, meta, view, component)
+	}
+	return component, nil
+}
+
+func serveMethodRoute[C interface{}, P interface{}](
+	runtime RuntimeContext[C],
+	w http.ResponseWriter,
+	r *http.Request,
+	module MethodRouteModule[C, P],
+) bool {
+	params, ok := module.ParseParams(r.URL.Path)
+	if !ok {
+		return false
+	}
+
+	action, methodName, allow := methodRouteAction(module, r.Method)
+	if action == nil {
+		w.Header().Set("Allow", strings.Join(allow, ", "))
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return true
+		}
+		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+		return true
+	}
+
+	if r.Method == http.MethodHead && module.HEAD == nil && module.GET != nil {
+		w = headResponseWriter{ResponseWriter: w}
+	}
+
+	if err := action(runtime, w, r, params); err != nil {
+		handleModuleError(
+			runtime,
+			w,
+			r,
+			err,
+			module.RouteID,
+			module.Pattern,
+			NotFoundSourcePageLoad,
+			strings.ToLower(methodName),
+		)
+	}
+	return true
+}
+
+func methodRouteAction[C interface{}, P interface{}](
+	module MethodRouteModule[C, P],
+	method string,
+) (MethodRouteAction[C, P], string, []string) {
+	allowed := allowedMethods(module)
+	switch method {
+	case http.MethodGet:
+		return module.GET, http.MethodGet, allowed
+	case http.MethodPost:
+		return module.POST, http.MethodPost, allowed
+	case http.MethodPut:
+		return module.PUT, http.MethodPut, allowed
+	case http.MethodPatch:
+		return module.PATCH, http.MethodPatch, allowed
+	case http.MethodDelete:
+		return module.DELETE, http.MethodDelete, allowed
+	case http.MethodHead:
+		if module.HEAD != nil {
+			return module.HEAD, http.MethodHead, allowed
+		}
+		if module.GET != nil {
+			return module.GET, http.MethodGet, allowed
+		}
+		return nil, http.MethodHead, allowed
+	case http.MethodOptions:
+		return module.OPTIONS, http.MethodOptions, allowed
+	default:
+		return nil, method, allowed
+	}
+}
+
+func allowedMethods[C interface{}, P interface{}](module MethodRouteModule[C, P]) []string {
+	methods := make([]string, 0, 7)
+	if module.GET != nil {
+		methods = append(methods, http.MethodGet)
+	}
+	if module.POST != nil {
+		methods = append(methods, http.MethodPost)
+	}
+	if module.PUT != nil {
+		methods = append(methods, http.MethodPut)
+	}
+	if module.PATCH != nil {
+		methods = append(methods, http.MethodPatch)
+	}
+	if module.DELETE != nil {
+		methods = append(methods, http.MethodDelete)
+	}
+	if module.HEAD != nil || module.GET != nil {
+		methods = append(methods, http.MethodHead)
+	}
+	if module.OPTIONS != nil || len(methods) > 0 {
+		methods = append(methods, http.MethodOptions)
+	}
+	return methods
+}
+
+type headResponseWriter struct {
+	http.ResponseWriter
+}
+
+func (writer headResponseWriter) Write(body []byte) (int, error) {
+	return len(body), nil
 }
 
 func resolveMetadata[C interface{}, P interface{}, VM interface{}](
@@ -398,6 +578,7 @@ func handleModuleError[C interface{}](
 	w http.ResponseWriter,
 	r *http.Request,
 	err error,
+	routeID string,
 	routePattern string,
 	source NotFoundSource,
 	stage string,
@@ -405,6 +586,7 @@ func handleModuleError[C interface{}](
 	if IsNotFound(err) {
 		runtime.RespondNotFound(w, r, NotFoundContext{
 			RequestPath:         r.URL.Path,
+			MatchedRouteID:      routeID,
 			MatchedRoutePattern: routePattern,
 			Locale:              frameworki18n.LocaleFromContext(r.Context()),
 			Source:              source,

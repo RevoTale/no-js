@@ -20,12 +20,12 @@ func TestDiscoverRouteFilesStaticAndDynamic(t *testing.T) {
 
 	writeTestFile(t, filepath.Join(appRoot, "layout.templ"), "package appsrc\n")
 	writeTestFile(t, filepath.Join(appRoot, "notes", "page.templ"), "package appsrc\n")
-	writeTestFile(t, filepath.Join(appRoot, "author", "[slug]", "page.templ"), "package appsrc\n")
+	writeTestFile(t, filepath.Join(appRoot, "author", "_param__slug", "page.templ"), "package appsrc\n")
 
 	routes, err := discoverRouteFiles(appRoot, genRoot)
 	require.NoError(t, err)
 	require.Len(t, routes.Pages, 2)
-	require.Equal(t, "author/[slug]", routes.Pages[0].RouteID)
+	require.Equal(t, "author/_param__slug", routes.Pages[0].RouteID)
 	require.Equal(t, "notes", routes.Pages[1].RouteID)
 }
 
@@ -63,7 +63,143 @@ func TestDiscoverRouteFilesRejectsLegacyWildcardSyntax(t *testing.T) {
 
 	_, err := discoverRouteFiles(appRoot, genRoot)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "use [param]")
+	require.Contains(t, err.Error(), "invalid reserved route segment")
+}
+
+func TestDiscoverRouteFilesSupportsReservedNamespace(t *testing.T) {
+	root := t.TempDir()
+	appRoot := filepath.Join(root, "app")
+	genRoot := filepath.Join(root, "gen")
+
+	writeTestFile(t, filepath.Join(appRoot, "author", "_param__slug", "page.templ"), "package appsrc\n")
+
+	routes, err := discoverRouteFiles(appRoot, genRoot)
+	require.NoError(t, err)
+	require.Len(t, routes.Pages, 1)
+	require.Equal(t, "author/_param__slug", routes.Pages[0].RouteID)
+	require.Equal(t, "author/_param__slug", routes.Pages[0].PublicRouteID)
+}
+
+func TestDiscoverRouteFilesRejectsUnknownReservedNamespace(t *testing.T) {
+	root := t.TempDir()
+	appRoot := filepath.Join(root, "app")
+	genRoot := filepath.Join(root, "gen")
+
+	writeTestFile(t, filepath.Join(appRoot, "_unknown__marketing", "page.templ"), "package appsrc\n")
+
+	_, err := discoverRouteFiles(appRoot, genRoot)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unknown reserved route segment")
+}
+
+func TestDiscoverRouteFilesRejectsPageAndRouteGoAtSameRoute(t *testing.T) {
+	root := t.TempDir()
+	appRoot := filepath.Join(root, "app")
+	genRoot := filepath.Join(root, "gen")
+
+	writeTestFile(t, filepath.Join(appRoot, "note", "_param__slug", "page.templ"), "package appsrc\n")
+	writeTestFile(t, filepath.Join(appRoot, "note", "_param__slug", "route.go"), `package routes
+
+import (
+	"net/http"
+
+	view "example.com/app/web/view"
+	"github.com/RevoTale/no-js/framework"
+)
+
+func GET(
+	runtime framework.RuntimeContext[*view.Context],
+	w http.ResponseWriter,
+	r *http.Request,
+	params NoteParamSlugParams,
+) error {
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+`)
+
+	_, err := discoverRouteFiles(appRoot, genRoot)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "route pattern conflict")
+}
+
+func TestDiscoverRouteFilesSupportsGroupedRoutes(t *testing.T) {
+	root := t.TempDir()
+	appRoot := filepath.Join(root, "app")
+	genRoot := filepath.Join(root, "gen")
+
+	writeTestFile(t, filepath.Join(appRoot, "_group__marketing", "about", "page.templ"), "package appsrc\n")
+
+	routes, err := discoverRouteFiles(appRoot, genRoot)
+	require.NoError(t, err)
+	require.Len(t, routes.Pages, 1)
+	require.Equal(t, "_group__marketing/about", routes.Pages[0].RouteID)
+	require.Equal(t, "about", routes.Pages[0].PublicRouteID)
+}
+
+func TestDiscoverRouteFilesSupportsSlots(t *testing.T) {
+	root := t.TempDir()
+	appRoot := filepath.Join(root, "app")
+	genRoot := filepath.Join(root, "gen")
+
+	writeTestFile(t, filepath.Join(appRoot, "dashboard", "layout.templ"), "package appsrc\n")
+	writeTestFile(t, filepath.Join(appRoot, "dashboard", "page.templ"), "package appsrc\n")
+	writeTestFile(t, filepath.Join(appRoot, "dashboard", "_slot__analytics", "page.templ"), "package appsrc\n")
+	writeTestFile(t, filepath.Join(appRoot, "dashboard", "_slot__analytics", "default.templ"), "package appsrc\n")
+
+	routes, err := discoverRouteFiles(appRoot, genRoot)
+	require.NoError(t, err)
+	require.Len(t, routes.Pages, 1)
+	require.Len(t, routes.SlotPages, 1)
+	require.Equal(t, "dashboard", routes.Pages[0].RouteID)
+	require.Equal(t, "dashboard/_slot__analytics", routes.SlotPages[0].RouteID)
+	require.Equal(t, "dashboard", routes.SlotPages[0].PublicRouteID)
+	require.Equal(t, "dashboard", routes.SlotPages[0].SlotOwnerRouteID)
+	require.Contains(t, routes.Defaults, "dashboard/_slot__analytics")
+	require.Equal(t, []string{"analytics"}, routes.LayoutSlots["dashboard"])
+}
+
+func TestDiscoverRouteFilesRejectsRouteGoInsideSlot(t *testing.T) {
+	root := t.TempDir()
+	appRoot := filepath.Join(root, "app")
+	genRoot := filepath.Join(root, "gen")
+
+	writeTestFile(t, filepath.Join(appRoot, "dashboard", "layout.templ"), "package appsrc\n")
+	writeTestFile(t, filepath.Join(appRoot, "dashboard", "_slot__analytics", "route.go"), "package routes\n")
+
+	_, err := discoverRouteFiles(appRoot, genRoot)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "route.go is not allowed inside slot directories")
+}
+
+func TestDiscoverRouteFilesRejectsDefaultOutsideSlotRoot(t *testing.T) {
+	root := t.TempDir()
+	appRoot := filepath.Join(root, "app")
+	genRoot := filepath.Join(root, "gen")
+
+	writeTestFile(t, filepath.Join(appRoot, "dashboard", "layout.templ"), "package appsrc\n")
+	writeTestFile(t, filepath.Join(appRoot, "dashboard", "_slot__analytics", "page.templ"), "package appsrc\n")
+	writeTestFile(
+		t,
+		filepath.Join(appRoot, "dashboard", "_slot__analytics", "nested", "default.templ"),
+		"package appsrc\n",
+	)
+
+	_, err := discoverRouteFiles(appRoot, genRoot)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "default.templ is only allowed at the slot root")
+}
+
+func TestDiscoverRouteFilesRejectsSlotWithoutOwnerLayout(t *testing.T) {
+	root := t.TempDir()
+	appRoot := filepath.Join(root, "app")
+	genRoot := filepath.Join(root, "gen")
+
+	writeTestFile(t, filepath.Join(appRoot, "dashboard", "_slot__analytics", "page.templ"), "package appsrc\n")
+
+	_, err := discoverRouteFiles(appRoot, genRoot)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "slot owner \"dashboard\" requires a same-level layout.templ")
 }
 
 func TestDiscoverRouteFilesCollectsNotFoundTemplates(t *testing.T) {
@@ -83,7 +219,7 @@ templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 	)
 	writeTestFile(
 		t,
-		filepath.Join(appRoot, "author", "[slug]", "404.templ"),
+		filepath.Join(appRoot, "author", "_param__slug", "404.templ"),
 		`package appsrc
 
 import "example.com/app/web/view"
@@ -93,7 +229,7 @@ templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 	)
 	writeTestFile(
 		t,
-		filepath.Join(appRoot, "author", "[slug]", "page.templ"),
+		filepath.Join(appRoot, "author", "_param__slug", "page.templ"),
 		`package appsrc
 
 import "example.com/app/web/view"
@@ -107,7 +243,7 @@ templ Page(view runtime.AuthorPageView) { <div id="notes-content"></div> }
 
 	_, ok := routes.NotFounds[""]
 	require.True(t, ok)
-	_, ok = routes.NotFounds["author/[slug]"]
+	_, ok = routes.NotFounds["author/_param__slug"]
 	require.True(t, ok)
 }
 
@@ -185,7 +321,7 @@ import (
 	)
 	writeTestFile(
 		t,
-		filepath.Join(appRoot, "author", "[slug]", "sitemap.go"),
+		filepath.Join(appRoot, "author", "_param__slug", "sitemap.go"),
 		`package routes
 
 import (
@@ -203,7 +339,7 @@ func Sitemap(runtime framework.RuntimeContext[*view.Context], r *http.Request) (
 	)
 	writeTestFile(
 		t,
-		filepath.Join(appRoot, "author", "[slug]", "feed.go"),
+		filepath.Join(appRoot, "author", "_param__slug", "feed.go"),
 		`package routes
 
 import (
@@ -233,7 +369,7 @@ func Feed(runtime framework.RuntimeContext[*view.Context], r *http.Request) (dis
 	}, &routes.Discovery)
 	require.NoError(t, err)
 	require.True(t, routes.Discovery.HasRobots)
-	require.Equal(t, "author/[slug]", routes.Discovery.Sitemaps[0].RouteID)
+	require.Equal(t, "author/_param__slug", routes.Discovery.Sitemaps[0].RouteID)
 	require.True(t, routes.Discovery.Sitemaps[0].HasSitemap)
 	require.False(t, routes.Discovery.Sitemaps[0].HasGenerateSitemaps)
 	require.False(t, routes.Discovery.Sitemaps[0].HasSitemapByID)
@@ -241,7 +377,7 @@ func Feed(runtime framework.RuntimeContext[*view.Context], r *http.Request) (dis
 	require.True(t, routes.Discovery.Sitemaps[1].HasSitemap)
 	require.True(t, routes.Discovery.Sitemaps[1].HasGenerateSitemaps)
 	require.True(t, routes.Discovery.Sitemaps[1].HasSitemapByID)
-	require.Equal(t, "author/[slug]", routes.Discovery.Feeds[0].RouteID)
+	require.Equal(t, "author/_param__slug", routes.Discovery.Feeds[0].RouteID)
 	require.Equal(t, "", routes.Discovery.Feeds[1].RouteID)
 }
 
@@ -292,7 +428,7 @@ func TestValidateDiscoveryConventionsRejectsNestedPatternConflicts(t *testing.T)
 
 	writeTestFile(
 		t,
-		filepath.Join(appRoot, "author", "[slug]", "feed.go"),
+		filepath.Join(appRoot, "author", "_param__slug", "feed.go"),
 		`package routes
 
 import (
@@ -310,7 +446,7 @@ func Feed(runtime framework.RuntimeContext[*view.Context], r *http.Request) (dis
 	)
 	writeTestFile(
 		t,
-		filepath.Join(appRoot, "author", "[id]", "feed.go"),
+		filepath.Join(appRoot, "author", "_param__id", "feed.go"),
 		`package routes
 
 import (
@@ -424,12 +560,12 @@ templ Layout(meta metagen.Metadata, view runtime.RootLayoutView, child templ.Com
 `,
 	)
 
-	require.NoError(t, validateLayoutTemplateSignature(templateDef{RouteID: "", SourcePath: rootValidPath}))
-	require.Error(t, validateLayoutTemplateSignature(templateDef{RouteID: "", SourcePath: rootInvalidPath}))
-	childValidTemplate := templateDef{RouteID: "author/[slug]", SourcePath: childValidPath}
-	require.NoError(t, validateLayoutTemplateSignature(childValidTemplate))
-	childInvalidTemplate := templateDef{RouteID: "author/[slug]", SourcePath: childInvalidPath}
-	require.Error(t, validateLayoutTemplateSignature(childInvalidTemplate))
+	require.NoError(t, validateLayoutTemplateSignature(templateDef{RouteID: "", SourcePath: rootValidPath}, nil))
+	require.Error(t, validateLayoutTemplateSignature(templateDef{RouteID: "", SourcePath: rootInvalidPath}, nil))
+	childValidTemplate := templateDef{RouteID: "author/_param__slug", SourcePath: childValidPath}
+	require.NoError(t, validateLayoutTemplateSignature(childValidTemplate, nil))
+	childInvalidTemplate := templateDef{RouteID: "author/_param__slug", SourcePath: childInvalidPath}
+	require.Error(t, validateLayoutTemplateSignature(childInvalidTemplate, nil))
 }
 
 func TestValidateNotFoundTemplateSignature(t *testing.T) {
@@ -564,7 +700,7 @@ import "example.com/app/web/view"
 templ Page(view runtime.AuthorPageView) { <div id="notes-content"></div> }
 `
 	writeTestFile(t, filepath.Join(appRoot, "page.templ"), rootTemplate)
-	writeTestFile(t, filepath.Join(appRoot, "author", "[slug]", "page.templ"), authorTemplate)
+	writeTestFile(t, filepath.Join(appRoot, "author", "_param__slug", "page.templ"), authorTemplate)
 
 	routes, err := discoverRouteFiles(appRoot, genRoot)
 	require.NoError(t, err)
@@ -581,7 +717,7 @@ templ Page(view runtime.AuthorPageView) { <div id="notes-content"></div> }
 	require.True(t, ok)
 	require.Equal(t, "runtime.NotesPageView", rootMeta.PageViewType)
 
-	authorMeta, ok := byRoute["author/[slug]"]
+	authorMeta, ok := byRoute["author/_param__slug"]
 	require.True(t, ok)
 	require.Equal(t, "runtime.AuthorPageView", authorMeta.PageViewType)
 }
@@ -597,7 +733,7 @@ import "example.com/app/web/view"
 
 templ Page(view runtime.NoteView) { <div id="note-content"></div> }
 `
-	writeTestFile(t, filepath.Join(appRoot, "note", "[slug]", "page.templ"), pageTemplate)
+	writeTestFile(t, filepath.Join(appRoot, "note", "_param__slug", "page.templ"), pageTemplate)
 
 	routes, err := discoverRouteFiles(appRoot, genRoot)
 	require.NoError(t, err)
@@ -617,7 +753,7 @@ func TestResolverNamespaceGenerationDeterministic(t *testing.T) {
 			PageViewType:   "runtime.NotesPageView",
 		},
 		{
-			RouteID:        "author/[slug]",
+			RouteID:        "author/_param__slug",
 			RouteName:      "AuthorParamSlug",
 			ParamsTypeName: "AuthorParamSlugParams",
 			Params:         []routeParamDef{{Name: "slug", FieldName: "Slug"}},
@@ -628,12 +764,14 @@ func TestResolverNamespaceGenerationDeterministic(t *testing.T) {
 	first, err := generateResolverNamespaceSource(
 		projectlayout.ProjectLayout{AppModulePath: testAppModulePath},
 		metas,
+		nil,
 		map[string]templateDef{},
 	)
 	require.NoError(t, err)
 	second, err := generateResolverNamespaceSource(
 		projectlayout.ProjectLayout{AppModulePath: testAppModulePath},
 		metas,
+		nil,
 		map[string]templateDef{},
 	)
 	require.NoError(t, err)
@@ -651,7 +789,7 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 			Page:           templateDef{ModuleName: "r_page_root"},
 		},
 		{
-			RouteID:        "author/[slug]",
+			RouteID:        "author/_param__slug",
 			RouteName:      "AuthorParamSlug",
 			ParamsTypeName: "AuthorParamSlugParams",
 			Params:         []routeParamDef{{Name: "slug", FieldName: "Slug"}},
@@ -663,6 +801,9 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 	registry, err := generateRegistrySource(
 		projectlayout.ProjectLayout{GeneratedImport: "web/generated", AppModulePath: testAppModulePath},
 		metas,
+		nil,
+		nil,
+		nil,
 		templateDef{
 			Kind:       rootTemplate,
 			RouteID:    "",
@@ -720,6 +861,9 @@ func TestRegistryGenerationRequiresRootNotFoundTemplate(t *testing.T) {
 	_, err := generateRegistrySource(
 		projectlayout.ProjectLayout{GeneratedImport: "web/generated", AppModulePath: testAppModulePath},
 		metas,
+		nil,
+		nil,
+		nil,
 		templateDef{
 			Kind:       rootTemplate,
 			RouteID:    "",
@@ -753,6 +897,9 @@ func TestRegistryGenerationRequiresRootErrorTemplate(t *testing.T) {
 	_, err := generateRegistrySource(
 		projectlayout.ProjectLayout{GeneratedImport: "web/generated", AppModulePath: testAppModulePath},
 		metas,
+		nil,
+		nil,
+		nil,
 		templateDef{
 			Kind:       rootTemplate,
 			RouteID:    "",
@@ -775,7 +922,7 @@ func TestRegistryGenerationRequiresRootErrorTemplate(t *testing.T) {
 func TestRegistryGenerationWiresNearestErrorTemplate(t *testing.T) {
 	metas := []routeMeta{
 		{
-			RouteID:        "author/[slug]/note/[noteSlug]",
+			RouteID:        "author/_param__slug/note/_param__noteSlug",
 			RouteName:      "AuthorParamSlugNoteParamNoteslug",
 			ParamsTypeName: "AuthorParamSlugNoteParamNoteslugParams",
 			Params: []routeParamDef{
@@ -790,6 +937,9 @@ func TestRegistryGenerationWiresNearestErrorTemplate(t *testing.T) {
 	registry, err := generateRegistrySource(
 		projectlayout.ProjectLayout{GeneratedImport: "web/generated", AppModulePath: testAppModulePath},
 		metas,
+		nil,
+		nil,
+		nil,
 		templateDef{
 			Kind:       rootTemplate,
 			RouteID:    "",
@@ -809,9 +959,9 @@ func TestRegistryGenerationWiresNearestErrorTemplate(t *testing.T) {
 				RouteID:    "",
 				ModuleName: "r_error_root",
 			},
-			"author/[slug]": {
+			"author/_param__slug": {
 				Kind:       errorTemplate,
-				RouteID:    "author/[slug]",
+				RouteID:    "author/_param__slug",
 				ModuleName: "r_error_author_param_slug",
 			},
 		},
@@ -820,6 +970,287 @@ func TestRegistryGenerationWiresNearestErrorTemplate(t *testing.T) {
 
 	text := string(registry)
 	require.Contains(t, text, "component := r_error_author_param_slug.Error(view, pathValue)")
+}
+
+func TestGenerateSourcePackageParamsFileUsesPublicRouteID(t *testing.T) {
+	source, err := generateSourcePackageParamsFile(sourcePackageDef{
+		InternalRouteID: "_group__marketing/posts/_param__slug",
+		PublicRouteID:   "posts/_param__slug",
+		ParamsTypeName:  "GroupMarketingPostsParamSlugParams",
+		Params: []routeParamDef{
+			{Name: "slug", FieldName: "Slug", Type: "string"},
+		},
+		Package: "r_source_group_marketing_posts_param_slug",
+	})
+	require.NoError(t, err)
+	require.Contains(t, string(source), `router.MatchPathPattern("/posts/_param__slug", requestPath)`)
+}
+
+func TestRunGeneratesMethodRoutesFromGroupedRouteGo(t *testing.T) {
+	rootDir := t.TempDir()
+	appDir := filepath.Join(rootDir, "internal", "web", "app")
+	genDir := filepath.Join(rootDir, "internal", "web", "gen")
+	resolverDir := filepath.Join(rootDir, "internal", "web", "resolvers")
+
+	writeTestFile(t, filepath.Join(appDir, "root.templ"), `package appsrc
+
+import "github.com/RevoTale/no-js/framework/metagen"
+
+templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { @child }
+`)
+	writeTestFile(t, filepath.Join(appDir, "404.templ"), `package appsrc
+
+import "example.com/app/web/view"
+
+templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+`)
+	writeTestFile(t, filepath.Join(appDir, "error.templ"), `package appsrc
+
+import "example.com/app/web/view"
+
+templ Error(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+`)
+	writeTestFile(t, filepath.Join(appDir, "_group__marketing", "posts", "_param__slug", "route.go"), `package routes
+
+import (
+	"net/http"
+
+	view "example.com/app/web/view"
+	"github.com/RevoTale/no-js/framework"
+)
+
+func GET(
+	runtime framework.RuntimeContext[*view.Context],
+	w http.ResponseWriter,
+	r *http.Request,
+	params GroupMarketingPostsParamSlugParams,
+) error {
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+`)
+
+	err := Run(Config{
+		Layout: projectlayout.ProjectLayout{
+			RootDir:         rootDir,
+			RoutesDir:       appDir,
+			GeneratedDir:    genDir,
+			GeneratedImport: "web/generated",
+			ResolversDir:    resolverDir,
+			AppModulePath:   testAppModulePath,
+		},
+	})
+	require.NoError(t, err)
+
+	registrySource, err := os.ReadFile(filepath.Join(genDir, "registry_gen.go"))
+	require.NoError(t, err)
+	registryText := string(registrySource)
+	require.Contains(t, registryText, "framework.MethodOnlyRouteHandler")
+	require.Contains(t, registryText, `"_group__marketing/posts/_param__slug"`)
+	require.Contains(t, registryText, `"/posts/_param__slug"`)
+
+	paramsSource, err := os.ReadFile(filepath.Join(genDir, "r_source_group_marketing_posts_param_slug", "params_gen.go"))
+	require.NoError(t, err)
+	require.Contains(t, string(paramsSource), `router.MatchPathPattern("/posts/_param__slug", requestPath)`)
+}
+
+func TestRunGeneratesSlotComposeWithoutSlotMetadata(t *testing.T) {
+	rootDir := t.TempDir()
+	appDir := filepath.Join(rootDir, "internal", "web", "app")
+	genDir := filepath.Join(rootDir, "internal", "web", "gen")
+	resolverDir := filepath.Join(rootDir, "internal", "web", "resolvers")
+
+	writeTestFile(t, filepath.Join(appDir, "root.templ"), `package appsrc
+
+import "github.com/RevoTale/no-js/framework/metagen"
+
+templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { @child }
+`)
+	writeTestFile(t, filepath.Join(appDir, "404.templ"), `package appsrc
+
+import "example.com/app/web/view"
+
+templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+`)
+	writeTestFile(t, filepath.Join(appDir, "error.templ"), `package appsrc
+
+import "example.com/app/web/view"
+
+templ Error(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+`)
+	writeTestFile(t, filepath.Join(appDir, "dashboard", "layout.templ"), `package appsrc
+
+import "example.com/app/web/view"
+
+templ Layout(view runtime.RootLayoutView, child templ.Component, analytics templ.Component) {
+	@child
+	@analytics
+}
+`)
+	writeTestFile(t, filepath.Join(appDir, "dashboard", "page.templ"), `package appsrc
+
+import "example.com/app/web/view"
+
+templ Page(view runtime.NotesPageView) { <div>dashboard</div> }
+`)
+	writeTestFile(t, filepath.Join(appDir, "dashboard", "_slot__analytics", "default.templ"), `package appsrc
+
+import "example.com/app/web/view"
+
+templ Default(view runtime.RootLayoutView) { <div>default analytics</div> }
+`)
+	writeTestFile(t, filepath.Join(appDir, "dashboard", "_slot__analytics", "page.templ"), `package appsrc
+
+import "example.com/app/web/view"
+
+templ Page(view runtime.NotesPageView) { <div>analytics</div> }
+`)
+
+	err := Run(Config{
+		Layout: projectlayout.ProjectLayout{
+			RootDir:         rootDir,
+			RoutesDir:       appDir,
+			GeneratedDir:    genDir,
+			GeneratedImport: "web/generated",
+			ResolversDir:    resolverDir,
+			AppModulePath:   testAppModulePath,
+		},
+	})
+	require.NoError(t, err)
+
+	registrySource, err := os.ReadFile(filepath.Join(genDir, "registry_gen.go"))
+	require.NoError(t, err)
+	registryText := string(registrySource)
+	require.Contains(t, registryText, "func resolveDashboardAnalyticsSlot(")
+	require.Contains(t, registryText, "func composeDashboardPage(")
+	require.Contains(t, registryText, "dashboardAnalyticsSlot, err := resolveDashboardAnalyticsSlot")
+	require.Contains(t, registryText, "r_layout_dashboard.Layout(view, component, dashboardAnalyticsSlot)")
+	require.Contains(t, registryText, "component := r_default_dashboard_slot_analytics.Default(view)")
+
+	resolverSource, err := os.ReadFile(filepath.Join(resolverDir, generatedResolverFileName))
+	require.NoError(t, err)
+	require.NotContains(t, string(resolverSource), "MetaGenDashboardSlotAnalyticsPage")
+}
+
+func TestRunGeneratesGroupedPageSlotAndMethodRouteTree(t *testing.T) {
+	rootDir := t.TempDir()
+	appDir := filepath.Join(rootDir, "internal", "web", "app")
+	genDir := filepath.Join(rootDir, "internal", "web", "gen")
+	resolverDir := filepath.Join(rootDir, "internal", "web", "resolvers")
+
+	writeTestFile(t, filepath.Join(appDir, "root.templ"), `package appsrc
+
+import "github.com/RevoTale/no-js/framework/metagen"
+
+templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { @child }
+`)
+	writeTestFile(t, filepath.Join(appDir, "404.templ"), `package appsrc
+
+import "example.com/app/web/view"
+
+templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+`)
+	writeTestFile(t, filepath.Join(appDir, "error.templ"), `package appsrc
+
+import "example.com/app/web/view"
+
+templ Error(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+`)
+	writeTestFile(t, filepath.Join(appDir, "_group__marketing", "dashboard", "layout.templ"), `package appsrc
+
+import "example.com/app/web/view"
+
+templ Layout(view runtime.RootLayoutView, child templ.Component, analytics templ.Component) {
+	@child
+	@analytics
+}
+`)
+	writeTestFile(t, filepath.Join(appDir, "_group__marketing", "dashboard", "page.templ"), `package appsrc
+
+import "example.com/app/web/view"
+
+templ Page(view runtime.NotesPageView) { <div>dashboard</div> }
+`)
+	writeTestFile(
+		t,
+		filepath.Join(appDir, "_group__marketing", "dashboard", "_slot__analytics", "default.templ"),
+		`package appsrc
+
+import "example.com/app/web/view"
+
+templ Default(view runtime.RootLayoutView) { <div>default analytics</div> }
+`,
+	)
+	writeTestFile(
+		t,
+		filepath.Join(appDir, "_group__marketing", "dashboard", "_slot__analytics", "page.templ"),
+		`package appsrc
+
+import "example.com/app/web/view"
+
+templ Page(view runtime.NotesPageView) { <div>analytics</div> }
+`,
+	)
+	writeTestFile(
+		t,
+		filepath.Join(appDir, "_group__marketing", "dashboard", "export", "route.go"),
+		`package routes
+
+import (
+	"net/http"
+
+	view "example.com/app/web/view"
+	"github.com/RevoTale/no-js/framework"
+)
+
+func GET(
+	runtime framework.RuntimeContext[*view.Context],
+	w http.ResponseWriter,
+	r *http.Request,
+	params GroupMarketingDashboardExportParams,
+) error {
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+`,
+	)
+
+	err := Run(Config{
+		Layout: projectlayout.ProjectLayout{
+			RootDir:         rootDir,
+			RoutesDir:       appDir,
+			GeneratedDir:    genDir,
+			GeneratedImport: "web/generated",
+			ResolversDir:    resolverDir,
+			AppModulePath:   testAppModulePath,
+		},
+	})
+	require.NoError(t, err)
+
+	registrySource, err := os.ReadFile(filepath.Join(genDir, "registry_gen.go"))
+	require.NoError(t, err)
+	registryText := string(registrySource)
+	require.Contains(t, registryText, `"_group__marketing/dashboard"`)
+	require.Contains(t, registryText, `"/dashboard"`)
+	require.Contains(t, registryText, "func resolveGroupMarketingDashboardAnalyticsSlot(")
+	require.Contains(t, registryText, "func composeGroupMarketingDashboardPage(")
+	require.Contains(
+		t,
+		registryText,
+		"groupmarketingdashboardAnalyticsSlot, err := resolveGroupMarketingDashboardAnalyticsSlot",
+	)
+	require.Contains(
+		t,
+		registryText,
+		"r_layout_group_marketing_dashboard.Layout(view, component, groupmarketingdashboardAnalyticsSlot)",
+	)
+	require.Contains(t, registryText, "framework.MethodOnlyRouteHandler")
+	require.Contains(t, registryText, `"_group__marketing/dashboard/export"`)
+	require.Contains(t, registryText, `"/dashboard/export"`)
+
+	resolverSource, err := os.ReadFile(filepath.Join(resolverDir, generatedResolverFileName))
+	require.NoError(t, err)
+	require.NotContains(t, string(resolverSource), "MetaGenGroupMarketingDashboardSlotAnalyticsPage")
 }
 
 func TestRewritePackageDeclarationAddsGeneratedMarker(t *testing.T) {
