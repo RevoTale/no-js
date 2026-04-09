@@ -577,7 +577,7 @@ func TestNewAppDiscoveryTakesPrecedenceOverPublicFilesAndExtraRoutes(t *testing.
 				Rules: []frameworkdiscovery.RobotsRule{
 					{UserAgent: "*", Allow: []string{"/"}},
 				},
-				Sitemaps: []string{"https://example.com/sitemap-index"},
+				Sitemaps: []string{"https://example.com/sitemap-index.xml"},
 			}, nil
 		},
 	}
@@ -604,7 +604,7 @@ func TestNewAppDiscoveryTakesPrecedenceOverPublicFilesAndExtraRoutes(t *testing.
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/robots.txt", nil))
 
 	require.Equal(t, http.StatusOK, rec.Code)
-	require.Contains(t, rec.Body.String(), "Sitemap: https://example.com/sitemap-index")
+	require.Contains(t, rec.Body.String(), "Sitemap: https://example.com/sitemap-index.xml")
 	require.NotContains(t, rec.Body.String(), "public")
 	require.NotContains(t, rec.Body.String(), "extra")
 }
@@ -623,10 +623,10 @@ func TestNewAppGeneratedSitemapChunksTakePrecedenceOverPublicFilesAndExtraRoutes
 				RoutePattern: "/",
 				GenerateSitemaps: func(framework.RuntimeContext[*struct{}], *http.Request) ([]frameworkdiscovery.SitemapID, error) {
 					return []frameworkdiscovery.SitemapID{
-						{ID: "note:0", Path: "/note/sitemap/0.xml", Location: "https://example.com/note/sitemap/0.xml"},
+						{ID: "note-0", Location: "https://example.com/sitemap/note-0.xml"},
 					}, nil
 				},
-				SitemapByID: func(
+				SitemapChunk: func(
 					framework.RuntimeContext[*struct{}],
 					*http.Request,
 					string,
@@ -647,7 +647,7 @@ func TestNewAppGeneratedSitemapChunksTakePrecedenceOverPublicFilesAndExtraRoutes
 		Custom: CustomConfig{
 			PublicFiles: &PublicFilesConfig{Dir: publicDir},
 			ExtraRoutes: func(mux *http.ServeMux) error {
-				mux.HandleFunc("/note/sitemap/0.xml", func(w http.ResponseWriter, _ *http.Request) {
+				mux.HandleFunc("/sitemap/note-0.xml", func(w http.ResponseWriter, _ *http.Request) {
 					_, _ = io.WriteString(w, "extra")
 				})
 				return nil
@@ -657,7 +657,7 @@ func TestNewAppGeneratedSitemapChunksTakePrecedenceOverPublicFilesAndExtraRoutes
 	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/note/sitemap/0.xml", nil))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/sitemap/note-0.xml", nil))
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), "<urlset")
@@ -701,7 +701,7 @@ func TestNewAppRootRouteDoesNotTriggerGeneratedSitemapFallback(t *testing.T) {
 							sitemapCalls++
 							return nil, assert.AnError
 						},
-						SitemapByID: func(
+						SitemapChunk: func(
 							framework.RuntimeContext[*struct{}],
 							*http.Request,
 							string,
@@ -758,7 +758,7 @@ func TestNewAppLocalizedRouteDoesNotTriggerGeneratedSitemapFallback(t *testing.T
 							sitemapCalls++
 							return nil, assert.AnError
 						},
-						SitemapByID: func(
+						SitemapChunk: func(
 							framework.RuntimeContext[*struct{}],
 							*http.Request,
 							string,

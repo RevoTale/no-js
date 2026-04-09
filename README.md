@@ -104,7 +104,7 @@ framework owns the transport, endpoint paths, and XML/text rendering:
 
 - `robots.go` returns `discovery.Robots`
 - `sitemap.go` returns `[]discovery.SitemapEntry`, plus optional
-  `GenerateSitemaps` and `SitemapByID`
+  `GenerateSitemaps` and `SitemapChunk`
 - `feed.go` returns `discovery.FeedDocument`
 
 Use the exported structs in `framework/discovery/discovery.go` as the

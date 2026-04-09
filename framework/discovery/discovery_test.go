@@ -74,7 +74,7 @@ func TestExactHandlersRobotsRendersDocument(t *testing.T) {
 						Allow:     []string{"/"},
 					},
 				},
-				Sitemaps: []string{"https://example.com/sitemap-index"},
+				Sitemaps: []string{"https://example.com/sitemap-index.xml"},
 			}, nil
 		},
 	}
@@ -88,13 +88,14 @@ func TestExactHandlersRobotsRendersDocument(t *testing.T) {
 	require.Equal(t, defaultRobotsCachePolicy, rec.Header().Get("Cache-Control"))
 	require.Contains(t, rec.Header().Get("Content-Type"), "text/plain")
 	require.Contains(t, rec.Body.String(), "User-agent: *")
-	require.Contains(t, rec.Body.String(), "Sitemap: https://example.com/sitemap-index")
+	require.Contains(t, rec.Body.String(), "Sitemap: https://example.com/sitemap-index.xml")
 }
 
 func TestExactHandlersSitemapIndexAndChunkFallback(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, 3, 31, 12, 0, 0, 0, time.UTC)
+	generateCalls := 0
 	handler := &Bundle[*struct{}]{
 		Sitemaps: []SitemapRoute[*struct{}]{
 			{
@@ -103,17 +104,17 @@ func TestExactHandlersSitemapIndexAndChunkFallback(t *testing.T) {
 					return []SitemapEntry{{URL: "https://example.com/"}}, nil
 				},
 				GenerateSitemaps: func(framework.RuntimeContext[*struct{}], *http.Request) ([]SitemapID, error) {
+					generateCalls++
 					return []SitemapID{
-						{ID: "root", Path: SitemapPath, Location: "https://example.com/sitemap.xml"},
-						{ID: "note:0", Path: "/note/sitemap/0.xml", Location: "https://example.com/note/sitemap/0.xml"},
+						{ID: "note-0", Location: "https://example.com/sitemap/note-0.xml"},
 					}, nil
 				},
-				SitemapByID: func(
+				SitemapChunk: func(
 					_ framework.RuntimeContext[*struct{}],
 					_ *http.Request,
 					id string,
 				) ([]SitemapEntry, error) {
-					require.Equal(t, "note:0", id)
+					require.Equal(t, "note-0", id)
 					return []SitemapEntry{
 						{
 							URL:             "https://example.com/note/hello-world",
@@ -127,17 +128,26 @@ func TestExactHandlersSitemapIndexAndChunkFallback(t *testing.T) {
 	}
 
 	recIndex := httptest.NewRecorder()
-	reqIndex := httptest.NewRequest(http.MethodGet, "https://example.com/sitemap-index", nil)
+	reqIndex := httptest.NewRequest(http.MethodGet, "https://example.com/sitemap-index.xml", nil)
 	servedIndex := serveExact(testRuntime[*struct{}]{}, ExactHandlers(handler), recIndex, reqIndex)
 	require.True(t, servedIndex)
 	require.Equal(t, http.StatusOK, recIndex.Code)
 	require.Equal(t, defaultSitemapIndexCachePolicy, recIndex.Header().Get("Cache-Control"))
 	require.Contains(t, recIndex.Body.String(), "<sitemapindex")
 	require.Contains(t, recIndex.Body.String(), "https://example.com/sitemap.xml")
-	require.Contains(t, recIndex.Body.String(), "https://example.com/note/sitemap/0.xml")
+	require.Contains(t, recIndex.Body.String(), "https://example.com/sitemap/note-0.xml")
+	require.Equal(t, 1, generateCalls)
+
+	recLegacyIndex := httptest.NewRecorder()
+	reqLegacyIndex := httptest.NewRequest(http.MethodGet, "https://example.com/sitemap-index", nil)
+	servedLegacyIndex := serveExact(testRuntime[*struct{}]{}, ExactHandlers(handler), recLegacyIndex, reqLegacyIndex)
+	require.True(t, servedLegacyIndex)
+	require.Equal(t, http.StatusOK, recLegacyIndex.Code)
+	require.Contains(t, recLegacyIndex.Body.String(), "<sitemapindex")
+	require.Equal(t, 2, generateCalls)
 
 	recChunk := httptest.NewRecorder()
-	reqChunk := httptest.NewRequest(http.MethodGet, "https://example.com/note/sitemap/0.xml", nil)
+	reqChunk := httptest.NewRequest(http.MethodGet, "https://example.com/sitemap/note-0.xml", nil)
 	servedChunk := MaybeServeSitemapChunk(testRuntime[*struct{}]{}, handler, recChunk, reqChunk)
 	require.True(t, servedChunk)
 	require.Equal(t, http.StatusOK, recChunk.Code)
@@ -145,6 +155,36 @@ func TestExactHandlersSitemapIndexAndChunkFallback(t *testing.T) {
 	require.Contains(t, recChunk.Body.String(), "<urlset")
 	require.Contains(t, recChunk.Body.String(), "https://example.com/note/hello-world")
 	require.Contains(t, recChunk.Body.String(), now.Format(time.RFC3339))
+	require.Equal(t, 2, generateCalls)
+}
+
+func TestMaybeServeSitemapChunkSkipsUnrelatedRequests(t *testing.T) {
+	t.Parallel()
+
+	generateCalls := 0
+	handler := &Bundle[*struct{}]{
+		Sitemaps: []SitemapRoute[*struct{}]{
+			{
+				RoutePattern: "/",
+				GenerateSitemaps: func(framework.RuntimeContext[*struct{}], *http.Request) ([]SitemapID, error) {
+					generateCalls++
+					return []SitemapID{
+						{ID: "note-0"},
+					}, nil
+				},
+				SitemapChunk: func(framework.RuntimeContext[*struct{}], *http.Request, string) ([]SitemapEntry, error) {
+					return nil, nil
+				},
+			},
+		},
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "https://example.com/favicon.ico", nil)
+	served := MaybeServeSitemapChunk(testRuntime[*struct{}]{}, handler, rec, req)
+
+	require.False(t, served)
+	require.Zero(t, generateCalls)
 }
 
 func TestExactHandlersSupportNestedDiscoveryRoutes(t *testing.T) {

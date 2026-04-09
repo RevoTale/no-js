@@ -77,15 +77,14 @@ an app-owned helper.
 
 Static sitemaps return `[]discovery.SitemapEntry`.
 
-Large sitemaps can opt into chunk generation with both of these functions:
+Large sitemaps can opt into chunk generation with these functions:
 
 ```go
 func GenerateSitemaps(runtime framework.RuntimeContext[*runtime.Context], r *http.Request) ([]discovery.SitemapID, error)
-func SitemapByID(runtime framework.RuntimeContext[*runtime.Context], r *http.Request, id string) ([]discovery.SitemapEntry, error)
+func SitemapChunk(runtime framework.RuntimeContext[*runtime.Context], r *http.Request, id string) ([]discovery.SitemapEntry, error)
 ```
 
-When both are present, the framework serves sitemap-index endpoints and chunk
-URLs automatically.
+`GenerateSitemaps` is used for sitemap indexes. The framework serves chunk requests at `/sitemap/[id].xml` under the matched route and passes the extracted `id` into `SitemapChunk`.
 
 ## Related Docs
 

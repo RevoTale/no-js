@@ -288,7 +288,7 @@ type sitemapConvention struct {
 	PackageModule       string
 	HasSitemap          bool
 	HasGenerateSitemaps bool
-	HasSitemapByID      bool
+	HasSitemapChunk     bool
 }
 
 type discoveryConventions struct {
@@ -602,7 +602,7 @@ func validateDiscoveryConventions(paths projectlayout.ProjectLayout, discovery *
 
 		sitemapByIDErr := validateDiscoveryFunction(
 			convention.SourcePath,
-			"SitemapByID",
+			"SitemapChunk",
 			[]func(ast.Expr, map[string]string) bool{
 				func(expr ast.Expr, imports map[string]string) bool {
 					return isRuntimeContextType(expr, imports, viewImportPath(paths))
@@ -621,13 +621,17 @@ func validateDiscoveryConventions(paths projectlayout.ProjectLayout, discovery *
 		)
 		switch {
 		case sitemapByIDErr == nil:
-			convention.HasSitemapByID = true
+			convention.HasSitemapChunk = true
 		case !errors.Is(sitemapByIDErr, fs.ErrNotExist):
 			return sitemapByIDErr
 		}
 
-		if convention.HasGenerateSitemaps && !convention.HasSitemapByID {
-			return fmt.Errorf("%s: GenerateSitemaps requires SitemapByID", convention.SourcePath)
+		hasDynamicSitemapPart := convention.HasGenerateSitemaps || convention.HasSitemapChunk
+		if hasDynamicSitemapPart && (!convention.HasGenerateSitemaps || !convention.HasSitemapChunk) {
+			return fmt.Errorf(
+				"%s: dynamic sitemaps require GenerateSitemaps and SitemapChunk",
+				convention.SourcePath,
+			)
 		}
 	}
 	sortSitemapConventions(discovery.Sitemaps)
@@ -2418,8 +2422,8 @@ func generateDiscoverySource(paths projectlayout.ProjectLayout, discovery discov
 			if convention.HasGenerateSitemaps {
 				writef(buffer, "\t\t\t\tGenerateSitemaps: %s.GenerateSitemaps,\n", convention.ImportAlias)
 			}
-			if convention.HasSitemapByID {
-				writef(buffer, "\t\t\t\tSitemapByID: %s.SitemapByID,\n", convention.ImportAlias)
+			if convention.HasSitemapChunk {
+				writef(buffer, "\t\t\t\tSitemapChunk: %s.SitemapChunk,\n", convention.ImportAlias)
 			}
 			buffer.WriteString("\t\t\t},\n")
 		}

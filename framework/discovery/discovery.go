@@ -18,11 +18,11 @@ import (
 )
 
 const (
-	RobotsPath          = "/robots.txt"
-	FeedPath            = "/feed.xml"
-	SitemapPath         = "/sitemap.xml"
-	SitemapIndexPath    = "/sitemap-index"
-	SitemapIndexXMLPath = "/sitemap-index.xml"
+	RobotsPath             = "/robots.txt"
+	FeedPath               = "/feed.xml"
+	SitemapPath            = "/sitemap.xml"
+	SitemapIndexPath       = "/sitemap-index.xml"
+	LegacySitemapIndexPath = "/sitemap-index"
 
 	defaultRobotsCachePolicy       = "public, max-age=3600, s-maxage=3600"
 	defaultFeedCachePolicy         = "public, max-age=3600, s-maxage=3600"
@@ -48,11 +48,11 @@ type SitemapRoute[C interface{}] struct {
 	RoutePattern     string
 	Sitemap          func(runtime framework.RuntimeContext[C], r *http.Request) ([]SitemapEntry, error)
 	GenerateSitemaps func(runtime framework.RuntimeContext[C], r *http.Request) ([]SitemapID, error)
-	SitemapByID      func(runtime framework.RuntimeContext[C], r *http.Request, id string) ([]SitemapEntry, error)
+	SitemapChunk     func(runtime framework.RuntimeContext[C], r *http.Request, id string) ([]SitemapEntry, error)
 }
 
 func (route SitemapRoute[C]) HasDynamicSitemaps() bool {
-	return route.GenerateSitemaps != nil && route.SitemapByID != nil
+	return route.GenerateSitemaps != nil && route.SitemapChunk != nil
 }
 
 type FeedRoute[C interface{}] struct {
@@ -84,7 +84,7 @@ type RobotsRule struct {
 }
 
 // SitemapEntry is one <url> record returned from a convention sitemap.go or
-// SitemapByID. The framework serializes it into the XML sitemap protocol and
+// SitemapChunk. The framework serializes it into the XML sitemap protocol and
 // related extensions.
 type SitemapEntry struct {
 	// URL maps to <loc> and should be an absolute canonical URL.
@@ -109,14 +109,13 @@ type SitemapImage struct {
 }
 
 // SitemapID identifies one generated sitemap chunk returned from
-// GenerateSitemaps and later resolved by SitemapByID.
+// GenerateSitemaps and later resolved by SitemapChunk.
 type SitemapID struct {
-	// ID is the stable application key passed back into SitemapByID.
+	// ID is the stable application key passed back into SitemapChunk.
 	ID string
-	// Path is the request path for the chunk when the framework should derive the
-	// public location from the current request.
-	Path string
-	// Location overrides the absolute URL emitted in sitemap indexes.
+	// Location overrides the absolute URL emitted in sitemap indexes. When empty,
+	// the framework derives the chunk URL from the current sitemap-index request
+	// using the fixed /sitemap/[id].xml convention.
 	Location string
 }
 
@@ -229,7 +228,7 @@ func ExactHandlers[C interface{}](bundle *Bundle[C]) []framework.RouteHandler[C]
 		})
 		handlers = append(handlers,
 			exactHandler[C]{
-				pattern: scopedDiscoveryPattern(route.RoutePattern, SitemapIndexXMLPath),
+				pattern: scopedDiscoveryPattern(route.RoutePattern, LegacySitemapIndexPath),
 				serve: func(runtime framework.RuntimeContext[C], w http.ResponseWriter, r *http.Request) bool {
 					return serveSitemapIndex(runtime, route, w, r)
 				},
@@ -253,31 +252,25 @@ func MaybeServeSitemapChunk[C interface{}](
 		return false
 	}
 
-	requestPath := normalizePath(r.URL.Path)
 	for _, route := range bundle.Sitemaps {
 		if !route.HasDynamicSitemaps() {
 			continue
 		}
 
-		ids, err := sitemapIDsForRequest(runtime, route, r)
-		if err != nil {
-			writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("resolve sitemap ids: %w", err))
-			return true
-		}
-		matchedID, ok := matchSitemapIDByPath(ids, requestPath)
+		matchedID, ok := matchSitemapChunkRequest(route.RoutePattern, r.URL.Path)
 		if !ok {
 			continue
 		}
 
-		entries, err := route.SitemapByID(runtime, r, strings.TrimSpace(matchedID.ID))
+		entries, err := route.SitemapChunk(runtime, r, strings.TrimSpace(matchedID))
 		if err != nil {
-			writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("resolve sitemap %q: %w", matchedID.ID, err))
+			writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("resolve sitemap %q: %w", matchedID, err))
 			return true
 		}
 
 		payload, err := renderSitemapXML(entries)
 		if err != nil {
-			writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("render sitemap %q: %w", matchedID.ID, err))
+			writeInternalServerError(runtime.LogServerError, w, fmt.Errorf("render sitemap %q: %w", matchedID, err))
 			return true
 		}
 
@@ -398,15 +391,9 @@ func serveSitemapIndex[C interface{}](
 	if route.Sitemap != nil {
 		rootPath := replaceLastPathSegment(normalizePath(r.URL.Path), strings.TrimPrefix(SitemapPath, "/"))
 		rootLocation := requestAbsoluteURL(r, rootPath)
-		if rootID, ok := matchSitemapIDByPath(ids, rootPath); ok {
-			rootLocation = resolveSitemapLocation(rootID, r)
-		}
 		appendUniqueNonEmpty(&locations, seen, rootLocation)
 	}
 	for _, id := range ids {
-		if normalizePath(id.Path) == replaceLastPathSegment(normalizePath(r.URL.Path), strings.TrimPrefix(SitemapPath, "/")) {
-			continue
-		}
 		appendUniqueNonEmpty(&locations, seen, resolveSitemapLocation(id, r))
 	}
 
@@ -429,16 +416,6 @@ func sitemapIDsForRequest[C interface{}](
 		return nil, nil
 	}
 	return route.GenerateSitemaps(runtime, r)
-}
-
-func matchSitemapIDByPath(ids []SitemapID, requestPath string) (SitemapID, bool) {
-	normalizedRequestPath := normalizePath(requestPath)
-	for _, id := range ids {
-		if normalizePath(id.Path) == normalizedRequestPath {
-			return id, true
-		}
-	}
-	return SitemapID{}, false
 }
 
 func sortedFeedRoutes[C interface{}](routes []FeedRoute[C]) []FeedRoute[C] {
@@ -507,7 +484,63 @@ func resolveSitemapLocation(id SitemapID, r *http.Request) string {
 	if location != "" {
 		return location
 	}
-	return requestAbsoluteURL(r, id.Path)
+	return requestAbsoluteURL(r, sitemapChunkPathForIndexRequest(r, id.ID))
+}
+
+func matchSitemapChunkRequest(routePattern string, requestPath string) (string, bool) {
+	basePath, chunkID, ok := splitSitemapChunkRequestPath(requestPath)
+	if !ok {
+		return "", false
+	}
+	if _, ok := frameworkrouter.MatchPathPattern(routePattern, basePath); !ok {
+		return "", false
+	}
+	return chunkID, true
+}
+
+func splitSitemapChunkRequestPath(requestPath string) (string, string, bool) {
+	normalized := normalizePath(requestPath)
+	segments := pathSegments(normalized)
+	if len(segments) < 2 {
+		return "", "", false
+	}
+	if segments[len(segments)-2] != "sitemap" {
+		return "", "", false
+	}
+
+	rawChunk := strings.TrimSpace(segments[len(segments)-1])
+	if !strings.HasSuffix(rawChunk, ".xml") {
+		return "", "", false
+	}
+	rawChunk = strings.TrimSuffix(rawChunk, ".xml")
+	if rawChunk == "" {
+		return "", "", false
+	}
+
+	chunkID, err := url.PathUnescape(rawChunk)
+	if err != nil || strings.TrimSpace(chunkID) == "" {
+		return "", "", false
+	}
+
+	baseSegments := segments[:len(segments)-2]
+	basePath := "/"
+	if len(baseSegments) > 0 {
+		basePath = "/" + strings.Join(baseSegments, "/")
+	}
+	return basePath, chunkID, true
+}
+
+func sitemapChunkPathForIndexRequest(r *http.Request, id string) string {
+	escapedID := url.PathEscape(strings.TrimSpace(id))
+	if escapedID == "" {
+		escapedID = "_"
+	}
+
+	currentPath := SitemapIndexPath
+	if r != nil && r.URL != nil {
+		currentPath = normalizePath(r.URL.Path)
+	}
+	return replaceLastPathSegment(currentPath, path.Join("sitemap", escapedID+".xml"))
 }
 
 func renderRobotsTXT(document Robots) string {

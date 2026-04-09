@@ -292,7 +292,8 @@ func GenerateSitemaps(runtime framework.RuntimeContext[*view.Context], r *http.R
 	return nil, nil
 }
 
-func SitemapByID(
+
+func SitemapChunk(
 	runtime framework.RuntimeContext[*view.Context],
 	r *http.Request,
 	id string,
@@ -372,16 +373,16 @@ func Feed(runtime framework.RuntimeContext[*view.Context], r *http.Request) (dis
 	require.Equal(t, "author/_param__slug", routes.Discovery.Sitemaps[0].RouteID)
 	require.True(t, routes.Discovery.Sitemaps[0].HasSitemap)
 	require.False(t, routes.Discovery.Sitemaps[0].HasGenerateSitemaps)
-	require.False(t, routes.Discovery.Sitemaps[0].HasSitemapByID)
+	require.False(t, routes.Discovery.Sitemaps[0].HasSitemapChunk)
 	require.Equal(t, "", routes.Discovery.Sitemaps[1].RouteID)
 	require.True(t, routes.Discovery.Sitemaps[1].HasSitemap)
 	require.True(t, routes.Discovery.Sitemaps[1].HasGenerateSitemaps)
-	require.True(t, routes.Discovery.Sitemaps[1].HasSitemapByID)
+	require.True(t, routes.Discovery.Sitemaps[1].HasSitemapChunk)
 	require.Equal(t, "author/_param__slug", routes.Discovery.Feeds[0].RouteID)
 	require.Equal(t, "", routes.Discovery.Feeds[1].RouteID)
 }
 
-func TestValidateDiscoveryConventionsRejectsGenerateWithoutSitemapByID(t *testing.T) {
+func TestValidateDiscoveryConventionsRejectsIncompleteDynamicSitemap(t *testing.T) {
 	root := t.TempDir()
 	appRoot := filepath.Join(root, "app")
 	genRoot := filepath.Join(root, "gen")
@@ -418,7 +419,7 @@ func GenerateSitemaps(runtime framework.RuntimeContext[*view.Context], r *http.R
 		ViewImport:    "web/view",
 	}, &routes.Discovery)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "GenerateSitemaps requires SitemapByID")
+	require.Contains(t, err.Error(), "dynamic sitemaps require GenerateSitemaps and SitemapChunk")
 }
 
 func TestValidateDiscoveryConventionsRejectsNestedPatternConflicts(t *testing.T) {
