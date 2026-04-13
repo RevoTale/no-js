@@ -84,7 +84,7 @@ func (message CompiledMessage) Render(vars map[string]any) string {
 			if !ok || value == nil {
 				continue
 			}
-			builder.WriteString(fmt.Sprint(value))
+			_, _ = fmt.Fprint(&builder, value)
 			continue
 		}
 		builder.WriteString(part.Text)
