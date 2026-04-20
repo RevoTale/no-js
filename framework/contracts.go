@@ -3,7 +3,6 @@ package framework
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -277,30 +276,19 @@ func servePageModule[C interface{}, P interface{}, VM interface{}](
 	}
 
 	locale := frameworki18n.LocaleFromContext(r.Context())
-	streamedBody := templ.ComponentFunc(func(renderCtx context.Context, writer io.Writer) error {
-		result := awaitLoad()
-		if result.err != nil {
-			runtime.LogServerError(fmt.Errorf("load route %q after stream start: %w", module.Pattern, result.err))
-			if module.ErrorPage == nil {
-				return nil
-			}
-			errorComponent := module.ErrorPage(appCtx, r)
-			if errorComponent == nil {
-				return nil
-			}
-			return errorComponent.Render(renderCtx, writer)
-		}
+	result := awaitLoad()
+	if result.err != nil {
+		handleModuleError(runtime, w, r, result.err, module.RouteID, module.Pattern, NotFoundSourcePageLoad, "load")
+		return true
+	}
 
-		component, err := composePageComponent(ctx, runtime, r, meta, result.view, params, false, module)
-		if err != nil {
-			return fmt.Errorf("compose route %q: %w", module.Pattern, err)
-		}
-		return component.Render(renderCtx, writer)
-	})
-
-	component := module.RootLayout(meta, locale, streamedBody)
-	if component == nil {
-		component = streamedBody
+	component, err := composePageComponent(ctx, runtime, r, meta, result.view, params, false, module)
+	if err != nil {
+		handleModuleError(runtime, w, r, err, module.RouteID, module.Pattern, NotFoundSourcePageLoad, "compose")
+		return true
+	}
+	if module.RootLayout != nil {
+		component = module.RootLayout(meta, locale, component)
 	}
 	if err := runtime.RenderPage(r, w, component, meta); err != nil {
 		runtime.RespondServerError(w, fmt.Errorf("render route %q: %w", module.Pattern, err))

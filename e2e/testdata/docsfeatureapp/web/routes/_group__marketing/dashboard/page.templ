@@ -1,0 +1,13 @@
+package dashboard
+
+import (
+	"example.com/templcssapp/web/components"
+	"example.com/templcssapp/web/view"
+)
+
+templ Page(view runtime.RootLayoutView) {
+	<main id="marketing-dashboard">
+		<h1>Marketing Dashboard</h1>
+		@components.ProfileCard("Qualified pipeline", 64)
+	</main>
+}

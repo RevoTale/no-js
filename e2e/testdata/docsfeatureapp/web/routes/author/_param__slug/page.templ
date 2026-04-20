@@ -1,0 +1,17 @@
+package author
+
+import (
+	"example.com/templcssapp/web/components"
+	"example.com/templcssapp/web/view"
+)
+
+templ Page(view runtime.AuthorPageView) {
+	<main id="author-page">
+		<h1>{ view.Heading }</h1>
+		<p id="author-description">{ view.Description }</p>
+		<div id="author-shared">{ view.SharedA }|{ view.SharedB }</div>
+		<div id="expensive-count">{ view.LoadCount }</div>
+		<a id="switch-en" href={ view.SwitchToEnglish }>English</a>
+		@components.ProfileCard(view.Heading, view.Progress)
+	</main>
+}

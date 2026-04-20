@@ -446,13 +446,12 @@ func TestMetaGenErrorPrefersMetadataClassification(t *testing.T) {
 	}
 }
 
-func TestLoadFailureAfterRootRenderUsesErrorPage(t *testing.T) {
+func TestLoadFailureBeforeRootRenderUsesServerError(t *testing.T) {
 	t.Parallel()
 
 	errBoom := errors.New("boom")
 	renderCalled := false
-	loggedError := ""
-	var rendered string
+	var handledErr error
 
 	routeEngine, err := New(Config[*testAppContext]{
 		AppContext: &testAppContext{},
@@ -485,33 +484,21 @@ func TestLoadFailureAfterRootRenderUsesErrorPage(t *testing.T) {
 							return err
 						})
 					},
-					ErrorPage: func(_ *testAppContext, r *http.Request) templ.Component {
-						path := "/"
-						if r != nil && r.URL != nil {
-							path = r.URL.Path
-						}
-						return textComponent("error:" + path)
-					},
 				},
 			},
 		},
-		RenderPage: func(_ *http.Request, _ http.ResponseWriter, component templ.Component, _ metagen.Metadata) error {
-			var b bytes.Buffer
-			if err := component.Render(context.Background(), &b); err != nil {
-				return err
-			}
-			rendered = b.String()
+		RenderPage: func(_ *http.Request, _ http.ResponseWriter, _ templ.Component, _ metagen.Metadata) error {
 			return nil
 		},
-		LogServerError: func(err error) {
-			loggedError = err.Error()
+		HandleServerError: func(_ http.ResponseWriter, err error) {
+			handledErr = err
 		},
 	})
 	require.NoError(t, err)
 	require.True(t, routeEngine.ServeRoute(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/notes", nil)))
-	assert.False(t, renderCalled, "page renderer should not be called when load fails after stream start")
-	assert.Contains(t, rendered, "<html><head>Notes</head><body>error:/notes</body></html>")
-	assert.Contains(t, loggedError, "after stream start")
+	assert.False(t, renderCalled, "page renderer should not be called when load fails")
+	require.Error(t, handledErr)
+	assert.Contains(t, handledErr.Error(), `load route "/notes": boom`)
 }
 
 func TestResolverTimingCallbackReceivesMetaGenAndLoad(t *testing.T) {

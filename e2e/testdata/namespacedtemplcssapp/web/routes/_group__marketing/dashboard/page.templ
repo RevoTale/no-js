@@ -1,0 +1,16 @@
+package dashboard
+
+import "example.com/templcssapp/web/components"
+import "example.com/templcssapp/web/view"
+
+css dashboardCard() {
+	border: 2px solid #17324d;
+	padding: 14px;
+}
+
+templ Page(view runtime.RootLayoutView) {
+	<main id="marketing-dashboard" class={ dashboardCard() }>
+		<h1>Marketing Dashboard</h1>
+		@components.StatChip("Qualified pipeline", 72)
+	</main>
+}

@@ -1,0 +1,13 @@
+package routes
+
+import (
+	"example.com/templcssapp/web/components"
+	"example.com/templcssapp/web/view"
+)
+
+templ Page(view runtime.RootPageView) {
+	<main id="home-page">
+		<h1>{ view.Heading }</h1>
+		@components.Hero(view.Body, view.Progress)
+	</main>
+}
