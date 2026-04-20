@@ -3,7 +3,7 @@ package metagen
 import "strings"
 
 // Merge combines parent and child metadata.
-// Child values override parent values when non-zero, and DangerRawHead appends.
+// Child values override parent values when non-zero, and Stylesheets/DangerRawHead append.
 func Merge(parent Metadata, child Metadata) Metadata {
 	merged := Normalize(parent)
 	child = Normalize(child)
@@ -33,6 +33,9 @@ func Merge(parent Metadata, child Metadata) Metadata {
 	}
 	if strings.TrimSpace(child.Publisher) != "" {
 		merged.Publisher = child.Publisher
+	}
+	if len(child.Stylesheets) > 0 {
+		merged.Stylesheets = append(merged.Stylesheets, child.Stylesheets...)
 	}
 	if child.Pinterest != nil {
 		merged.Pinterest = child.Pinterest

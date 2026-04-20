@@ -8,6 +8,9 @@ import (
 	"strings"
 
 	"github.com/RevoTale/no-js/internal/bundler/staticassets"
+	"github.com/RevoTale/no-js/internal/bundler/templcssgen"
+	"github.com/RevoTale/no-js/internal/filesystem"
+	"github.com/RevoTale/no-js/internal/projectlayout"
 )
 
 func main() {
@@ -15,15 +18,61 @@ func main() {
 	var outDir string
 	var manifestPath string
 	var urlPrefix string
+	var rootDir string
+	var configPath string
+	var templCSS bool
 
 	flag.StringVar(&sourceDir, "source", "web/assets", "source static directory")
 	flag.StringVar(&outDir, "out", "web/assets-build", "output static directory")
 	flag.StringVar(&manifestPath, "manifest", "web/assets-build/manifest.json", "manifest output path")
 	flag.StringVar(&urlPrefix, "url-prefix", "/_assets/", "base static URL prefix")
+	flag.StringVar(&rootDir, "root", ".", "application root directory")
+	flag.StringVar(&configPath, "config", "", "bundle config path")
+	flag.BoolVar(&templCSS, "templ-css", false, "generate styles/templ.css before bundling")
 	flag.Parse()
 
+	var layout projectlayout.ProjectLayout
+	if templCSS {
+		var err error
+		layout, err = resolveLayout(rootDir, configPath)
+		if err != nil {
+			exitf("%v", err)
+		}
+		if sourceDir == "web/assets" {
+			sourceDir = layout.StaticAssets.SourceDir
+		}
+		if outDir == "web/assets-build" {
+			outDir = layout.StaticAssets.OutDir
+		}
+		if manifestPath == "web/assets-build/manifest.json" {
+			manifestPath = layout.StaticAssets.ManifestPath
+		}
+	}
+	sourceDir = resolvePath(rootDir, sourceDir)
+	outDir = resolvePath(rootDir, outDir)
+	manifestPath = resolvePath(rootDir, manifestPath)
+
+	buildSourceDir := sourceDir
+	cleanupSource := func() error { return nil }
+	if templCSS {
+		stageDir, cleanup, err := templcssgen.PrepareStaticSource(templcssgen.PrepareStaticSourceConfig{
+			Layout:    layout,
+			SourceDir: sourceDir,
+		})
+		if err != nil {
+			exitf("prepare templ css static source: %v", err)
+		}
+		buildSourceDir = stageDir
+		cleanupSource = cleanup
+	}
+	defer func() {
+		if cleanupErr := cleanupSource(); cleanupErr != nil {
+			exitf("cleanup staged source: %v", cleanupErr)
+		}
+	}()
+
 	bundle, err := staticassets.Build(staticassets.BuildConfig{
-		SourceDir: sourceDir,
+		SourceDir: buildSourceDir,
 		URLPrefix: urlPrefix,
 	})
 	if err != nil {
@@ -38,7 +87,7 @@ func main() {
 	if err := os.RemoveAll(outDir); err != nil {
 		exitf("clean output dir %q: %v", outDir, err)
 	}
-	if err := copyTree(bundle.Dir(), outDir); err != nil {
+	if err := filesystem.CopyTree(bundle.Dir(), outDir); err != nil {
 		exitf("copy processed assets to %q: %v", outDir, err)
 	}
 
@@ -50,39 +99,23 @@ func main() {
 	}
 }
 
-func copyTree(sourceRoot string, targetRoot string) error {
-	return filepath.WalkDir(sourceRoot, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
+func resolveLayout(rootDir string, configPath string) (projectlayout.ProjectLayout, error) {
+	if strings.TrimSpace(configPath) == "" {
+		return projectlayout.ResolveProjectLayoutFromRoot(rootDir)
+	}
 
-		relativePath, err := filepath.Rel(sourceRoot, path)
-		if err != nil {
-			return err
-		}
-		if relativePath == "." {
-			return os.MkdirAll(targetRoot, 0o755)
-		}
+	cfg, err := projectlayout.LoadConfigFile(configPath)
+	if err != nil {
+		return projectlayout.ProjectLayout{}, err
+	}
+	return projectlayout.ResolveProjectLayout(rootDir, cfg)
+}
 
-		targetPath := filepath.Join(targetRoot, relativePath)
-		if entry.IsDir() {
-			return os.MkdirAll(targetPath, 0o755)
-		}
-
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-			return err
-		}
-
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(targetPath, content, 0o644); err != nil {
-			return err
-		}
-
-		return nil
-	})
+func resolvePath(rootDir string, target string) string {
+	if filepath.IsAbs(target) {
+		return target
+	}
+	return filepath.Join(rootDir, target)
 }
 
 func exitf(formatText string, args ...interface{}) {

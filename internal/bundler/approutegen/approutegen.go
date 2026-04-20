@@ -2531,6 +2531,7 @@ func writeNotFoundPageFunc(
 	buffer.WriteString("\t\t\tFollow: metagen.Bool(false),\n")
 	buffer.WriteString("\t\t},\n")
 	buffer.WriteString("\t}\n")
+	buffer.WriteString("\tmeta = metagen.MergeManagedStylesheets(r.Context(), meta)\n")
 	buffer.WriteString("\tswitch routeID {\n")
 	for _, routeID := range notFoundKeys {
 		if routeID == "" {
@@ -2865,6 +2866,7 @@ func writePageModule(
 	buffer.WriteString("\t\t\t\t\t\t\tFollow: metagen.Bool(false),\n")
 	buffer.WriteString("\t\t\t\t\t\t},\n")
 	buffer.WriteString("\t\t\t\t\t}\n")
+	buffer.WriteString("\t\t\t\t\tmeta = metagen.MergeManagedStylesheets(r.Context(), meta)\n")
 	writef(buffer, "\t\t\t\t\tcomponent := %s.Error(view, pathValue)\n", errorPage.ModuleName)
 	errorLayoutChain := layoutChain(errorRouteID, layouts)
 	for idx := len(errorLayoutChain) - 1; idx >= 0; idx-- {

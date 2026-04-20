@@ -16,6 +16,7 @@ import (
 	frameworkdiscovery "github.com/RevoTale/no-js/framework/discovery"
 	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
 	"github.com/RevoTale/no-js/framework/metagen"
+	frameworkstaticassets "github.com/RevoTale/no-js/framework/staticassets"
 	"github.com/a-h/templ"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,6 +32,29 @@ func textComponent(value string) templ.Component {
 	return componentFunc(func(_ context.Context, w io.Writer) error {
 		_, err := io.WriteString(w, value)
 		return err
+	})
+}
+
+func cssComponent(meta metagen.Metadata, classes ...templ.ComponentCSSClass) templ.Component {
+	return componentFunc(func(ctx context.Context, w io.Writer) error {
+		if err := metagen.Head(meta).Render(ctx, w); err != nil {
+			return err
+		}
+		if len(classes) > 0 {
+			items := make([]any, 0, len(classes))
+			for _, class := range classes {
+				items = append(items, class)
+			}
+			if err := templ.RenderCSSItems(ctx, w, items...); err != nil {
+				return err
+			}
+			for _, class := range classes {
+				if _, err := io.WriteString(w, `<div class="`+class.ClassName()+`"></div>`); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	})
 }
 
@@ -326,6 +350,135 @@ func TestNewAppRejectsNilPointerAppContext(t *testing.T) {
 	require.Nil(t, handler)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "app context is required")
+}
+
+func TestHTTPServerTemplCSSInjectsStylesheetAndSuppressesRegisteredInlineCSS(t *testing.T) {
+	t.Parallel()
+
+	globalClass := templ.ComponentCSSClass{
+		ID:    "button_hash",
+		Class: ".button_hash{color:red;}",
+	}
+	inlineClass := templ.ComponentCSSClass{
+		ID:    "loading_hash",
+		Class: ".loading_hash{width:50%;}",
+	}
+
+	handler, err := New(Config[*struct{}]{
+		AppContext: &struct{}{},
+		Handlers: []framework.RouteHandler[*struct{}]{
+			framework.PageOnlyRouteHandler[*struct{}, framework.EmptyParams, struct{}]{
+				Page: framework.PageModule[*struct{}, framework.EmptyParams, struct{}]{
+					Pattern: "/notes",
+					ParseParams: func(path string) (framework.EmptyParams, bool) {
+						return framework.EmptyParams{}, path == "/notes"
+					},
+					Load: func(context.Context, *struct{}, *http.Request, framework.EmptyParams) (struct{}, error) {
+						return struct{}{}, nil
+					},
+					Compose: func(
+						_ context.Context,
+						_ framework.RuntimeContext[*struct{}],
+						_ *http.Request,
+						meta metagen.Metadata,
+						_ struct{},
+						_ framework.EmptyParams,
+						_ bool,
+					) (templ.Component, error) {
+						return cssComponent(meta, globalClass, inlineClass), nil
+					},
+				},
+			},
+		},
+		Static: StaticMount{URLPrefix: "/_assets/abc123/"},
+		TemplCSS: &TemplCSSConfig{
+			Manifest: frameworkstaticassets.Manifest{
+				Version: frameworkstaticassets.CurrentManifestVersion,
+				Hash:    "abc123",
+			},
+			Classes: []templ.CSSClass{globalClass},
+		},
+	})
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/notes", nil))
+
+	body := strings.TrimSpace(rec.Body.String())
+	require.Contains(t, body, `rel="stylesheet" href="/_assets/abc123/styles/templ.css"`)
+	require.Contains(t, body, ".loading_hash{width:50%;}")
+	require.NotContains(t, body, ".button_hash{color:red;}")
+}
+
+func TestNewAppEnablesTemplCSSWhenBuiltAssetExists(t *testing.T) {
+	t.Parallel()
+
+	staticDir := t.TempDir()
+	manifestPath := filepath.Join(staticDir, "manifest.json")
+	require.NoError(
+		t,
+		os.MkdirAll(filepath.Join(staticDir, "styles"), 0o755),
+	)
+	require.NoError(
+		t,
+		os.WriteFile(manifestPath, []byte("{\n  \"version\": 1,\n  \"hash\": \"abc123\"\n}\n"), 0o644),
+	)
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(staticDir, "styles", "templ.css"), []byte(".button_hash{color:red}"), 0o644),
+	)
+
+	globalClass := templ.ComponentCSSClass{
+		ID:    "button_hash",
+		Class: ".button_hash{color:red;}",
+	}
+
+	handler, err := NewApp(Config[*struct{}]{
+		App: AppBundle[*struct{}]{
+			Context: &struct{}{},
+			Handlers: []framework.RouteHandler[*struct{}]{
+				framework.PageOnlyRouteHandler[*struct{}, framework.EmptyParams, struct{}]{
+					Page: framework.PageModule[*struct{}, framework.EmptyParams, struct{}]{
+						Pattern: "/notes",
+						ParseParams: func(path string) (framework.EmptyParams, bool) {
+							return framework.EmptyParams{}, path == "/notes"
+						},
+						Load: func(context.Context, *struct{}, *http.Request, framework.EmptyParams) (struct{}, error) {
+							return struct{}{}, nil
+						},
+						Compose: func(
+							_ context.Context,
+							_ framework.RuntimeContext[*struct{}],
+							_ *http.Request,
+							meta metagen.Metadata,
+							_ struct{},
+							_ framework.EmptyParams,
+							_ bool,
+						) (templ.Component, error) {
+							return cssComponent(meta, globalClass), nil
+						},
+					},
+				},
+			},
+			TemplCSSClasses: func() []templ.CSSClass {
+				return []templ.CSSClass{globalClass}
+			},
+		},
+		Custom: CustomConfig{
+			StaticAssets: &StaticAssetsConfig{
+				ManifestPath: manifestPath,
+				URLPrefix:    "/assets/",
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/notes", nil))
+
+	body := strings.TrimSpace(rec.Body.String())
+	require.Contains(t, body, `rel="stylesheet" href="/assets/abc123/styles/templ.css"`)
+	require.NotContains(t, body, ".button_hash{color:red;}")
 }
 
 func TestHTTPServerNotFoundContextForLoadAndUnmatched(t *testing.T) {

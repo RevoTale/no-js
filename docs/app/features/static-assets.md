@@ -20,6 +20,13 @@ Asset generation reads from `web/assets` and writes to `web/assets-build`:
 go run github.com/RevoTale/no-js/cmd/no-js gen assets -root .
 ```
 
+To build a global templ stylesheet and send it through the same hashed asset
+pipeline:
+
+```bash
+go run github.com/RevoTale/no-js/cmd/no-js gen assets -root . -templ-css
+```
+
 The generated manifest lives at:
 
 ```text
@@ -55,6 +62,18 @@ a small helper:
 ```templ
 <link rel="stylesheet" href={ runtime.StaticAssetURL("app.css") }/>
 ```
+
+For templ `css` components, opt in at runtime so registered classes are treated
+as globally available:
+
+```go
+bundle := generated.Bundle(appContext)
+bundle.TemplCSSClasses = generated.TemplCSSClasses
+```
+
+`generated.TemplCSSClasses()` auto-registers zero-arg templ `css` components
+from `web/routes` and `web/components`. Explicit variants still belong in
+`web/view.TemplCSSVariants() []templ.CSSClass`.
 
 ## `/_assets/` Versus `web/public`
 

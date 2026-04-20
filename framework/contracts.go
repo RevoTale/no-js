@@ -246,6 +246,7 @@ func servePageModule[C interface{}, P interface{}, VM interface{}](
 		return true
 	}
 	meta := metagen.Normalize(metaResult.meta)
+	meta = metagen.MergeManagedStylesheets(r.Context(), meta)
 
 	var loadOnce sync.Once
 	var loadResult pageLoadResult
