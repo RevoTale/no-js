@@ -1,0 +1,21 @@
+package components
+
+css dropdownRoot() {
+	display: grid;
+	gap: 0.4rem;
+}
+
+css dropdownPanel() {
+	display: grid;
+}
+
+templ Dropdown() {
+	<div data-dropdown class={ dropdownRoot() } x-data="dropdown()" x-ref="root">
+		<button type="button" x-on:click="open = !open" data-dropdown-trigger>
+			Open
+		</button>
+		<div data-dropdown-panel class={ dropdownPanel() } x-show="open" x-ref="panel">
+			Contents
+		</div>
+	</div>
+}

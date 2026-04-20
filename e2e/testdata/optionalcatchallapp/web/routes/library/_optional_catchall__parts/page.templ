@@ -1,0 +1,15 @@
+package parts
+
+import "example.com/templcssapp/web/view"
+
+css libraryPage() {
+	background: #fff7ed;
+	padding: 12px;
+}
+
+templ Page(view runtime.OptionalCatchAllPageView) {
+	<main id="library-page" class={ libraryPage() }>
+		<p data-joined>{ view.Joined }</p>
+		<p data-depth>{ view.Depth }</p>
+	</main>
+}

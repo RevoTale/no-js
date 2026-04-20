@@ -118,7 +118,7 @@ func generateRoutes(layout projectlayout.ProjectLayout) error {
 }
 
 func generateAssets(layout projectlayout.ProjectLayout, templCSS bool) error {
-	if !layout.ServerFeatures.StaticAssets {
+	if !layout.ServerFeatures.StaticAssets && !templCSS {
 		return nil
 	}
 

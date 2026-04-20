@@ -1,0 +1,10 @@
+package fallback
+
+import "example.com/templcssapp/web/components"
+import "example.com/templcssapp/web/view"
+
+templ Page(view runtime.ProgressPageView) {
+	<main id="fallback-page">
+		@components.ProgressMeter(view.Percent)
+	</main>
+}

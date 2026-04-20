@@ -1,0 +1,22 @@
+[
+  {
+    "id": "ui.home.heading",
+    "translation": "Lokales Zuhause"
+  },
+  {
+    "id": "ui.home.kicker",
+    "translation": "Immer-Praefix Fixture"
+  },
+  {
+    "id": "ui.greet.heading",
+    "translation": "Hallo {{.Name}}"
+  },
+  {
+    "id": "ui.switch.english",
+    "translation": "Englisch"
+  },
+  {
+    "id": "ui.switch.german",
+    "translation": "Deutsch"
+  }
+]

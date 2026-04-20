@@ -1,0 +1,13 @@
+package components
+
+css heroRoot() {
+	background: #effcf6;
+	padding: 12px;
+	border: 1px solid #17594a;
+}
+
+templ Hero(heading string, locale string) {
+	<section data-component="hero" data-locale={ locale } class={ heroRoot() }>
+		<h1>{ heading }</h1>
+	</section>
+}

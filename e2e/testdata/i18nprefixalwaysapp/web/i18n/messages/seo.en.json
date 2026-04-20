@@ -1,0 +1,9 @@
+[
+  {
+    "id": "seo.greet.description",
+    "translation": "Browse the greeting page for {{.Name}}.",
+    "args": [
+      { "name": "Name", "type": "string" }
+    ]
+  }
+]

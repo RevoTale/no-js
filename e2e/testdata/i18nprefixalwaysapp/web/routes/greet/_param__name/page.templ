@@ -1,0 +1,15 @@
+package name
+
+import "example.com/templcssapp/web/components"
+import "example.com/templcssapp/web/view"
+
+templ Page(view runtime.GreetPageView) {
+	<main id="greet-page">
+		@components.Hero(view.Heading, view.Locale)
+		<p id="greet-description">{ view.Description }</p>
+		<nav>
+			<a id="switch-en" href={ view.SwitchToEnglish }>English</a>
+			<a id="switch-de" href={ view.SwitchToGerman }>Deutsch</a>
+		</nav>
+	</main>
+}

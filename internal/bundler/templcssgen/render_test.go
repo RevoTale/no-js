@@ -167,6 +167,73 @@ func TemplCSSVariants() []templ.CSSClass {
 	require.Contains(t, bundle.URL("styles/templ.css"), "/styles/templ.css")
 }
 
+func TestPrepareStaticSourceStagesTemplCSSWithoutSourceDir(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := repoRootPath(t)
+	appRoot := t.TempDir()
+	layout := projectlayout.ProjectLayout{
+		RootDir:         filepath.ToSlash(appRoot),
+		RoutesDir:       filepath.ToSlash(filepath.Join(appRoot, "web/routes")),
+		GeneratedDir:    filepath.ToSlash(filepath.Join(appRoot, "web/generated")),
+		GeneratedImport: "web/generated",
+		ViewDir:         filepath.ToSlash(filepath.Join(appRoot, "web/view")),
+		ViewImport:      "web/view",
+		AppModulePath:   "example.com/app",
+	}
+
+	require.NoError(t, os.MkdirAll(layout.RoutesDir, 0o755))
+	require.NoError(t, os.MkdirAll(layout.ViewDir, 0o755))
+	require.NoError(t, os.MkdirAll(layout.GeneratedDir, 0o755))
+
+	require.NoError(t, os.WriteFile(filepath.Join(appRoot, "go.mod"), []byte(tempAppGoMod(repoRoot)), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(appRoot, "go.sum"), []byte(templModuleSum), 0o644))
+
+	require.NoError(t, os.WriteFile(filepath.Join(layout.RoutesDir, "page.templ"), []byte(`
+package routes
+
+css button() {
+	color: white;
+}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(layout.ViewDir, "variants.go"), []byte(`
+package runtime
+
+import "github.com/a-h/templ"
+
+func TemplCSSVariants() []templ.CSSClass {
+	return nil
+}
+`), 0o644))
+
+	require.NoError(t, templgen.Run(templgen.Config{
+		Paths:    []string{layout.RoutesDir},
+		BasePath: appRoot,
+	}))
+
+	stageDir, cleanup, err := PrepareStaticSource(PrepareStaticSourceConfig{
+		Layout:    layout,
+		SourceDir: filepath.Join(appRoot, "web/assets"),
+	})
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, cleanup())
+	}()
+
+	bundle, err := bundlerstaticassets.Build(bundlerstaticassets.BuildConfig{
+		SourceDir: stageDir,
+	})
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, bundle.Cleanup())
+	}()
+
+	content, err := os.ReadFile(filepath.Join(bundle.Dir(), "styles", "templ.css"))
+	require.NoError(t, err)
+	require.Contains(t, string(content), ".button_")
+	require.Contains(t, bundle.URL("styles/templ.css"), "/styles/templ.css")
+}
+
 func repoRootPath(t *testing.T) string {
 	t.Helper()
 

@@ -1,0 +1,15 @@
+package dashboard
+
+import "example.com/templcssapp/web/view"
+
+css shell() {
+	background: #f4f7fb;
+	padding: 18px;
+}
+
+templ Layout(view runtime.RootLayoutView, child templ.Component, inspector templ.Component) {
+	<section data-layout="dashboard" class={ shell() }>
+		@child
+		@inspector
+	</section>
+}

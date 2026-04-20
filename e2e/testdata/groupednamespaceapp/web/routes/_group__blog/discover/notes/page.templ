@@ -1,0 +1,15 @@
+package notes
+
+import "example.com/templcssapp/web/components"
+import "example.com/templcssapp/web/view"
+
+css notesPage() {
+	background: #eef5ff;
+	padding: 10px;
+}
+
+templ Page(view runtime.RootLayoutView) {
+	<main id="discover-notes" class={ notesPage() }>
+		@components.DiscoverCard("Blog", "Notes", 64)
+	</main>
+}

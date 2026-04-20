@@ -1,0 +1,16 @@
+package discover
+
+import "example.com/templcssapp/web/view"
+
+css shopShell() {
+	border: 2px dashed #9a3412;
+	padding: 18px;
+	background: #fff7ed;
+}
+
+templ Layout(view runtime.RootLayoutView, child templ.Component) {
+	<section data-layout="shop-discover" class={ shopShell() }>
+		<header>Shop Discover</header>
+		@child
+	</section>
+}

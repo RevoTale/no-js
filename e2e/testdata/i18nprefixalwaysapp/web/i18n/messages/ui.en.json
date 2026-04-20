@@ -1,0 +1,25 @@
+[
+  {
+    "id": "ui.home.heading",
+    "translation": "Localized Home"
+  },
+  {
+    "id": "ui.home.kicker",
+    "translation": "Prefix always fixture"
+  },
+  {
+    "id": "ui.greet.heading",
+    "translation": "Hello {{.Name}}",
+    "args": [
+      { "name": "Name", "type": "string" }
+    ]
+  },
+  {
+    "id": "ui.switch.english",
+    "translation": "English"
+  },
+  {
+    "id": "ui.switch.german",
+    "translation": "German"
+  }
+]

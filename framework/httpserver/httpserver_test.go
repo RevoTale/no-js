@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/RevoTale/no-js/framework"
 	frameworkdiscovery "github.com/RevoTale/no-js/framework/discovery"
@@ -84,6 +87,76 @@ func wrapComponent(tag string, child templ.Component) templ.Component {
 		_, err := io.WriteString(w, "[/"+tag+"]")
 		return err
 	})
+}
+
+type streamCaptureWriter struct {
+	header  http.Header
+	flushed chan struct{}
+	mu      sync.Mutex
+	body    bytes.Buffer
+	status  int
+	flushes int
+}
+
+func newStreamCaptureWriter() *streamCaptureWriter {
+	return &streamCaptureWriter{
+		header:  make(http.Header),
+		flushed: make(chan struct{}),
+	}
+}
+
+func (w *streamCaptureWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *streamCaptureWriter) WriteHeader(statusCode int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.status == 0 {
+		w.status = statusCode
+	}
+}
+
+func (w *streamCaptureWriter) Write(content []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	return w.body.Write(content)
+}
+
+func (w *streamCaptureWriter) Flush() {
+	w.mu.Lock()
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	w.flushes++
+	w.mu.Unlock()
+
+	select {
+	case <-w.flushed:
+	default:
+		close(w.flushed)
+	}
+}
+
+func (w *streamCaptureWriter) BodyString() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.body.String()
+}
+
+func (w *streamCaptureWriter) StatusCode() int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.status
+}
+
+func (w *streamCaptureWriter) FlushCount() int {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.flushes
 }
 
 func TestHTTPServerCachePoliciesAndHTMX(t *testing.T) {
@@ -219,6 +292,151 @@ func TestHTTPServerGzipCompression(t *testing.T) {
 	require.Equal(t, http.StatusOK, recStatic.Code)
 	require.Equal(t, "gzip", recStatic.Header().Get("Content-Encoding"))
 	require.Equal(t, "asset payload", strings.TrimSpace(ungzipBody(t, recStatic.Body.Bytes())))
+}
+
+func TestHTTPServerWaitsForLoadBeforeWritingResponse(t *testing.T) {
+	t.Parallel()
+
+	loadStarted := make(chan struct{})
+	releaseLoad := make(chan struct{})
+	renderCalled := make(chan struct{}, 1)
+
+	handler, err := New(Config[*struct{}]{
+		AppContext: &struct{}{},
+		Handlers: []framework.RouteHandler[*struct{}]{
+			framework.PageOnlyRouteHandler[*struct{}, framework.EmptyParams, string]{
+				Page: framework.PageModule[*struct{}, framework.EmptyParams, string]{
+					Pattern: "/stream",
+					ParseParams: func(path string) (framework.EmptyParams, bool) {
+						return framework.EmptyParams{}, path == "/stream"
+					},
+					Load: func(context.Context, *struct{}, *http.Request, framework.EmptyParams) (string, error) {
+						close(loadStarted)
+						<-releaseLoad
+						return "ready", nil
+					},
+					Render: func(view string) templ.Component {
+						select {
+						case renderCalled <- struct{}{}:
+						default:
+						}
+						return textComponent(view)
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	writer := newStreamCaptureWriter()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		handler.ServeHTTP(writer, httptest.NewRequest(http.MethodGet, "/stream", nil))
+	}()
+
+	select {
+	case <-loadStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for load to start")
+	}
+
+	require.Empty(t, writer.BodyString())
+	require.Zero(t, writer.FlushCount())
+	require.Zero(t, writer.StatusCode())
+	select {
+	case <-renderCalled:
+		t.Fatal("render should not start before load finishes")
+	default:
+	}
+	select {
+	case <-done:
+		t.Fatal("handler returned before load was released")
+	default:
+	}
+
+	close(releaseLoad)
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for handler to finish")
+	}
+
+	require.Equal(t, http.StatusOK, writer.StatusCode())
+	require.Equal(t, "ready", writer.BodyString())
+}
+
+func TestHTTPServerFlushesStreamingComponentOutput(t *testing.T) {
+	t.Parallel()
+
+	releaseRender := make(chan struct{})
+
+	handler, err := New(Config[*struct{}]{
+		AppContext: &struct{}{},
+		Handlers: []framework.RouteHandler[*struct{}]{
+			framework.PageOnlyRouteHandler[*struct{}, framework.EmptyParams, string]{
+				Page: framework.PageModule[*struct{}, framework.EmptyParams, string]{
+					Pattern: "/stream",
+					ParseParams: func(path string) (framework.EmptyParams, bool) {
+						return framework.EmptyParams{}, path == "/stream"
+					},
+					Load: func(context.Context, *struct{}, *http.Request, framework.EmptyParams) (string, error) {
+						return "", nil
+					},
+					Render: func(string) templ.Component {
+						return componentFunc(func(_ context.Context, w io.Writer) error {
+							if _, err := io.WriteString(w, "first"); err != nil {
+								return err
+							}
+							flusher, ok := w.(http.Flusher)
+							if !ok {
+								return errors.New("writer does not implement http.Flusher")
+							}
+							flusher.Flush()
+							<-releaseRender
+							_, err := io.WriteString(w, "second")
+							return err
+						})
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	writer := newStreamCaptureWriter()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		handler.ServeHTTP(writer, httptest.NewRequest(http.MethodGet, "/stream", nil))
+	}()
+
+	select {
+	case <-writer.flushed:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for stream flush")
+	}
+
+	require.Equal(t, http.StatusOK, writer.StatusCode())
+	require.Equal(t, "first", writer.BodyString())
+	require.Equal(t, 1, writer.FlushCount())
+	select {
+	case <-done:
+		t.Fatal("handler returned before stream resumed")
+	default:
+	}
+
+	close(releaseRender)
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for streamed response to complete")
+	}
+
+	require.Equal(t, "firstsecond", writer.BodyString())
+	require.Equal(t, "text/html; charset=utf-8", writer.Header().Get("Content-Type"))
 }
 
 func TestHTTPServerCanDisableHealthEndpoint(t *testing.T) {

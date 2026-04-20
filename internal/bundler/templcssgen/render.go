@@ -106,7 +106,7 @@ func PrepareStaticSource(cfg PrepareStaticSourceConfig) (string, func() error, e
 		return os.RemoveAll(stageDir)
 	}
 
-	if err := filesystem.CopyTree(sourceDir, stageDir); err != nil {
+	if err := copyStaticSourceIfPresent(sourceDir, stageDir); err != nil {
 		_ = cleanup()
 		return "", nil, fmt.Errorf("copy static assets to stage dir: %w", err)
 	}
@@ -124,6 +124,21 @@ func PrepareStaticSource(cfg PrepareStaticSourceConfig) (string, func() error, e
 	}
 
 	return stageDir, cleanup, nil
+}
+
+func copyStaticSourceIfPresent(sourceDir string, stageDir string) error {
+	info, err := os.Stat(sourceDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return os.MkdirAll(stageDir, 0o755)
+		}
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%q is not a directory", sourceDir)
+	}
+
+	return filesystem.CopyTree(sourceDir, stageDir)
 }
 
 func stylesheetHelperSource(layout projectlayout.ProjectLayout, outputPath string) ([]byte, error) {

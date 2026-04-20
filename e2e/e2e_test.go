@@ -22,6 +22,8 @@ type probeResponse struct {
 	ContentType          string `json:"content_type"`
 	HXTriggerAfterSettle string `json:"hx_trigger_after_settle"`
 	Location             string `json:"location"`
+	Allow                string `json:"allow"`
+	XMainMiddleware      string `json:"x_main_middleware"`
 }
 
 type probeReport struct {
@@ -63,6 +65,97 @@ type docsFeatureProbeReport struct {
 	TemplCSSURL               string        `json:"templ_css_url"`
 	ExpensiveLoadsAfterFirst  int           `json:"expensive_loads_after_first"`
 	ExpensiveLoadsAfterSecond int           `json:"expensive_loads_after_second"`
+}
+
+type groupedNamespaceProbeReport struct {
+	Notes         probeResponse `json:"notes"`
+	NotesPartial  probeResponse `json:"notes_partial"`
+	Guides        probeResponse `json:"guides"`
+	Tags          probeResponse `json:"tags"`
+	TagsPartial   probeResponse `json:"tags_partial"`
+	Stylesheet    probeResponse `json:"stylesheet"`
+	StylesheetURL string        `json:"stylesheet_url"`
+}
+
+type catchAllProbeReport struct {
+	Docs          probeResponse `json:"docs"`
+	Nested        probeResponse `json:"nested"`
+	Partial       probeResponse `json:"partial"`
+	Missing       probeResponse `json:"missing"`
+	Stylesheet    probeResponse `json:"stylesheet"`
+	StylesheetURL string        `json:"stylesheet_url"`
+}
+
+type optionalCatchAllProbeReport struct {
+	Root          probeResponse `json:"root"`
+	Nested        probeResponse `json:"nested"`
+	Partial       probeResponse `json:"partial"`
+	Stylesheet    probeResponse `json:"stylesheet"`
+	StylesheetURL string        `json:"stylesheet_url"`
+}
+
+type methodMatrixProbeReport struct {
+	Home          probeResponse `json:"home"`
+	Get           probeResponse `json:"get"`
+	Head          probeResponse `json:"head"`
+	Options       probeResponse `json:"options"`
+	Post          probeResponse `json:"post"`
+	Patch         probeResponse `json:"patch"`
+	Delete        probeResponse `json:"delete"`
+	Put           probeResponse `json:"put"`
+	Missing       probeResponse `json:"missing"`
+	Stylesheet    probeResponse `json:"stylesheet"`
+	StylesheetURL string        `json:"stylesheet_url"`
+}
+
+type prefixAlwaysProbeReport struct {
+	RootRedirect  probeResponse `json:"root_redirect"`
+	HomeEN        probeResponse `json:"home_en"`
+	HomeDE        probeResponse `json:"home_de"`
+	GreetRedirect probeResponse `json:"greet_redirect"`
+	GreetEN       probeResponse `json:"greet_en"`
+	GreetDE       probeResponse `json:"greet_de"`
+	GreetPartial  probeResponse `json:"greet_partial"`
+	Stylesheet    probeResponse `json:"stylesheet"`
+	StylesheetURL string        `json:"stylesheet_url"`
+}
+
+type customRuntimeProbeReport struct {
+	Home          probeResponse `json:"home"`
+	Extra         probeResponse `json:"extra"`
+	Public        probeResponse `json:"public"`
+	Health        probeResponse `json:"health"`
+	DefaultHealth probeResponse `json:"default_health"`
+	SiteCSS       probeResponse `json:"site_css"`
+	TemplCSS      probeResponse `json:"templ_css"`
+	SiteCSSURL    string        `json:"site_css_url"`
+	TemplCSSURL   string        `json:"templ_css_url"`
+}
+
+type streamProbeResponse struct {
+	Status      int    `json:"status"`
+	ContentType string `json:"content_type"`
+	FirstChunk  string `json:"first_chunk"`
+	Body        string `json:"body"`
+}
+
+type templRulesProbeReport struct {
+	BaseURL          string              `json:"base_url"`
+	Card             probeResponse       `json:"card"`
+	Panel            probeResponse       `json:"panel"`
+	Board            probeResponse       `json:"board"`
+	Deps             probeResponse       `json:"deps"`
+	Hooks            probeResponse       `json:"hooks"`
+	Vars             probeResponse       `json:"vars"`
+	Fallback         probeResponse       `json:"fallback"`
+	Metadata         probeResponse       `json:"metadata"`
+	MetadataPartial  probeResponse       `json:"metadata_partial"`
+	Dashboard        probeResponse       `json:"dashboard"`
+	DashboardPartial probeResponse       `json:"dashboard_partial"`
+	TemplCSS         probeResponse       `json:"templ_css"`
+	MeterScript      probeResponse       `json:"meter_script"`
+	Stream           streamProbeResponse `json:"stream"`
+	StylesheetURL    string              `json:"stylesheet_url"`
 }
 
 func TestTemplCSSFixtureApp(t *testing.T) {
@@ -292,6 +385,588 @@ func TestDocsFeatureFixtureApp(t *testing.T) {
 	require.Equal(t, "ok", strings.TrimSpace(report.Health.Body))
 }
 
+func TestGroupedNamespaceFixtureApp(t *testing.T) {
+	appDir := prepareFixtureApp(t, "groupednamespaceapp")
+	output := runGo(t, appDir, "run", "./cmd/probe")
+
+	var report groupedNamespaceProbeReport
+	require.NoError(t, json.Unmarshal(output, &report))
+
+	require.Regexp(
+		t,
+		regexp.MustCompile(`^/_assets/[0-9a-f]{16}/styles/templ\.css$`),
+		report.StylesheetURL,
+	)
+
+	t.Run("notes", func(t *testing.T) {
+		require.Equal(t, 200, report.Notes.Status)
+		require.Contains(t, report.Notes.ContentType, "text/html")
+		require.Contains(t, report.Notes.Body, `<html lang="">`)
+		require.Contains(t, report.Notes.Body, `data-layout="blog-discover"`)
+		require.NotContains(t, report.Notes.Body, `data-layout="shop-discover"`)
+		require.NotContains(t, report.Notes.Body, `data-layout="editorial-discover"`)
+		require.Contains(t, report.Notes.Body, `id="discover-notes"`)
+		require.Contains(t, report.Notes.Body, `>Notes<`)
+		require.Contains(t, report.Notes.Body, report.StylesheetURL)
+		require.NotContains(t, report.Notes.Body, `<style type="text/css"`)
+
+		blogClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<section[^>]*data-layout="blog-discover"[^>]*>`, report.Notes.Body),
+		)
+		requireClassWithToken(t, report.Stylesheet.Body, blogClasses, "border:2px solid #17324d")
+
+		notesClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<main[^>]*id="discover-notes"[^>]*>`, report.Notes.Body),
+		)
+		requireClassWithToken(t, report.Stylesheet.Body, notesClasses, "background:#eef5ff")
+
+		progressClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<div[^>]*data-progress="64"[^>]*>`, report.Notes.Body),
+		)
+		requireClassWithToken(t, report.Stylesheet.Body, progressClasses, "width:64%")
+	})
+
+	t.Run("notes_partial", func(t *testing.T) {
+		require.Equal(t, 200, report.NotesPartial.Status)
+		require.NotContains(t, report.NotesPartial.Body, `<html`)
+		require.Contains(t, report.NotesPartial.Body, `id="discover-notes"`)
+		require.NotContains(t, report.NotesPartial.Body, `data-layout="blog-discover"`)
+		require.Contains(t, report.NotesPartial.HXTriggerAfterSettle, `styles/templ.css`)
+	})
+
+	t.Run("guides", func(t *testing.T) {
+		require.Equal(t, 200, report.Guides.Status)
+		require.Contains(t, report.Guides.Body, `data-layout="blog-discover"`)
+		require.Contains(t, report.Guides.Body, `data-layout="editorial-discover"`)
+		require.NotContains(t, report.Guides.Body, `data-layout="shop-discover"`)
+		require.Contains(t, report.Guides.Body, `id="discover-guides"`)
+		require.NotContains(t, report.Guides.Body, `<style type="text/css"`)
+
+		editorialClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<section[^>]*data-layout="editorial-discover"[^>]*>`, report.Guides.Body),
+		)
+		requireClassWithToken(t, report.Stylesheet.Body, editorialClasses, "background:#effcf6")
+
+		guidesClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<main[^>]*id="discover-guides"[^>]*>`, report.Guides.Body),
+		)
+		requireClassWithToken(t, report.Stylesheet.Body, guidesClasses, "border:1px dashed #17594a")
+	})
+
+	t.Run("tags", func(t *testing.T) {
+		require.Equal(t, 200, report.Tags.Status)
+		require.Contains(t, report.Tags.ContentType, "text/html")
+		require.Contains(t, report.Tags.Body, `data-layout="shop-discover"`)
+		require.NotContains(t, report.Tags.Body, `data-layout="blog-discover"`)
+		require.NotContains(t, report.Tags.Body, `data-layout="editorial-discover"`)
+		require.Contains(t, report.Tags.Body, `id="discover-tags"`)
+		require.Contains(t, report.Tags.Body, `>Tags<`)
+		require.NotContains(t, report.Tags.Body, `<style type="text/css"`)
+
+		shopClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<section[^>]*data-layout="shop-discover"[^>]*>`, report.Tags.Body),
+		)
+		requireClassWithToken(t, report.Stylesheet.Body, shopClasses, "background:#fff7ed")
+
+		tagsClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<main[^>]*id="discover-tags"[^>]*>`, report.Tags.Body),
+		)
+		requireClassWithToken(t, report.Stylesheet.Body, tagsClasses, "background:#fff1e6")
+
+		progressClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<div[^>]*data-progress="80"[^>]*>`, report.Tags.Body),
+		)
+		requireClassWithToken(t, report.Stylesheet.Body, progressClasses, "width:80%")
+	})
+
+	t.Run("tags_partial", func(t *testing.T) {
+		require.Equal(t, 200, report.TagsPartial.Status)
+		require.NotContains(t, report.TagsPartial.Body, `<html`)
+		require.Contains(t, report.TagsPartial.Body, `id="discover-tags"`)
+		require.NotContains(t, report.TagsPartial.Body, `data-layout="shop-discover"`)
+		require.Contains(t, report.TagsPartial.HXTriggerAfterSettle, `styles/templ.css`)
+	})
+
+	t.Run("stylesheet", func(t *testing.T) {
+		require.Equal(t, 200, report.Stylesheet.Status)
+		require.Contains(t, report.Stylesheet.ContentType, "text/css")
+		require.Contains(t, report.Stylesheet.Body, "border:2px solid #17324d")
+		require.Contains(t, report.Stylesheet.Body, "background:#fff7ed")
+		require.Contains(t, report.Stylesheet.Body, "width:64%")
+		require.Contains(t, report.Stylesheet.Body, "width:80%")
+		require.Contains(t, report.Stylesheet.Body, "letter-spacing:.08em")
+	})
+}
+
+func TestCatchAllFixtureApp(t *testing.T) {
+	appDir := prepareFixtureApp(t, "catchallapp")
+	output := runGo(t, appDir, "run", "./cmd/probe")
+
+	var report catchAllProbeReport
+	require.NoError(t, json.Unmarshal(output, &report))
+	require.Regexp(
+		t,
+		regexp.MustCompile(`^/_assets/[0-9a-f]{16}/styles/templ\.css$`),
+		report.StylesheetURL,
+	)
+
+	require.Equal(t, 200, report.Docs.Status)
+	require.Contains(t, report.Docs.ContentType, "text/html")
+	require.Contains(t, report.Docs.Body, `<html lang="">`)
+	require.Contains(t, report.Docs.Body, `id="docs-catchall"`)
+	require.Contains(t, report.Docs.Body, `data-joined>a/b<`)
+	require.Contains(t, report.Docs.Body, `data-depth>2<`)
+	require.Contains(t, report.Docs.Body, report.StylesheetURL)
+	require.NotContains(t, report.Docs.Body, `<style type="text/css"`)
+
+	docsClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<main[^>]*id="docs-catchall"[^>]*>`, report.Docs.Body),
+	)
+	requireClassWithToken(t, report.Stylesheet.Body, docsClasses, "background:#eef5ff")
+
+	require.Equal(t, 200, report.Nested.Status)
+	require.Contains(t, report.Nested.Body, `data-joined>alpha/beta/gamma<`)
+	require.Contains(t, report.Nested.Body, `data-depth>3<`)
+
+	require.Equal(t, 200, report.Partial.Status)
+	require.NotContains(t, report.Partial.Body, `<html`)
+	require.Contains(t, report.Partial.Body, `id="docs-catchall"`)
+	require.Contains(t, report.Partial.HXTriggerAfterSettle, `styles/templ.css`)
+
+	require.Equal(t, 404, report.Missing.Status)
+	require.Contains(t, report.Missing.Body, `id="not-found"`)
+	require.Contains(t, report.Missing.Body, `Missing /docs`)
+
+	require.Equal(t, 200, report.Stylesheet.Status)
+	require.Contains(t, report.Stylesheet.ContentType, "text/css")
+	require.Contains(t, report.Stylesheet.Body, "background:#eef5ff")
+	require.Contains(t, report.Stylesheet.Body, "padding:12px")
+}
+
+func TestOptionalCatchAllFixtureApp(t *testing.T) {
+	appDir := prepareFixtureApp(t, "optionalcatchallapp")
+	output := runGo(t, appDir, "run", "./cmd/probe")
+
+	var report optionalCatchAllProbeReport
+	require.NoError(t, json.Unmarshal(output, &report))
+	require.Regexp(
+		t,
+		regexp.MustCompile(`^/_assets/[0-9a-f]{16}/styles/templ\.css$`),
+		report.StylesheetURL,
+	)
+
+	require.Equal(t, 200, report.Root.Status)
+	require.Contains(t, report.Root.ContentType, "text/html")
+	require.Contains(t, report.Root.Body, `<html lang="">`)
+	require.Contains(t, report.Root.Body, `id="library-page"`)
+	require.Contains(t, report.Root.Body, `data-joined>root<`)
+	require.Contains(t, report.Root.Body, `data-depth>0<`)
+	require.Contains(t, report.Root.Body, report.StylesheetURL)
+	require.NotContains(t, report.Root.Body, `<style type="text/css"`)
+
+	rootClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<main[^>]*id="library-page"[^>]*>`, report.Root.Body),
+	)
+	requireClassWithToken(t, report.Stylesheet.Body, rootClasses, "background:#fff7ed")
+
+	require.Equal(t, 200, report.Nested.Status)
+	require.Contains(t, report.Nested.Body, `data-joined>a/b<`)
+	require.Contains(t, report.Nested.Body, `data-depth>2<`)
+
+	require.Equal(t, 200, report.Partial.Status)
+	require.NotContains(t, report.Partial.Body, `<html`)
+	require.Contains(t, report.Partial.Body, `id="library-page"`)
+	require.Contains(t, report.Partial.HXTriggerAfterSettle, `styles/templ.css`)
+
+	require.Equal(t, 200, report.Stylesheet.Status)
+	require.Contains(t, report.Stylesheet.ContentType, "text/css")
+	require.Contains(t, report.Stylesheet.Body, "background:#fff7ed")
+	require.Contains(t, report.Stylesheet.Body, "padding:12px")
+}
+
+func TestMethodMatrixFixtureApp(t *testing.T) {
+	appDir := prepareFixtureApp(t, "methodmatrixapp")
+	output := runGo(t, appDir, "run", "./cmd/probe")
+
+	var report methodMatrixProbeReport
+	require.NoError(t, json.Unmarshal(output, &report))
+	require.Regexp(
+		t,
+		regexp.MustCompile(`^/_assets/[0-9a-f]{16}/styles/templ\.css$`),
+		report.StylesheetURL,
+	)
+
+	require.Equal(t, 200, report.Home.Status)
+	require.Contains(t, report.Home.ContentType, "text/html")
+	require.Contains(t, report.Home.Body, `<html lang="">`)
+	require.Contains(t, report.Home.Body, `id="method-home"`)
+	require.Contains(t, report.Home.Body, report.StylesheetURL)
+	require.NotContains(t, report.Home.Body, `<style type="text/css"`)
+
+	summaryClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<section[^>]*data-component="summary"[^>]*>`, report.Home.Body),
+	)
+	requireClassWithToken(t, report.Stylesheet.Body, summaryClasses, "border:1px solid #17324d")
+
+	require.Equal(t, 200, report.Get.Status)
+	require.Contains(t, report.Get.ContentType, "application/json")
+	require.Contains(t, report.Get.Body, `"method":"GET"`)
+	require.Contains(t, report.Get.Body, `"slug":"ada"`)
+	require.Contains(t, report.Get.Body, `"path":"/api/note/ada"`)
+
+	require.Equal(t, 200, report.Head.Status)
+	require.Contains(t, report.Head.ContentType, "application/json")
+	require.Empty(t, strings.TrimSpace(report.Head.Body))
+
+	require.Equal(t, 204, report.Options.Status)
+	require.Equal(t, "GET, POST, PATCH, DELETE, HEAD, OPTIONS", report.Options.Allow)
+	require.Empty(t, strings.TrimSpace(report.Options.Body))
+
+	require.Equal(t, 201, report.Post.Status)
+	require.Equal(t, "/api/note/ada", report.Post.Location)
+	require.Contains(t, report.Post.Body, `"method":"POST"`)
+
+	require.Equal(t, 202, report.Patch.Status)
+	require.Contains(t, report.Patch.Body, `"method":"PATCH"`)
+
+	require.Equal(t, 204, report.Delete.Status)
+	require.Empty(t, strings.TrimSpace(report.Delete.Body))
+
+	require.Equal(t, 405, report.Put.Status)
+	require.Equal(t, "GET, POST, PATCH, DELETE, HEAD, OPTIONS", report.Put.Allow)
+	require.Contains(t, report.Put.Body, "Method Not Allowed")
+
+	require.Equal(t, 404, report.Missing.Status)
+	require.Contains(t, report.Missing.Body, `id="not-found"`)
+	require.Contains(t, report.Missing.Body, `Missing /api/missing`)
+
+	require.Equal(t, 200, report.Stylesheet.Status)
+	require.Contains(t, report.Stylesheet.ContentType, "text/css")
+	require.Contains(t, report.Stylesheet.Body, "background:#eef5ff")
+	require.Contains(t, report.Stylesheet.Body, "border:1px solid #17324d")
+}
+
+func TestI18nPrefixAlwaysFixtureApp(t *testing.T) {
+	appDir := prepareFixtureApp(t, "i18nprefixalwaysapp")
+	output := runGo(t, appDir, "run", "./cmd/probe")
+
+	var report prefixAlwaysProbeReport
+	require.NoError(t, json.Unmarshal(output, &report))
+	require.Regexp(
+		t,
+		regexp.MustCompile(`^/_assets/[0-9a-f]{16}/styles/templ\.css$`),
+		report.StylesheetURL,
+	)
+
+	require.Equal(t, 308, report.RootRedirect.Status)
+	require.Equal(t, "/en", report.RootRedirect.Location)
+
+	require.Equal(t, 200, report.HomeEN.Status)
+	require.Contains(t, report.HomeEN.ContentType, "text/html")
+	require.Contains(t, report.HomeEN.Body, `<html lang="en">`)
+	require.Contains(t, report.HomeEN.Body, `Localized Home`)
+	require.Contains(t, report.HomeEN.Body, `id="switch-de" href="https://prefix.example.test/de"`)
+	require.Contains(t, report.HomeEN.Body, report.StylesheetURL)
+
+	require.Equal(t, 200, report.HomeDE.Status)
+	require.Contains(t, report.HomeDE.Body, `<html lang="de">`)
+	require.Contains(t, report.HomeDE.Body, `Lokales Zuhause`)
+	require.Contains(t, report.HomeDE.Body, `id="switch-en" href="https://prefix.example.test/en"`)
+
+	require.Equal(t, 308, report.GreetRedirect.Status)
+	require.Equal(t, "/en/greet/ada", report.GreetRedirect.Location)
+
+	require.Equal(t, 200, report.GreetEN.Status)
+	require.Contains(t, report.GreetEN.Body, `<html lang="en">`)
+	require.Contains(t, report.GreetEN.Body, `id="greet-page"`)
+	require.Contains(t, report.GreetEN.Body, `Hello ada`)
+	require.Contains(t, report.GreetEN.Body, `Browse the greeting page for ada.`)
+	require.Contains(t, report.GreetEN.Body, `rel="canonical" href="https://prefix.example.test/en/greet/ada"`)
+	require.Contains(t, report.GreetEN.Body, `hreflang="en" href="https://prefix.example.test/en/greet/ada"`)
+	require.Contains(t, report.GreetEN.Body, `hreflang="de" href="https://prefix.example.test/de/greet/ada"`)
+	require.Contains(t, report.GreetEN.Body, `id="switch-de" href="https://prefix.example.test/de/greet/ada"`)
+	require.NotContains(t, report.GreetEN.Body, `<style type="text/css"`)
+
+	heroClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<section[^>]*data-component="hero"[^>]*>`, report.GreetEN.Body),
+	)
+	requireClassWithToken(t, report.Stylesheet.Body, heroClasses, "background:#effcf6")
+
+	require.Equal(t, 200, report.GreetDE.Status)
+	require.Contains(t, report.GreetDE.Body, `<html lang="de">`)
+	require.Contains(t, report.GreetDE.Body, `Hallo ada`)
+	require.Contains(t, report.GreetDE.Body, `Begruessungsseite fuer ada lesen.`)
+	require.Contains(t, report.GreetDE.Body, `rel="canonical" href="https://prefix.example.test/de/greet/ada"`)
+	require.Contains(t, report.GreetDE.Body, `id="switch-en" href="https://prefix.example.test/en/greet/ada"`)
+
+	require.Equal(t, 200, report.GreetPartial.Status)
+	require.NotContains(t, report.GreetPartial.Body, `<html`)
+	require.Contains(t, report.GreetPartial.Body, `id="greet-page"`)
+	require.Contains(t, report.GreetPartial.HXTriggerAfterSettle, `https://prefix.example.test/de/greet/ada`)
+	require.Contains(t, report.GreetPartial.HXTriggerAfterSettle, `styles/templ.css`)
+
+	require.Equal(t, 200, report.Stylesheet.Status)
+	require.Contains(t, report.Stylesheet.ContentType, "text/css")
+	require.Contains(t, report.Stylesheet.Body, "background:#effcf6")
+	require.Contains(t, report.Stylesheet.Body, "border:1px solid #17594a")
+}
+
+func TestCustomRuntimeFixtureApp(t *testing.T) {
+	appDir := prepareFixtureApp(t, "customruntimeapp")
+	output := runGo(t, appDir, "run", "./cmd/probe")
+
+	var report customRuntimeProbeReport
+	require.NoError(t, json.Unmarshal(output, &report))
+	require.Regexp(
+		t,
+		regexp.MustCompile(`^/build/[0-9a-f]{16}/site\.css$`),
+		report.SiteCSSURL,
+	)
+	require.Regexp(
+		t,
+		regexp.MustCompile(`^/build/[0-9a-f]{16}/styles/templ\.css$`),
+		report.TemplCSSURL,
+	)
+
+	require.Equal(t, 200, report.Home.Status)
+	require.Contains(t, report.Home.ContentType, "text/html")
+	require.Contains(t, report.Home.Body, `id="custom-runtime-page"`)
+	require.Contains(t, report.Home.Body, report.SiteCSSURL)
+	require.Contains(t, report.Home.Body, report.TemplCSSURL)
+	require.Equal(t, "applied", report.Home.XMainMiddleware)
+	require.NotContains(t, report.Home.Body, `<style type="text/css"`)
+
+	shellClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<section[^>]*id="runtime-shell"[^>]*>`, report.Home.Body),
+	)
+	requireClassWithToken(t, report.TemplCSS.Body, shellClasses, "background:#f5f7fb")
+
+	require.Equal(t, 200, report.Extra.Status)
+	require.Equal(t, "extra", strings.TrimSpace(report.Extra.Body))
+	require.Empty(t, strings.TrimSpace(report.Extra.XMainMiddleware))
+
+	require.Equal(t, 200, report.Public.Status)
+	require.Equal(t, "custom-icon", strings.TrimSpace(report.Public.Body))
+	require.Empty(t, strings.TrimSpace(report.Public.XMainMiddleware))
+
+	require.Equal(t, 200, report.Health.Status)
+	require.Equal(t, "alive", strings.TrimSpace(report.Health.Body))
+	require.Empty(t, strings.TrimSpace(report.Health.XMainMiddleware))
+
+	require.Equal(t, 404, report.DefaultHealth.Status)
+	require.Contains(t, report.DefaultHealth.Body, `Missing /healthz`)
+
+	require.Equal(t, 200, report.SiteCSS.Status)
+	require.Contains(t, report.SiteCSS.ContentType, "text/css")
+	require.Contains(t, report.SiteCSS.Body, "font-family:monospace")
+	require.Contains(t, report.SiteCSS.Body, "background:#f5f7fb")
+
+	require.Equal(t, 200, report.TemplCSS.Status)
+	require.Contains(t, report.TemplCSS.ContentType, "text/css")
+	require.Contains(t, report.TemplCSS.Body, "padding:14px")
+	require.Contains(t, report.TemplCSS.Body, "border:1px solid #224")
+}
+
+func TestTemplRulesFixtureApp(t *testing.T) {
+	appDir := prepareFixtureApp(t, "templrulesapp")
+	output := runGo(t, appDir, "run", "./cmd/probe")
+
+	var report templRulesProbeReport
+	require.NoError(t, json.Unmarshal(output, &report))
+	require.Regexp(
+		t,
+		regexp.MustCompile(`^/_assets/[0-9a-f]{16}/styles/templ\.css$`),
+		report.StylesheetURL,
+	)
+
+	t.Run("card", func(t *testing.T) {
+		require.Equal(t, 200, report.Card.Status)
+		require.Contains(t, report.Card.ContentType, "text/html")
+		require.Contains(t, report.Card.Body, `id="card-page"`)
+		require.Contains(t, report.Card.Body, `Urgent Card`)
+		require.Contains(t, report.Card.Body, report.StylesheetURL)
+		require.NotContains(t, report.Card.Body, `<style type="text/css"`)
+
+		cardClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<article[^>]*data-component="card"[^>]*>`, report.Card.Body),
+		)
+		require.GreaterOrEqual(t, len(cardClasses), 2)
+		requireClassWithToken(t, report.TemplCSS.Body, cardClasses, "padding:1rem")
+		requireClassWithToken(t, report.TemplCSS.Body, cardClasses, "border-color:#b42318")
+	})
+
+	t.Run("panel", func(t *testing.T) {
+		require.Equal(t, 200, report.Panel.Status)
+		require.Contains(t, report.Panel.Body, `id="panel-page"`)
+		require.Contains(t, report.Panel.Body, `id="dock-panel"`)
+		require.Contains(t, report.Panel.Body, `data-section="dock"`)
+		require.Contains(t, report.Panel.Body, `Component body`)
+
+		panelClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<section[^>]*data-section="dock"[^>]*>`, report.Panel.Body),
+		)
+		requireClassWithToken(t, report.TemplCSS.Body, panelClasses, "gap:.8rem")
+	})
+
+	t.Run("board", func(t *testing.T) {
+		require.Equal(t, 200, report.Board.Status)
+		require.Contains(t, report.Board.Body, `id="board-page"`)
+		require.Contains(t, report.Board.Body, `data-slot="header"`)
+		require.Contains(t, report.Board.Body, `Board Header`)
+		require.Contains(t, report.Board.Body, `Board Body`)
+
+		boardClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<section[^>]*data-component="board"[^>]*>`, report.Board.Body),
+		)
+		requireClassWithToken(t, report.TemplCSS.Body, boardClasses, "gap:1rem")
+	})
+
+	t.Run("deps", func(t *testing.T) {
+		require.Equal(t, 200, report.Deps.Status)
+		require.Contains(t, report.Deps.Body, `id="deps-page"`)
+		require.Equal(t, 1, strings.Count(report.Deps.Body, `src="/meter.js"`))
+		require.Equal(t, 200, report.MeterScript.Status)
+		require.Contains(t, report.MeterScript.ContentType, "text/javascript")
+		require.Contains(t, report.MeterScript.Body, `export const meter = true;`)
+	})
+
+	t.Run("hooks", func(t *testing.T) {
+		require.Equal(t, 200, report.Hooks.Status)
+		require.Contains(t, report.Hooks.Body, `id="hooks-page"`)
+		require.Contains(t, report.Hooks.Body, `x-data="dropdown()"`)
+		require.Contains(t, report.Hooks.Body, `x-ref="root"`)
+		require.Contains(t, report.Hooks.Body, `data-dropdown-trigger`)
+		require.Contains(t, report.Hooks.Body, `x-show="open"`)
+		require.Contains(t, report.Hooks.Body, `data-dropdown-panel`)
+
+		hookClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<div[^>]*data-dropdown[^>]*>`, report.Hooks.Body),
+		)
+		requireClassWithToken(t, report.TemplCSS.Body, hookClasses, "gap:.4rem")
+	})
+
+	t.Run("vars", func(t *testing.T) {
+		require.Equal(t, 200, report.Vars.Status)
+		require.Contains(t, report.Vars.Body, `id="vars-page"`)
+		require.Contains(t, report.Vars.Body, `--meter-progress:72%`)
+		require.Contains(t, report.Vars.Body, `--meter-accent:#17324d`)
+
+		meterClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<div[^>]*data-meter[^>]*>`, report.Vars.Body),
+		)
+		requireClassWithToken(t, report.TemplCSS.Body, meterClasses, "inline-size:var(--meter-progress)")
+		requireClassWithToken(t, report.TemplCSS.Body, meterClasses, "background:var(--meter-accent)")
+	})
+
+	t.Run("fallback", func(t *testing.T) {
+		require.Equal(t, 200, report.Fallback.Status)
+		require.Contains(t, report.Fallback.Body, `id="fallback-page"`)
+		require.Contains(t, report.Fallback.Body, `<style type="text/css">`)
+		require.NotContains(t, report.TemplCSS.Body, "width:33%")
+
+		progressClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<div[^>]*data-progress="33"[^>]*>`, report.Fallback.Body),
+		)
+		require.Len(t, progressClasses, 1)
+		requireContainsInlineClassRule(t, report.Fallback.Body, progressClasses[0], "width:33%")
+	})
+
+	t.Run("metadata", func(t *testing.T) {
+		require.Equal(t, 200, report.Metadata.Status)
+		require.Contains(t, report.Metadata.Body, `id="metadata-page"`)
+		require.Contains(t, report.Metadata.Body, `<title data-metagen-managed="true">Metadata Variant</title>`)
+		require.Contains(t, report.Metadata.Body, `name="description" content="Managed metadata from metagen"`)
+		require.Contains(t, report.Metadata.Body, `rel="canonical" href="`+report.BaseURL+`/metadata"`)
+		require.Contains(
+			t,
+			report.Metadata.Body,
+			`rel="alternate" type="application/json" href="`+report.BaseURL+`/metadata.json"`,
+		)
+		require.Contains(t, report.Metadata.Body, `rel="author" href="`+report.BaseURL+`/authors/fixture"`)
+		require.Contains(t, report.Metadata.Body, `name="publisher" content="Fixture Publisher"`)
+		require.Contains(t, report.Metadata.Body, `name="fixture" content="metadata-variant"`)
+
+		require.Equal(t, 200, report.MetadataPartial.Status)
+		require.NotContains(t, report.MetadataPartial.Body, `<html`)
+		require.Contains(t, report.MetadataPartial.Body, `id="metadata-page"`)
+
+		var payload map[string]struct {
+			Title string `json:"title"`
+			Head  string `json:"head"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(report.MetadataPartial.HXTriggerAfterSettle), &payload))
+		patch, ok := payload["metagen:patch"]
+		require.True(t, ok)
+		require.Equal(t, "Metadata Variant", patch.Title)
+		require.NotContains(t, patch.Head, "<title")
+		require.Contains(t, patch.Head, `name="description" content="Managed metadata from metagen"`)
+		require.Contains(t, patch.Head, `rel="canonical" href="`+report.BaseURL+`/metadata"`)
+		require.Contains(t, patch.Head, `name="fixture" content="metadata-variant"`)
+		require.Contains(t, patch.Head, `rel="stylesheet" href="`+report.StylesheetURL+`"`)
+	})
+
+	t.Run("dashboard", func(t *testing.T) {
+		require.Equal(t, 200, report.Dashboard.Status)
+		require.Contains(t, report.Dashboard.Body, `data-layout="dashboard"`)
+		require.Contains(t, report.Dashboard.Body, `id="dashboard-page"`)
+		require.Contains(t, report.Dashboard.Body, `data-slot="inspector"`)
+		require.Contains(t, report.Dashboard.Body, `72%`)
+		require.NotContains(t, report.Dashboard.Body, `<style type="text/css"`)
+
+		inspectorClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<aside[^>]*data-slot="inspector"[^>]*>`, report.Dashboard.Body),
+		)
+		requireClassWithToken(t, report.TemplCSS.Body, inspectorClasses, "text-transform:uppercase")
+
+		progressClasses := classesForOpeningTag(
+			t,
+			mustMatchString(t, `<div[^>]*data-progress="72"[^>]*>`, report.Dashboard.Body),
+		)
+		require.Len(t, progressClasses, 1)
+		requireClassWithToken(t, report.TemplCSS.Body, progressClasses, "width:72%")
+
+		require.Equal(t, 200, report.DashboardPartial.Status)
+		require.NotContains(t, report.DashboardPartial.Body, `<html`)
+		require.Contains(t, report.DashboardPartial.Body, `id="dashboard-page"`)
+		require.NotContains(t, report.DashboardPartial.Body, `data-slot="inspector"`)
+	})
+
+	t.Run("stream", func(t *testing.T) {
+		require.Equal(t, 200, report.Stream.Status)
+		require.Contains(t, report.Stream.ContentType, "text/html")
+		require.Equal(t, "first", report.Stream.FirstChunk)
+		require.Equal(t, "firstsecond", report.Stream.Body)
+	})
+
+	t.Run("stylesheet", func(t *testing.T) {
+		require.Equal(t, 200, report.TemplCSS.Status)
+		require.Contains(t, report.TemplCSS.ContentType, "text/css")
+		require.Contains(t, report.TemplCSS.Body, "padding:1rem")
+		require.Contains(t, report.TemplCSS.Body, "inline-size:var(--meter-progress)")
+		require.Contains(t, report.TemplCSS.Body, "text-transform:uppercase")
+	})
+}
+
 func prepareFixtureApp(t *testing.T, fixtureName string) string {
 	t.Helper()
 
@@ -364,4 +1039,47 @@ func repoRootPath(t *testing.T) string {
 	_, fileName, _, ok := runtime.Caller(0)
 	require.True(t, ok)
 	return filepath.Clean(filepath.Join(filepath.Dir(fileName), ".."))
+}
+
+func mustMatchString(t *testing.T, pattern string, value string) string {
+	t.Helper()
+
+	re := regexp.MustCompile(pattern)
+	match := re.FindString(value)
+	require.NotEmpty(t, match, "pattern %q not found", pattern)
+	return match
+}
+
+func classesForOpeningTag(t *testing.T, tag string) []string {
+	t.Helper()
+
+	re := regexp.MustCompile(`class="([^"]+)"`)
+	matches := re.FindStringSubmatch(tag)
+	require.Len(t, matches, 2, "class attribute missing from %s", tag)
+	return strings.Fields(matches[1])
+}
+
+func requireClassWithToken(t *testing.T, css string, classes []string, token string) string {
+	t.Helper()
+
+	for _, className := range classes {
+		pattern := `\.` + regexp.QuoteMeta(className) +
+			`\{[^}]*` + regexp.QuoteMeta(token) + `[^}]*\}`
+		rulePattern := regexp.MustCompile(pattern)
+		if rulePattern.MatchString(css) {
+			return className
+		}
+	}
+
+	t.Fatalf("no css rule for classes %v contains %q", classes, token)
+	return ""
+}
+
+func requireContainsInlineClassRule(t *testing.T, html string, className string, token string) {
+	t.Helper()
+
+	pattern := `\.` + regexp.QuoteMeta(className) +
+		`\{[^}]*` + regexp.QuoteMeta(token) + `[^}]*\}`
+	rulePattern := regexp.MustCompile(pattern)
+	require.Regexp(t, rulePattern, html)
 }

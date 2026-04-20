@@ -1,0 +1,15 @@
+package routes
+
+import "example.com/templcssapp/web/components"
+import "example.com/templcssapp/web/view"
+
+templ Page(view runtime.HomePageView) {
+	<main id="home-page">
+		@components.Hero(view.Heading, view.Locale)
+		<p id="home-kicker">{ view.Kicker }</p>
+		<nav>
+			<a id="switch-en" href={ view.SwitchToEnglish }>English</a>
+			<a id="switch-de" href={ view.SwitchToGerman }>Deutsch</a>
+		</nav>
+	</main>
+}

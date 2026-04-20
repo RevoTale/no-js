@@ -1,0 +1,16 @@
+package discover
+
+import "example.com/templcssapp/web/view"
+
+css blogShell() {
+	border: 2px solid #17324d;
+	padding: 18px;
+	background: #f4f7fb;
+}
+
+templ Layout(view runtime.RootLayoutView, child templ.Component) {
+	<section data-layout="blog-discover" class={ blogShell() }>
+		<header>Blog Discover</header>
+		@child
+	</section>
+}
