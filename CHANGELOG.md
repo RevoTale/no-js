@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/RevoTale/no-js/compare/v1.0.0...v1.1.0) (2026-04-20)
+
+
+### Features
+
+* **templ:** bundle component CSS into hashed assets ([aa7259c](https://github.com/RevoTale/no-js/commit/aa7259cf22c8d55771274835093ee47f9a895131))
+* **templ:** bundle global CSS into hashed assets and add real fixture coverage ([c673bfb](https://github.com/RevoTale/no-js/commit/c673bfb81e2e8a3285a779a8d3922521fd8eb214))
+
 ## [1.0.0](https://github.com/RevoTale/no-js/compare/v0.1.0...v1.0.0) (2026-04-13)
 
 
