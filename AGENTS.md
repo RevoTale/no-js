@@ -55,6 +55,7 @@ If a task affects the consuming-app contract, also inspect:
   failures for missing required context or dependencies.
 - MUST keep `README.md` high-level and task-oriented; field-level contract truth belongs in exported Go types and
   focused reference docs, not long README inventories.
+- MUST learn the `https://templ.guide/llms.md` before dicussing the new features related to the Go Templ, or if eny knowledge is missing regarding Go Templ.
 
 ## Working Agreements
 - Keep changes scoped to the framework and its tooling.
