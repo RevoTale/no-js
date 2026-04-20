@@ -6,7 +6,9 @@
 resolvers receive a `MetaContext[C]` with request-scoped URL helpers, locale,
 root resolution, and access to the app context.
 
-Your root template renders the result through `@metagen.Head(meta)`.
+Your root template renders the result through `@metagen.Head(meta)`. That is
+also where framework-managed stylesheet links, including build-time templ CSS
+output, are rendered.
 
 ## Modules
 

@@ -10,6 +10,7 @@ func Normalize(meta Metadata) Metadata {
 		Title:         strings.TrimSpace(meta.Title),
 		Description:   strings.TrimSpace(meta.Description),
 		Alternates:    normalizeAlternates(meta.Alternates),
+		Stylesheets:   normalizeStylesheets(meta.Stylesheets),
 		Authors:       normalizeAuthors(meta.Authors),
 		Publisher:     strings.TrimSpace(meta.Publisher),
 		DangerRawHead: normalizeRawHead(meta.DangerRawHead),
@@ -186,6 +187,28 @@ func normalizeAuthors(authors []Author) []Author {
 		}
 		return normalized[i].URL < normalized[j].URL
 	})
+
+	return normalized
+}
+
+func normalizeStylesheets(stylesheets []string) []string {
+	if len(stylesheets) == 0 {
+		return nil
+	}
+
+	normalized := make([]string, 0, len(stylesheets))
+	seen := make(map[string]struct{}, len(stylesheets))
+	for _, href := range stylesheets {
+		trimmed := strings.TrimSpace(href)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
 
 	return normalized
 }

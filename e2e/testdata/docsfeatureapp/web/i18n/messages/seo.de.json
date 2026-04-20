@@ -1,0 +1,10 @@
+[
+  {
+    "id": "seo.author.description",
+    "translation": "Notizen von {{.Author}}."
+  },
+  {
+    "id": "ui.author.heading",
+    "translation": "Autor {{.Author}}"
+  }
+]

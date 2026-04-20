@@ -202,6 +202,29 @@ func TestDiscoverRouteFilesRejectsSlotWithoutOwnerLayout(t *testing.T) {
 	require.Contains(t, err.Error(), "slot owner \"dashboard\" requires a same-level layout.templ")
 }
 
+func TestBuildSlotOwnersIncludesDefaultOnlySlots(t *testing.T) {
+	slotRoot := "_group__marketing/dashboard/_slot__analytics"
+
+	slotOwners := buildSlotOwners(nil, nil, map[string]templateDef{
+		slotRoot: {
+			Kind:               defaultTemplate,
+			RouteID:            slotRoot,
+			InternalRouteID:    slotRoot,
+			SlotOwnerRouteID:   "_group__marketing/dashboard",
+			SlotRootInternalID: slotRoot,
+			SlotName:           "analytics",
+		},
+	})
+
+	slots, ok := slotOwners["_group__marketing/dashboard"]
+	require.True(t, ok)
+	require.Len(t, slots, 1)
+	require.Equal(t, "analytics", slots[0].Name)
+	require.Equal(t, slotRoot, slots[0].RootInternal)
+	require.NotNil(t, slots[0].Default)
+	require.Equal(t, slotRoot, slots[0].Default.RouteID)
+}
+
 func TestDiscoverRouteFilesCollectsNotFoundTemplates(t *testing.T) {
 	root := t.TempDir()
 	appRoot := filepath.Join(root, "app")
@@ -882,6 +905,54 @@ func TestRegistryGenerationRequiresRootNotFoundTemplate(t *testing.T) {
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing root 404")
+}
+
+func TestRegistryGenerationCombinesRootAndDynamicNotFoundCases(t *testing.T) {
+	metas := []routeMeta{
+		{
+			RouteID:        "author/_param__slug",
+			RouteName:      "AuthorParamSlug",
+			ParamsTypeName: "AuthorParamSlugParams",
+			Params:         []routeParamDef{{Name: "slug", FieldName: "Slug"}},
+			PageViewType:   "runtime.AuthorPageView",
+			Page:           templateDef{ModuleName: "r_page_author_param_slug"},
+		},
+	}
+
+	registry, err := generateRegistrySource(
+		projectlayout.ProjectLayout{GeneratedImport: "web/generated", AppModulePath: testAppModulePath},
+		metas,
+		nil,
+		nil,
+		nil,
+		templateDef{
+			Kind:       rootTemplate,
+			RouteID:    "",
+			ModuleName: "r_root_root",
+		},
+		map[string]templateDef{},
+		map[string]templateDef{
+			"": {
+				Kind:       notFoundTemplate,
+				RouteID:    "",
+				ModuleName: "r_not_found_root",
+			},
+			"author/_param__slug": {
+				Kind:       notFoundTemplate,
+				RouteID:    "author/_param__slug",
+				ModuleName: "r_not_found_author_param_slug",
+			},
+		},
+		map[string]templateDef{
+			"": {
+				Kind:       errorTemplate,
+				RouteID:    "",
+				ModuleName: "r_error_root",
+			},
+		},
+	)
+	require.NoError(t, err)
+	require.Contains(t, string(registry), `case "", "author/_param__slug":`)
 }
 
 func TestRegistryGenerationRequiresRootErrorTemplate(t *testing.T) {

@@ -1,0 +1,10 @@
+package routes
+
+import "example.com/templcssapp/web/components"
+import "example.com/templcssapp/web/view"
+
+templ Page(view runtime.RootPageView) {
+	<main id="custom-runtime-page">
+		@components.Shell(view.Heading)
+	</main>
+}

@@ -936,16 +936,13 @@ func buildSlotOwners(
 		slot.Layouts[layout.InternalRouteID] = layout
 	}
 	for slotRoot, fallback := range defaults {
-		for ownerRouteID, slots := range byOwner {
-			for slotName, slot := range slots {
-				if slot.RootInternal == slotRoot {
-					fallbackCopy := fallback
-					slot.Default = &fallbackCopy
-				}
-				slots[slotName] = slot
-			}
-			byOwner[ownerRouteID] = slots
+		ownerRouteID, slotName, ok := slotOwnerInfo(slotRoot)
+		if !ok {
+			continue
 		}
+		slot := ensureSlot(ownerRouteID, slotName, slotRoot)
+		fallbackCopy := fallback
+		slot.Default = &fallbackCopy
 	}
 
 	out := make(map[string][]slotDef, len(byOwner))
@@ -969,6 +966,17 @@ func buildSlotOwners(
 		out[ownerRouteID] = defs
 	}
 	return out
+}
+
+func slotOwnerInfo(slotRoot string) (string, string, bool) {
+	segments := segmentsFromRouteID(slotRoot)
+	for idx, segment := range segments {
+		if !segment.IsSlot() {
+			continue
+		}
+		return routeIDFromSegments(segments[:idx]), segment.Name, true
+	}
+	return "", "", false
 }
 
 func slotNamesByRoute(slotOwners map[string][]slotDef) map[string][]string {
@@ -2531,6 +2539,7 @@ func writeNotFoundPageFunc(
 	buffer.WriteString("\t\t\tFollow: metagen.Bool(false),\n")
 	buffer.WriteString("\t\t},\n")
 	buffer.WriteString("\t}\n")
+	buffer.WriteString("\tmeta = metagen.MergeManagedStylesheets(r.Context(), meta)\n")
 	buffer.WriteString("\tswitch routeID {\n")
 	for _, routeID := range notFoundKeys {
 		if routeID == "" {
@@ -2613,8 +2622,15 @@ func writeNotFoundPageFunc(
 
 	buffer.WriteString("func hasNotFoundTemplate(routeID string) bool {\n")
 	buffer.WriteString("\tswitch routeID {\n")
-	for _, routeID := range notFoundKeys {
-		writef(buffer, "\tcase %q:\n", routeID)
+	if len(notFoundKeys) > 0 {
+		buffer.WriteString("\tcase ")
+		for idx, routeID := range notFoundKeys {
+			if idx > 0 {
+				buffer.WriteString(", ")
+			}
+			writef(buffer, "%q", routeID)
+		}
+		buffer.WriteString(":\n")
 	}
 	buffer.WriteString("\t\treturn true\n")
 	buffer.WriteString("\tdefault:\n")
@@ -2865,6 +2881,7 @@ func writePageModule(
 	buffer.WriteString("\t\t\t\t\t\t\tFollow: metagen.Bool(false),\n")
 	buffer.WriteString("\t\t\t\t\t\t},\n")
 	buffer.WriteString("\t\t\t\t\t}\n")
+	buffer.WriteString("\t\t\t\t\tmeta = metagen.MergeManagedStylesheets(r.Context(), meta)\n")
 	writef(buffer, "\t\t\t\t\tcomponent := %s.Error(view, pathValue)\n", errorPage.ModuleName)
 	errorLayoutChain := layoutChain(errorRouteID, layouts)
 	for idx := len(errorLayoutChain) - 1; idx >= 0; idx-- {

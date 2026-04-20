@@ -1,0 +1,10 @@
+package panel
+
+import "example.com/templcssapp/web/components"
+import "example.com/templcssapp/web/view"
+
+templ Page(view runtime.RootLayoutView) {
+	<main id="panel-page">
+		@components.DockSection()
+	</main>
+}

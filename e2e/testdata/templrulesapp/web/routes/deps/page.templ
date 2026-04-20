@@ -1,0 +1,11 @@
+package deps
+
+import "example.com/templcssapp/web/components"
+import "example.com/templcssapp/web/view"
+
+templ Page(view runtime.MeterPageView) {
+	<main id="deps-page">
+		@components.Meter(view.Progress, view.Accent)
+		@components.Meter(view.Progress, view.Accent)
+	</main>
+}

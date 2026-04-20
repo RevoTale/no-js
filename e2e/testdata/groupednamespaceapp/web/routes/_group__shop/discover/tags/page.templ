@@ -1,0 +1,15 @@
+package tags
+
+import "example.com/templcssapp/web/components"
+import "example.com/templcssapp/web/view"
+
+css tagsPage() {
+	background: #fff1e6;
+	padding: 10px;
+}
+
+templ Page(view runtime.RootLayoutView) {
+	<main id="discover-tags" class={ tagsPage() }>
+		@components.DiscoverCard("Shop", "Tags", 80)
+	</main>
+}

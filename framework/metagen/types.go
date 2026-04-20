@@ -4,6 +4,7 @@ type Metadata struct {
 	Title       string
 	Description string
 	Alternates  Alternates
+	Stylesheets []string
 	Robots      *Robots
 	OpenGraph   *OpenGraph
 	Twitter     *Twitter

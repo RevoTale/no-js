@@ -1,0 +1,16 @@
+package editorial
+
+import "example.com/templcssapp/web/view"
+
+css editorialShell() {
+	border: 1px solid #17594a;
+	padding: 12px;
+	background: #effcf6;
+}
+
+templ Layout(view runtime.RootLayoutView, child templ.Component) {
+	<section data-layout="editorial-discover" class={ editorialShell() }>
+		<header>Editorial Discover</header>
+		@child
+	</section>
+}

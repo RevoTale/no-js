@@ -1,0 +1,13 @@
+package board
+
+import "example.com/templcssapp/web/components"
+import "example.com/templcssapp/web/view"
+
+templ Page(view runtime.BoardPageView) {
+	<main id="board-page">
+		@components.Board(
+			components.BoardHeader(view.Title),
+			components.BoardBody(view.Body),
+		)
+	</main>
+}

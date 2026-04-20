@@ -31,6 +31,7 @@ type AppBundle[C interface{}] struct {
 		r *http.Request,
 		notFoundContext framework.NotFoundContext,
 	) templ.Component
+	TemplCSSClasses               func() []templ.CSSClass
 	OnStaticAssetBasePathResolved func(prefix string)
 }
 
@@ -69,10 +70,11 @@ func NewApp[C interface{}](cfg Config[C]) (http.Handler, error) {
 		}
 	}
 
-	staticMount, err := loadStaticMount(staticAssetsCfg.ManifestPath, staticAssetsCfg.URLPrefix)
+	staticAssets, err := loadStaticAssets(staticAssetsCfg.ManifestPath, staticAssetsCfg.URLPrefix)
 	if err != nil {
 		return nil, fmt.Errorf("resolve static assets: %w", err)
 	}
+	staticMount := staticAssets.Mount
 	if app.OnStaticAssetBasePathResolved != nil {
 		app.OnStaticAssetBasePathResolved(staticBasePath(staticMount, staticAssetsCfg.URLPrefix))
 	}
@@ -80,6 +82,19 @@ func NewApp[C interface{}](cfg Config[C]) (http.Handler, error) {
 	publicFiles, err := resolvePublicFiles(custom.PublicFiles)
 	if err != nil {
 		return nil, fmt.Errorf("resolve public files: %w", err)
+	}
+
+	var templCSSCfg *TemplCSSConfig
+	if app.TemplCSSClasses != nil && strings.TrimSpace(staticAssets.Dir) != "" {
+		classes := app.TemplCSSClasses()
+		stylesheetFile := filepath.Join(staticAssets.Dir, filepath.FromSlash(defaultTemplCSSAssetPath))
+		if len(classes) > 0 && pathIsFile(stylesheetFile) {
+			templCSSCfg = &TemplCSSConfig{
+				Manifest:  staticAssets.Manifest,
+				AssetPath: defaultTemplCSSAssetPath,
+				Classes:   classes,
+			}
+		}
 	}
 
 	return New(Config[C]{
@@ -93,6 +108,7 @@ func NewApp[C interface{}](cfg Config[C]) (http.Handler, error) {
 		MountExtraRoutes:    custom.ExtraRoutes,
 		MainMiddlewares:     custom.MainMiddlewares,
 		Static:              staticMount,
+		TemplCSS:            templCSSCfg,
 		CachePolicies:       custom.CachePolicies,
 		NotFoundPage:        app.NotFoundPage,
 		LogServerError:      custom.LogServerError,
@@ -142,28 +158,41 @@ func validatePublicFilesConfig(cfg PublicFilesConfig) error {
 	return nil
 }
 
-func loadStaticMount(manifestPath string, basePrefix string) (StaticMount, error) {
+type resolvedStaticAssets struct {
+	Mount    StaticMount
+	Manifest staticassets.Manifest
+	Dir      string
+}
+
+func loadStaticAssets(manifestPath string, basePrefix string) (resolvedStaticAssets, error) {
 	trimmedManifestPath := strings.TrimSpace(manifestPath)
 	if trimmedManifestPath == "" || !pathIsFile(trimmedManifestPath) {
-		return StaticMount{}, nil
+		return resolvedStaticAssets{}, nil
 	}
 
 	manifest, err := staticassets.ReadManifest(trimmedManifestPath)
 	if err != nil {
-		return StaticMount{}, fmt.Errorf("load static manifest %q: %w", trimmedManifestPath, err)
+		return resolvedStaticAssets{}, fmt.Errorf("load static manifest %q: %w", trimmedManifestPath, err)
 	}
 
 	staticDir := filepath.Clean(filepath.Dir(trimmedManifestPath))
 	info, statErr := os.Stat(staticDir)
 	if statErr != nil {
-		return StaticMount{}, fmt.Errorf("stat static build dir %q: %w", staticDir, statErr)
+		return resolvedStaticAssets{}, fmt.Errorf("stat static build dir %q: %w", staticDir, statErr)
 	}
 	if !info.IsDir() {
-		return StaticMount{}, fmt.Errorf("static build dir %q is not a directory", staticDir)
+		return resolvedStaticAssets{}, fmt.Errorf("static build dir %q is not a directory", staticDir)
 	}
 
 	versionedPrefix := manifest.VersionedURLPrefix(basePrefix)
-	return StaticMount{URLPrefix: versionedPrefix, Dir: staticDir}, nil
+	return resolvedStaticAssets{
+		Mount: StaticMount{
+			URLPrefix: versionedPrefix,
+			Dir:       staticDir,
+		},
+		Manifest: manifest,
+		Dir:      staticDir,
+	}, nil
 }
 
 func staticBasePath(mount StaticMount, basePrefix string) string {

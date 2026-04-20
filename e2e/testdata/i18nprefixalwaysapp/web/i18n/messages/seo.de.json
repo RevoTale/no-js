@@ -1,0 +1,6 @@
+[
+  {
+    "id": "seo.greet.description",
+    "translation": "Begruessungsseite fuer {{.Name}} lesen."
+  }
+]

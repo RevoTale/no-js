@@ -1,0 +1,10 @@
+package card
+
+import "example.com/templcssapp/web/components"
+import "example.com/templcssapp/web/view"
+
+templ Page(view runtime.CardPageView) {
+	<main id="card-page">
+		@components.Card(view.Title, view.Urgent)
+	</main>
+}

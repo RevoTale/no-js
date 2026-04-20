@@ -1,0 +1,18 @@
+package analytics
+
+import (
+	"example.com/templcssapp/web/components"
+	"example.com/templcssapp/web/view"
+)
+
+css analyticsShell() {
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+templ Default(view runtime.RootLayoutView) {
+	<aside class={ analyticsShell() } data-slot="analytics">
+		<p>Quarterly analytics</p>
+		@components.ProfileCard("Conversions", 72)
+	</aside>
+}

@@ -1,0 +1,21 @@
+package components
+
+css boardRoot() {
+	display: grid;
+	gap: 1rem;
+}
+
+templ Board(header templ.Component, body templ.Component) {
+	<section data-component="board" class={ boardRoot() }>
+		<header>@header</header>
+		<div>@body</div>
+	</section>
+}
+
+templ BoardHeader(title string) {
+	<h2 data-slot="header">{ title }</h2>
+}
+
+templ BoardBody(content string) {
+	<p data-slot="body">{ content }</p>
+}

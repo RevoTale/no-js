@@ -1,0 +1,18 @@
+package analytics
+
+import (
+	"example.com/templcssapp/web/components"
+	"example.com/templcssapp/web/view"
+)
+
+css analyticsCard() {
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+templ Default(view runtime.RootLayoutView) {
+	<section class={ analyticsCard() } data-slot="analytics">
+		<p>Quarterly analytics</p>
+		@components.StatChip("Conversions", 72)
+	</section>
+}

@@ -65,7 +65,8 @@ type Config[C interface{}] struct {
 	MountExtraRoutes func(*http.ServeMux) error
 	MainMiddlewares  []func(http.Handler) http.Handler
 
-	Static StaticMount
+	Static   StaticMount
+	TemplCSS *TemplCSSConfig
 
 	CachePolicies CachePolicies
 
@@ -197,7 +198,7 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 		}
 	}
 
-	finalHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	var finalHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if srv.tryServeHealth(w, r) {
 			return
 		}
@@ -227,6 +228,11 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 			Source:      framework.NotFoundSourceUnmatchedRoute,
 		})
 	})
+
+	finalHandler, err = applyTemplCSS(finalHandler, cfg.Static.URLPrefix, cfg.TemplCSS)
+	if err != nil {
+		return nil, err
+	}
 
 	return withGzipCompression(finalHandler), nil
 }

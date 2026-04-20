@@ -1,0 +1,24 @@
+package components
+
+css cardRoot() {
+	display: grid;
+	gap: 0.6rem;
+	padding: 1rem;
+	border: 1px solid #ccd4dd;
+	background: #fff;
+}
+
+css cardTitle() {
+	font-size: 1.1rem;
+	font-weight: 600;
+}
+
+css cardUrgent() {
+	border-color: #b42318;
+}
+
+templ Card(title string, urgent bool) {
+	<article data-component="card" class={ cardRoot(), templ.KV(cardUrgent(), urgent) }>
+		<h3 class={ cardTitle() }>{ title }</h3>
+	</article>
+}

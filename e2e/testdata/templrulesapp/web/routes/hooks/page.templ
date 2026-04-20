@@ -1,0 +1,10 @@
+package hooks
+
+import "example.com/templcssapp/web/components"
+import "example.com/templcssapp/web/view"
+
+templ Page(view runtime.RootLayoutView) {
+	<main id="hooks-page">
+		@components.Dropdown()
+	</main>
+}

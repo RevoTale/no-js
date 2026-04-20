@@ -30,6 +30,11 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 				"application/atom+xml": "https://example.com/feed.atom",
 			},
 		},
+		Stylesheets: []string{
+			"https://example.com/styles/base.css",
+			" https://example.com/styles/base.css ",
+			"https://example.com/styles/page.css",
+		},
 		Robots: &Robots{
 			Index:  Bool(false),
 			Follow: Bool(true),
@@ -79,6 +84,10 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 				"application/rss+xml":  "https://example.com/feed.xml",
 			},
 		},
+		Stylesheets: []string{
+			"https://example.com/styles/base.css",
+			"https://example.com/styles/page.css",
+		},
 		Robots: first.Robots,
 		OpenGraph: &OpenGraph{
 			Type:          "article",
@@ -121,6 +130,8 @@ func TestHeadRendersManagedSEOAndDeterministicOrder(t *testing.T) {
 		`name="description" content="Example Description"`,
 		`rel="canonical" href="https://example.com/note/hello"`,
 		`hreflang="de" href="https://example.com/de/note/hello"`,
+		`rel="stylesheet" href="https://example.com/styles/base.css"`,
+		`rel="stylesheet" href="https://example.com/styles/page.css"`,
 		`property="og:type" content="article"`,
 		`property="article:published_time" content="2026-03-03T08:00:00Z"`,
 		`property="article:author" content="https://example.com/authors/a"`,
@@ -152,16 +163,19 @@ func TestMergeAllAppendsDangerRawHeadAndOverridesFields(t *testing.T) {
 	parent := Metadata{
 		Title:         "Parent",
 		Description:   "Parent Description",
+		Stylesheets:   []string{" /styles/base.css "},
 		DangerRawHead: []string{"<style>.a{}</style>"},
 	}
 	child := Metadata{
 		Title:         "Child",
+		Stylesheets:   []string{"/styles/page.css", "/styles/base.css"},
 		DangerRawHead: []string{"<script>window.x=1</script>"},
 	}
 
 	merged := MergeAll(parent, child)
 	require.Equal(t, "Child", merged.Title)
 	require.Equal(t, "Parent Description", merged.Description)
+	require.Equal(t, []string{"/styles/base.css", "/styles/page.css"}, merged.Stylesheets)
 	require.Len(t, merged.DangerRawHead, 2)
 	require.Equal(t, "<style>.a{}</style>", merged.DangerRawHead[0])
 	require.Equal(t, "<script>window.x=1</script>", merged.DangerRawHead[1])
@@ -198,11 +212,13 @@ func TestBuildHTMXPatchAndWriteHeaders(t *testing.T) {
 	patch, err := BuildHTMXPatch(Metadata{
 		Title:       "Notes",
 		Description: "A notes feed",
+		Stylesheets: []string{"/_assets/hash/styles/templ.css"},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "Notes", patch.Title)
 	require.NotContains(t, patch.Head, "<title")
 	require.Contains(t, patch.Head, `name="description"`)
+	require.Contains(t, patch.Head, `rel="stylesheet" href="/_assets/hash/styles/templ.css"`)
 
 	recorder := httptest.NewRecorder()
 	require.NoError(t, WriteHTMXHeaders(recorder, patch))
@@ -248,4 +264,15 @@ func TestWriteHTMXHeadersNilResponseWriter(t *testing.T) {
 
 	var writer http.ResponseWriter
 	require.NoError(t, WriteHTMXHeaders(writer, Patch{Title: "noop"}))
+}
+
+func TestMergeManagedStylesheetsFromContext(t *testing.T) {
+	t.Parallel()
+
+	ctx := WithManagedStylesheets(context.Background(), []string{"/styles/base.css", "/styles/base.css"})
+	merged := MergeManagedStylesheets(ctx, Metadata{
+		Stylesheets: []string{"/styles/page.css"},
+	})
+
+	require.Equal(t, []string{"/styles/base.css", "/styles/page.css"}, merged.Stylesheets)
 }

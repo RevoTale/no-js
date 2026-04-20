@@ -43,6 +43,7 @@ func renderManagedHead(meta Metadata, includeTitle bool) (string, string, error)
 	}
 
 	writeAlternates(&builder, meta.Alternates)
+	writeStylesheets(&builder, meta.Stylesheets)
 	writeRobots(&builder, meta.Robots)
 	writeAuthors(&builder, meta.Authors)
 
@@ -56,6 +57,18 @@ func renderManagedHead(meta Metadata, includeTitle bool) (string, string, error)
 	writeRawHead(&builder, meta.DangerRawHead)
 
 	return meta.Title, builder.String(), nil
+}
+
+func writeStylesheets(builder *strings.Builder, stylesheets []string) {
+	for _, href := range stylesheets {
+		if strings.TrimSpace(href) == "" {
+			continue
+		}
+		writeTag(
+			builder,
+			`<link `+managedHeadAttribute+` rel="stylesheet" href="`+escapeAttr(href)+`">`,
+		)
+	}
 }
 
 func writeRawHead(builder *strings.Builder, raw []string) {

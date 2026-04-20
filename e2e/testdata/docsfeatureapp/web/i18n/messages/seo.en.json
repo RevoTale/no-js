@@ -1,0 +1,22 @@
+[
+  {
+    "id": "seo.author.description",
+    "translation": "Browse notes by {{.Author}}.",
+    "args": [
+      {
+        "name": "Author",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "id": "ui.author.heading",
+    "translation": "Author {{.Author}}",
+    "args": [
+      {
+        "name": "Author",
+        "type": "string"
+      }
+    ]
+  }
+]

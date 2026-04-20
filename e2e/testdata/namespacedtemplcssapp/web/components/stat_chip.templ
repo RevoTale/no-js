@@ -1,0 +1,24 @@
+package components
+
+import "fmt"
+
+css statChip() {
+	padding: 0.35rem 0.75rem;
+	background: #dbe8f5;
+	border-radius: 999px;
+}
+
+css ProgressBar(percent int) {
+	width: { fmt.Sprintf("%d%%", percent) };
+	background: #17324d;
+	color: white;
+}
+
+templ StatChip(label string, percent int) {
+	<div class={ statChip() } data-component="stat-chip">
+		<span>{ label }</span>
+		<div class={ ProgressBar(percent) } data-progress={ fmt.Sprintf("%d", percent) }>
+			{ fmt.Sprintf("%d%%", percent) }
+		</div>
+	</div>
+}

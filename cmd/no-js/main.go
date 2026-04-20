@@ -12,12 +12,14 @@ import (
 	"github.com/RevoTale/no-js/internal/bundler/approutegen"
 	"github.com/RevoTale/no-js/internal/bundler/i18ngen"
 	bundlerstaticassets "github.com/RevoTale/no-js/internal/bundler/staticassets"
+	"github.com/RevoTale/no-js/internal/bundler/templcssgen"
+	"github.com/RevoTale/no-js/internal/filesystem"
 	"github.com/RevoTale/no-js/internal/projectlayout"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		exitf("usage: no-js gen [routes|assets|check] [-root .] [-config path]")
+		exitf("usage: no-js gen [routes|assets|check] [-root .] [-config path] [-templ-css]")
 	}
 
 	switch os.Args[1] {
@@ -50,8 +52,10 @@ func runGen(args []string) error {
 
 	var rootDir string
 	var configPath string
+	var templCSS bool
 	flags.StringVar(&rootDir, "root", ".", "application root directory")
 	flags.StringVar(&configPath, "config", "", "bundle config path")
+	flags.BoolVar(&templCSS, "templ-css", false, "generate styles/templ.css before bundling")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -65,12 +69,12 @@ func runGen(args []string) error {
 	case "routes":
 		return generateRoutes(layout)
 	case "assets":
-		return generateAssets(layout)
+		return generateAssets(layout, templCSS)
 	case "check":
 		if err := generateRoutes(layout); err != nil {
 			return err
 		}
-		if err := generateAssets(layout); err != nil {
+		if err := generateAssets(layout, templCSS); err != nil {
 			return err
 		}
 		return checkGitDiff(layout.RootDir)
@@ -78,7 +82,7 @@ func runGen(args []string) error {
 		if err := generateRoutes(layout); err != nil {
 			return err
 		}
-		return generateAssets(layout)
+		return generateAssets(layout, templCSS)
 	}
 }
 
@@ -113,8 +117,8 @@ func generateRoutes(layout projectlayout.ProjectLayout) error {
 	return nil
 }
 
-func generateAssets(layout projectlayout.ProjectLayout) error {
-	if !layout.ServerFeatures.StaticAssets {
+func generateAssets(layout projectlayout.ProjectLayout, templCSS bool) error {
+	if !layout.ServerFeatures.StaticAssets && !templCSS {
 		return nil
 	}
 
@@ -131,8 +135,25 @@ func generateAssets(layout projectlayout.ProjectLayout) error {
 		manifestPath = filepath.Join(outDir, "manifest.json")
 	}
 
+	buildSourceDir := sourceDir
+	cleanupSource := func() error { return nil }
+	if templCSS {
+		stageDir, cleanup, err := templcssgen.PrepareStaticSource(templcssgen.PrepareStaticSourceConfig{
+			Layout:    layout,
+			SourceDir: sourceDir,
+		})
+		if err != nil {
+			return fmt.Errorf("prepare templ css static source: %w", err)
+		}
+		buildSourceDir = stageDir
+		cleanupSource = cleanup
+	}
+	defer func() {
+		_ = cleanupSource()
+	}()
+
 	bundle, err := bundlerstaticassets.Build(bundlerstaticassets.BuildConfig{
-		SourceDir: sourceDir,
+		SourceDir: buildSourceDir,
 	})
 	if err != nil {
 		return fmt.Errorf("build static bundle: %w", err)
@@ -144,48 +165,13 @@ func generateAssets(layout projectlayout.ProjectLayout) error {
 	if err := os.RemoveAll(outDir); err != nil {
 		return fmt.Errorf("clean output dir %q: %w", outDir, err)
 	}
-	if err := copyTree(bundle.Dir(), outDir); err != nil {
+	if err := filesystem.CopyTree(bundle.Dir(), outDir); err != nil {
 		return fmt.Errorf("copy processed assets to %q: %w", outDir, err)
 	}
 	if err := bundlerstaticassets.WriteManifest(manifestPath, bundle.Manifest()); err != nil {
 		return fmt.Errorf("write manifest %q: %w", manifestPath, err)
 	}
 	return nil
-}
-
-func copyTree(sourceRoot string, targetRoot string) error {
-	return filepath.WalkDir(sourceRoot, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-
-		relativePath, err := filepath.Rel(sourceRoot, path)
-		if err != nil {
-			return err
-		}
-		if relativePath == "." {
-			return os.MkdirAll(targetRoot, 0o755)
-		}
-
-		targetPath := filepath.Join(targetRoot, relativePath)
-		if entry.IsDir() {
-			return os.MkdirAll(targetPath, 0o755)
-		}
-
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-			return err
-		}
-
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(targetPath, content, 0o644); err != nil {
-			return err
-		}
-
-		return nil
-	})
 }
 
 func checkGitDiff(rootDir string) error {

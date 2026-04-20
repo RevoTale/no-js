@@ -1,0 +1,11 @@
+package dashboard
+
+import "example.com/templcssapp/web/components"
+import "example.com/templcssapp/web/view"
+
+templ Page(view runtime.RootLayoutView) {
+	<main id="dashboard-page">
+		<h1>Dashboard Variant</h1>
+		@components.ProgressMeter(72)
+	</main>
+}

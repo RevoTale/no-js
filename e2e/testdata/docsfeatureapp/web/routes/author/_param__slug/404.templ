@@ -1,0 +1,9 @@
+package author
+
+import "example.com/templcssapp/web/view"
+
+templ NotFound(view runtime.RootLayoutView, path string) {
+	<main id="author-not-found">
+		Unknown author { path }
+	</main>
+}
