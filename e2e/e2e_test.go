@@ -967,6 +967,34 @@ func TestTemplRulesFixtureApp(t *testing.T) {
 	})
 }
 
+func TestExistingTemplgenPathsSkipsMissing(t *testing.T) {
+	t.Parallel()
+
+	appDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(appDir, "web", "routes"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(appDir, "web", "generated"), 0o755))
+
+	paths := existingTemplgenPaths(t, appDir, "web/routes", "web/generated", "web/components")
+	require.Equal(t, []string{"web/routes", "web/generated"}, paths)
+}
+
+func existingTemplgenPaths(t *testing.T, appDir string, paths ...string) []string {
+	t.Helper()
+
+	out := make([]string, 0, len(paths))
+	for _, path := range paths {
+		info, err := os.Stat(filepath.Join(appDir, filepath.FromSlash(path)))
+		if os.IsNotExist(err) {
+			continue
+		}
+		require.NoError(t, err)
+		require.True(t, info.IsDir(), "%s must be a directory", path)
+		out = append(out, path)
+	}
+
+	return out
+}
+
 func prepareFixtureApp(t *testing.T, fixtureName string) string {
 	t.Helper()
 
@@ -980,20 +1008,16 @@ func prepareFixtureApp(t *testing.T, fixtureName string) string {
 	writeFixtureModuleFiles(t, repoRoot, appDir)
 
 	runGo(t, appDir, "run", "github.com/RevoTale/no-js/cmd/no-js", "gen", "routes", "-root", ".")
-	runGo(
-		t,
-		appDir,
+	templgenArgs := []string{
 		"run",
 		"github.com/RevoTale/no-js/cmd/templgen",
 		"-base",
 		".",
-		"-path",
-		"web/routes",
-		"-path",
-		"web/generated",
-		"-path",
-		"web/components",
-	)
+	}
+	for _, path := range existingTemplgenPaths(t, appDir, "web/routes", "web/generated", "web/components") {
+		templgenArgs = append(templgenArgs, "-path", path)
+	}
+	runGo(t, appDir, templgenArgs...)
 	runGo(t, appDir, "run", "github.com/RevoTale/no-js/cmd/no-js", "gen", "assets", "-root", ".", "-templ-css")
 
 	return appDir
