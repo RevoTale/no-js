@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/RevoTale/no-js/compare/v1.1.0...v1.2.0) (2026-04-21)
+
+
+### Features
+
+* **templ:** generate route CSS in web/generated ([3534ab7](https://github.com/RevoTale/no-js/commit/3534ab7a5726cc9f4b6f8eebd06b3d70157bb69b))
+
 ## [1.1.0](https://github.com/RevoTale/no-js/compare/v1.0.0...v1.1.0) (2026-04-20)
 
 
