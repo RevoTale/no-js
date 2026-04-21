@@ -49,7 +49,7 @@ func DefaultCachePolicies() CachePolicies {
 	}
 }
 
-type Config[C interface{}] struct {
+type Config[C any] struct {
 	App    AppBundle[C]
 	Custom CustomConfig
 
@@ -80,7 +80,7 @@ type Config[C interface{}] struct {
 	HealthBody    string
 }
 
-type server[C interface{}] struct {
+type server[C any] struct {
 	cachePolicies       CachePolicies
 	notFoundPage        func(appCtx C, r *http.Request, notFoundContext framework.NotFoundContext) templ.Component
 	appContext          C
@@ -94,7 +94,7 @@ type server[C interface{}] struct {
 	routeEngine *engine.Engine[C]
 }
 
-func New[C interface{}](cfg Config[C]) (http.Handler, error) {
+func New[C any](cfg Config[C]) (http.Handler, error) {
 	cachePolicies := withDefaultPolicies(cfg.CachePolicies)
 	healthPath := normalizeHealthPath(cfg.HealthPath)
 	if cfg.DisableHealth {
@@ -237,7 +237,7 @@ func New[C interface{}](cfg Config[C]) (http.Handler, error) {
 	return withGzipCompression(finalHandler), nil
 }
 
-func validatePathMatchers[C interface{}](handlerSet string, handlers []framework.RouteHandler[C]) error {
+func validatePathMatchers[C any](handlerSet string, handlers []framework.RouteHandler[C]) error {
 	for idx, handler := range handlers {
 		if handler == nil {
 			continue
@@ -250,7 +250,7 @@ func validatePathMatchers[C interface{}](handlerSet string, handlers []framework
 	return nil
 }
 
-func tryServeRouteHandlers[C interface{}](
+func tryServeRouteHandlers[C any](
 	runtime framework.RuntimeContext[C],
 	handlers []framework.RouteHandler[C],
 	w http.ResponseWriter,
@@ -297,7 +297,7 @@ func normalizeRequestPath(r *http.Request) string {
 	return frameworki18n.NormalizePath(r.URL.Path)
 }
 
-func matchesRoutePath[C interface{}](handlers []framework.RouteHandler[C], pathValue string) bool {
+func matchesRoutePath[C any](handlers []framework.RouteHandler[C], pathValue string) bool {
 	for _, handler := range handlers {
 		if handler == nil {
 			continue

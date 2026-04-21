@@ -11,7 +11,7 @@ import (
 	"github.com/a-h/templ"
 )
 
-type Config[C interface{}] struct {
+type Config[C any] struct {
 	AppContext   C
 	Handlers     []framework.RouteHandler[C]
 	I18nResolver *frameworki18n.Resolver
@@ -26,7 +26,7 @@ type Config[C interface{}] struct {
 	LogResolverTiming func(event framework.ResolverTiming)
 }
 
-type Engine[C interface{}] struct {
+type Engine[C any] struct {
 	appContext   C
 	handlers     []framework.RouteHandler[C]
 	i18nResolver *frameworki18n.Resolver
@@ -41,7 +41,7 @@ type Engine[C interface{}] struct {
 	logResolverTiming func(event framework.ResolverTiming)
 }
 
-func New[C interface{}](cfg Config[C]) (*Engine[C], error) {
+func New[C any](cfg Config[C]) (*Engine[C], error) {
 	if cfg.RenderPage == nil {
 		return nil, errors.New("render page callback is required")
 	}

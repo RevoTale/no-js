@@ -38,13 +38,13 @@ const (
 // Bundle contains the optional reserved discovery conventions generated from
 // web/routes. Robots stays root-scoped, while sitemap/feed conventions may come
 // from the route root or nested route directories.
-type Bundle[C interface{}] struct {
+type Bundle[C any] struct {
 	Robots   func(runtime framework.RuntimeContext[C], r *http.Request) (Robots, error)
 	Sitemaps []SitemapRoute[C]
 	Feeds    []FeedRoute[C]
 }
 
-type SitemapRoute[C interface{}] struct {
+type SitemapRoute[C any] struct {
 	RoutePattern     string
 	Sitemap          func(runtime framework.RuntimeContext[C], r *http.Request) ([]SitemapEntry, error)
 	GenerateSitemaps func(runtime framework.RuntimeContext[C], r *http.Request) ([]SitemapID, error)
@@ -55,7 +55,7 @@ func (route SitemapRoute[C]) HasDynamicSitemaps() bool {
 	return route.GenerateSitemaps != nil && route.SitemapChunk != nil
 }
 
-type FeedRoute[C interface{}] struct {
+type FeedRoute[C any] struct {
 	RoutePattern string
 	Feed         func(runtime framework.RuntimeContext[C], r *http.Request) (FeedDocument, error)
 }
@@ -161,7 +161,7 @@ type FeedItem struct {
 	Categories []string
 }
 
-type exactHandler[C interface{}] struct {
+type exactHandler[C any] struct {
 	pattern string
 	serve   func(runtime framework.RuntimeContext[C], w http.ResponseWriter, r *http.Request) bool
 }
@@ -183,7 +183,7 @@ func (handler exactHandler[C]) TryServe(
 	return handler.serve(runtime, w, r)
 }
 
-func ExactHandlers[C interface{}](bundle *Bundle[C]) []framework.RouteHandler[C] {
+func ExactHandlers[C any](bundle *Bundle[C]) []framework.RouteHandler[C] {
 	if bundle == nil {
 		return nil
 	}
@@ -239,7 +239,7 @@ func ExactHandlers[C interface{}](bundle *Bundle[C]) []framework.RouteHandler[C]
 	return handlers
 }
 
-func MaybeServeSitemapChunk[C interface{}](
+func MaybeServeSitemapChunk[C any](
 	runtime framework.RuntimeContext[C],
 	bundle *Bundle[C],
 	w http.ResponseWriter,
@@ -281,7 +281,7 @@ func MaybeServeSitemapChunk[C interface{}](
 	return false
 }
 
-func serveRobots[C interface{}](
+func serveRobots[C any](
 	runtime framework.RuntimeContext[C],
 	bundle *Bundle[C],
 	w http.ResponseWriter,
@@ -306,7 +306,7 @@ func serveRobots[C interface{}](
 	return true
 }
 
-func serveFeed[C interface{}](
+func serveFeed[C any](
 	runtime framework.RuntimeContext[C],
 	route FeedRoute[C],
 	w http.ResponseWriter,
@@ -336,7 +336,7 @@ func serveFeed[C interface{}](
 	return true
 }
 
-func serveRootSitemap[C interface{}](
+func serveRootSitemap[C any](
 	runtime framework.RuntimeContext[C],
 	route SitemapRoute[C],
 	w http.ResponseWriter,
@@ -366,7 +366,7 @@ func serveRootSitemap[C interface{}](
 	return true
 }
 
-func serveSitemapIndex[C interface{}](
+func serveSitemapIndex[C any](
 	runtime framework.RuntimeContext[C],
 	route SitemapRoute[C],
 	w http.ResponseWriter,
@@ -407,7 +407,7 @@ func serveSitemapIndex[C interface{}](
 	return true
 }
 
-func sitemapIDsForRequest[C interface{}](
+func sitemapIDsForRequest[C any](
 	runtime framework.RuntimeContext[C],
 	route SitemapRoute[C],
 	r *http.Request,
@@ -418,7 +418,7 @@ func sitemapIDsForRequest[C interface{}](
 	return route.GenerateSitemaps(runtime, r)
 }
 
-func sortedFeedRoutes[C interface{}](routes []FeedRoute[C]) []FeedRoute[C] {
+func sortedFeedRoutes[C any](routes []FeedRoute[C]) []FeedRoute[C] {
 	out := append([]FeedRoute[C](nil), routes...)
 	sort.Slice(out, func(i int, j int) bool {
 		return discoveryRouteLess(out[i].RoutePattern, out[j].RoutePattern)
@@ -426,7 +426,7 @@ func sortedFeedRoutes[C interface{}](routes []FeedRoute[C]) []FeedRoute[C] {
 	return out
 }
 
-func sortedSitemapRoutes[C interface{}](routes []SitemapRoute[C]) []SitemapRoute[C] {
+func sortedSitemapRoutes[C any](routes []SitemapRoute[C]) []SitemapRoute[C] {
 	out := append([]SitemapRoute[C](nil), routes...)
 	sort.Slice(out, func(i int, j int) bool {
 		return discoveryRouteLess(out[i].RoutePattern, out[j].RoutePattern)

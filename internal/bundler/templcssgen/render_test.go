@@ -285,6 +285,19 @@ func TemplCSSVariants() []templ.CSSClass {
 	require.Contains(t, bundle.URL("styles/templ.css"), "/styles/templ.css")
 }
 
+func TestStylesheetHelperSourceReturnsErrorsInsteadOfPanicking(t *testing.T) {
+	t.Parallel()
+
+	source, err := stylesheetHelperSource(projectlayout.ProjectLayout{
+		AppModulePath:   "example.com/app",
+		GeneratedImport: "web/generated",
+	}, "/tmp/styles/templ.css")
+	require.NoError(t, err)
+	require.NotContains(t, string(source), "panic(")
+	require.Contains(t, string(source), "func run() error")
+	require.Contains(t, string(source), "fmt.Fprintln(os.Stderr, err)")
+}
+
 func repoRootPath(t *testing.T) string {
 	t.Helper()
 

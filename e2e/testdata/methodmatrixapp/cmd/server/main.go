@@ -26,7 +26,6 @@ func main() {
 
 	appContext := &runtime.Context{}
 	bundle := gen.Bundle(appContext)
-	bundle.TemplCSSClasses = gen.TemplCSSClasses
 
 	handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
 		App: bundle,

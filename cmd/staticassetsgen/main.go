@@ -118,7 +118,7 @@ func resolvePath(rootDir string, target string) string {
 	return filepath.Join(rootDir, target)
 }
 
-func exitf(formatText string, args ...interface{}) {
+func exitf(formatText string, args ...any) {
 	fmt.Fprintf(os.Stderr, formatText+"\n", args...)
 	os.Exit(1)
 }

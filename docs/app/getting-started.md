@@ -73,7 +73,7 @@ To also generate a global templ stylesheet from templ `css` components, add `-te
 go tool no-js gen -root . -templ-css
 ```
 
-That flag tells `no-js` to build `styles/templ.css` from registered templ CSS classes and pass it through the normal hashed asset pipeline.
+That flag tells `no-js` to build `styles/templ.css` from the generated templ CSS registry and pass it through the normal hashed asset pipeline. The generated `App Bundle` wires that registry into `httpserver.NewApp(...)` automatically.
 Without `-templ-css`, templ component CSS stays on templ's normal render path instead of becoming a hashed static asset.
 
 If your app also keeps `.templ` files outside generated routes, compile those as a

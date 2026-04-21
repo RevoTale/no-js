@@ -22,32 +22,32 @@ type SlugParams struct {
 	Slug string
 }
 
-type ParamsParser[P interface{}] func(path string) (P, bool)
+type ParamsParser[P any] func(path string) (P, bool)
 
-type PageLoader[C interface{}, P interface{}, VM interface{}] func(
+type PageLoader[C any, P any, VM any] func(
 	ctx context.Context,
 	appCtx C,
 	r *http.Request,
 	params P,
 ) (VM, error)
 
-type PageMetaGen[C interface{}, P interface{}] func(
+type PageMetaGen[C any, P any] func(
 	ctx context.Context,
 	appCtx C,
 	r *http.Request,
 	params P,
 ) (metagen.Metadata, error)
 
-type PageMetaGenContext[C interface{}, P interface{}] func(
+type PageMetaGenContext[C any, P any] func(
 	meta MetaContext[C],
 	params P,
 ) (metagen.Metadata, error)
 
-type PageRenderer[VM interface{}] func(view VM) templ.Component
+type PageRenderer[VM any] func(view VM) templ.Component
 
-type LayoutRenderer[VM interface{}] func(meta metagen.Metadata, view VM, child templ.Component) templ.Component
+type LayoutRenderer[VM any] func(meta metagen.Metadata, view VM, child templ.Component) templ.Component
 
-type PageComposer[C interface{}, P interface{}, VM interface{}] func(
+type PageComposer[C any, P any, VM any] func(
 	ctx context.Context,
 	runtime RuntimeContext[C],
 	r *http.Request,
@@ -57,14 +57,14 @@ type PageComposer[C interface{}, P interface{}, VM interface{}] func(
 	partial bool,
 ) (templ.Component, error)
 
-type MethodRouteAction[C interface{}, P interface{}] func(
+type MethodRouteAction[C any, P any] func(
 	runtime RuntimeContext[C],
 	w http.ResponseWriter,
 	r *http.Request,
 	params P,
 ) error
 
-type PageModule[C interface{}, P interface{}, VM interface{}] struct {
+type PageModule[C any, P any, VM any] struct {
 	RouteID             string
 	Pattern             string
 	ParseParams         ParamsParser[P]
@@ -83,7 +83,7 @@ type PageModule[C interface{}, P interface{}, VM interface{}] struct {
 	ErrorPage           func(appCtx C, r *http.Request) templ.Component
 }
 
-type MethodRouteModule[C interface{}, P interface{}] struct {
+type MethodRouteModule[C any, P any] struct {
 	RouteID     string
 	Pattern     string
 	ParseParams ParamsParser[P]
@@ -96,7 +96,7 @@ type MethodRouteModule[C interface{}, P interface{}] struct {
 	OPTIONS     MethodRouteAction[C, P]
 }
 
-type RuntimeContext[C interface{}] interface {
+type RuntimeContext[C any] interface {
 	AppContext() C
 	I18n() *frameworki18n.Resolver
 	ResolveRoot(r *http.Request) *url.URL
@@ -139,7 +139,7 @@ type NotFoundContext struct {
 	Source              NotFoundSource
 }
 
-type RouteHandler[C interface{}] interface {
+type RouteHandler[C any] interface {
 	TryServe(runtime RuntimeContext[C], w http.ResponseWriter, r *http.Request) bool
 }
 
@@ -147,11 +147,11 @@ type PathMatcher interface {
 	MatchPath(path string) bool
 }
 
-type PageOnlyRouteHandler[C interface{}, P interface{}, VM interface{}] struct {
+type PageOnlyRouteHandler[C any, P any, VM any] struct {
 	Page PageModule[C, P, VM]
 }
 
-type MethodOnlyRouteHandler[C interface{}, P interface{}] struct {
+type MethodOnlyRouteHandler[C any, P any] struct {
 	Route MethodRouteModule[C, P]
 }
 
@@ -181,7 +181,7 @@ func (h MethodOnlyRouteHandler[C, P]) TryServe(
 	return serveMethodRoute(runtime, w, r, h.Route)
 }
 
-func applyLayouts[VM interface{}](
+func applyLayouts[VM any](
 	layouts []LayoutRenderer[VM],
 	meta metagen.Metadata,
 	view VM,
@@ -194,7 +194,7 @@ func applyLayouts[VM interface{}](
 	return wrapped
 }
 
-func servePageModule[C interface{}, P interface{}, VM interface{}](
+func servePageModule[C any, P any, VM any](
 	runtime RuntimeContext[C],
 	w http.ResponseWriter,
 	r *http.Request,
@@ -296,7 +296,7 @@ func servePageModule[C interface{}, P interface{}, VM interface{}](
 	return true
 }
 
-func composePageComponent[C interface{}, P interface{}, VM interface{}](
+func composePageComponent[C any, P any, VM any](
 	ctx context.Context,
 	runtime RuntimeContext[C],
 	r *http.Request,
@@ -317,7 +317,7 @@ func composePageComponent[C interface{}, P interface{}, VM interface{}](
 	return component, nil
 }
 
-func serveMethodRoute[C interface{}, P interface{}](
+func serveMethodRoute[C any, P any](
 	runtime RuntimeContext[C],
 	w http.ResponseWriter,
 	r *http.Request,
@@ -358,7 +358,7 @@ func serveMethodRoute[C interface{}, P interface{}](
 	return true
 }
 
-func methodRouteAction[C interface{}, P interface{}](
+func methodRouteAction[C any, P any](
 	module MethodRouteModule[C, P],
 	method string,
 ) (MethodRouteAction[C, P], string, []string) {
@@ -389,7 +389,7 @@ func methodRouteAction[C interface{}, P interface{}](
 	}
 }
 
-func allowedMethods[C interface{}, P interface{}](module MethodRouteModule[C, P]) []string {
+func allowedMethods[C any, P any](module MethodRouteModule[C, P]) []string {
 	methods := make([]string, 0, 7)
 	if module.GET != nil {
 		methods = append(methods, http.MethodGet)
@@ -423,7 +423,7 @@ func (writer headResponseWriter) Write(body []byte) (int, error) {
 	return len(body), nil
 }
 
-func resolveMetadata[C interface{}, P interface{}, VM interface{}](
+func resolveMetadata[C any, P any, VM any](
 	runtime RuntimeContext[C],
 	ctx context.Context,
 	appCtx C,
@@ -497,7 +497,7 @@ func resolveMetadata[C interface{}, P interface{}, VM interface{}](
 	return metagen.MergeAll(results...), nil
 }
 
-func resolveMetadataWithContext[C interface{}, P interface{}](
+func resolveMetadataWithContext[C any, P any](
 	runtime RuntimeContext[C],
 	ctx context.Context,
 	appCtx C,
@@ -562,7 +562,7 @@ func metadataContextForResolve[C any](
 	return NewMetaContext(ctx, appCtx, r, runtime.ResolveRoot(r), runtime.I18n())
 }
 
-func handleModuleError[C interface{}](
+func handleModuleError[C any](
 	runtime RuntimeContext[C],
 	w http.ResponseWriter,
 	r *http.Request,
@@ -586,14 +586,14 @@ func handleModuleError[C interface{}](
 	runtime.RespondServerError(w, fmt.Errorf("%s route %q: %w", stage, routePattern, err))
 }
 
-func loadMethodName[C interface{}, P interface{}, VM interface{}](module PageModule[C, P, VM]) string {
+func loadMethodName[C any, P any, VM any](module PageModule[C, P, VM]) string {
 	if name := strings.TrimSpace(module.LoadName); name != "" {
 		return name
 	}
 	return resolverFuncName(module.Load)
 }
 
-func metaGenMethodName[C interface{}, P interface{}, VM interface{}](
+func metaGenMethodName[C any, P any, VM any](
 	module PageModule[C, P, VM],
 	index int,
 	run PageMetaGen[C, P],
@@ -618,7 +618,7 @@ func metaGenChainMethodName(chainNames []string, index int) string {
 	return ""
 }
 
-func resolverFuncName(fn interface{}) string {
+func resolverFuncName(fn any) string {
 	if fn == nil {
 		return "unknown"
 	}

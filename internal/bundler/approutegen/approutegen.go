@@ -2489,6 +2489,7 @@ func generateBundleSource(paths projectlayout.ProjectLayout) ([]byte, error) {
 	buffer.WriteString("\t\tI18n:                          i18nConfig,\n")
 	buffer.WriteString("\t\tResolveRoot:                   appContext.ResolveRoot,\n")
 	buffer.WriteString("\t\tNotFoundPage:                  NotFoundPage,\n")
+	buffer.WriteString("		TemplCSSClasses:               TemplCSSClasses,\n")
 	buffer.WriteString("\t\tOnStaticAssetBasePathResolved: runtime.SetStaticAssetBasePath,\n")
 	buffer.WriteString("\t}\n")
 	buffer.WriteString("}\n")
@@ -3383,7 +3384,7 @@ func pascalToken(value string) string {
 	return builder.String()
 }
 
-func writef(buffer *bytes.Buffer, pattern string, args ...interface{}) {
+func writef(buffer *bytes.Buffer, pattern string, args ...any) {
 	_, _ = fmt.Fprintf(buffer, pattern, args...)
 }
 
