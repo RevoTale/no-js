@@ -17,7 +17,6 @@ your-app/
     server/
       main.go
   web/
-    generate.go
     routes/
       root.templ
       404.templ
@@ -32,27 +31,74 @@ your-app/
 
 ## Generation Loop
 
-Use `no-js` as a build-time generator from the consuming app root.
+Add `no-js` as both a normal module dependency and a pinned Go tool dependency.
+For the Go-side rationale, see the official docs for [tool dependencies](https://go.dev/doc/modules/managing-dependencies#tools)
+and the [`tool` directive](https://go.dev/doc/modules/gomod-ref#tool).
+
+A minimal `go.mod` looks like:
+
+```go
+module example.com/your-app
+
+go 1.26
+
+require github.com/RevoTale/no-js vX.Y.Z
+
+tool github.com/RevoTale/no-js/cmd/no-js
+```
+
+Or add the entries with Go commands:
 
 ```bash
-go run github.com/RevoTale/no-js/cmd/no-js gen -root .
+go get -tool github.com/RevoTale/no-js/cmd/no-js@latest
+```
+
+Use `go tool no-js` as the primary build-time entrypoint from the consuming app root.
+
+```bash
+go tool no-js gen -root .
 ```
 
 Common split commands:
 
 ```bash
-go run github.com/RevoTale/no-js/cmd/no-js gen routes -root .
-go run github.com/RevoTale/no-js/cmd/no-js gen assets -root .
-go run github.com/RevoTale/no-js/cmd/no-js gen check -root .
+go tool no-js gen routes -root .
+go tool no-js gen assets -root .
+go tool no-js gen check -root .
 ```
 
-A typical `web/generate.go` looks like this:
+If your app also keeps `.templ` files outside generated routes, compile those as a
+separate templ step. A matching `go.mod` shape is:
+
+```go
+module example.com/your-app
+
+go 1.26
+
+require github.com/RevoTale/no-js vX.Y.Z
+
+tool (
+	github.com/RevoTale/no-js/cmd/no-js
+	github.com/RevoTale/no-js/cmd/templgen
+)
+```
+
+Then run:
+
+```bash
+go get -tool github.com/RevoTale/no-js/cmd/templgen@latest
+go tool templgen -base . -path web/components -path web/view -path web/generated
+```
+
+If you want a convenience wrapper, keep it thin and let it call `go tool` rather
+than making `go generate` the primary interface:
 
 ```go
 package web
 
-//go:generate go run github.com/RevoTale/no-js/cmd/no-js gen routes -root ..
-//go:generate go run github.com/RevoTale/no-js/cmd/templgen -base . -path components -path generated
+// Optional convenience wrapper. The primary entrypoint is `go tool no-js ...`.
+//go:generate go tool no-js gen -root ..
+//go:generate go tool templgen -base .. -path web/components -path web/view -path web/generated
 ```
 
 ## Runtime Happy Path

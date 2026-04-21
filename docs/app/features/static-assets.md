@@ -14,17 +14,31 @@ files under `web/public`.
 
 ## Happy Path
 
-Asset generation reads from `web/assets` and writes to `web/assets-build`:
+Asset generation reads from `web/assets` and writes to `web/assets-build`.
+Declare `no-js` in `go.mod` using Go's documented [tool dependency](https://go.dev/doc/modules/managing-dependencies#tools)
+pattern and the [`tool` directive](https://go.dev/doc/modules/gomod-ref#tool):
+
+```go
+module example.com/your-app
+
+go 1.26
+
+require github.com/RevoTale/no-js vX.Y.Z
+
+tool github.com/RevoTale/no-js/cmd/no-js
+```
+
+Then run:
 
 ```bash
-go run github.com/RevoTale/no-js/cmd/no-js gen assets -root .
+go tool no-js gen assets -root .
 ```
 
 To build a global templ stylesheet and send it through the same hashed asset
 pipeline:
 
 ```bash
-go run github.com/RevoTale/no-js/cmd/no-js gen assets -root . -templ-css
+go tool no-js gen assets -root . -templ-css
 ```
 
 The generated manifest lives at:

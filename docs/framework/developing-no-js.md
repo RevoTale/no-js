@@ -34,7 +34,7 @@ no-js/
 - The generator must stay module-aware: framework imports come from
   `github.com/RevoTale/no-js`, while consuming-app imports are resolved from
   the target app module.
-- The supported public CLI entrypoint is `cmd/no-js`.
+- The supported public CLI entrypoint is `cmd/no-js`, and app-facing docs should prefer `tool` directives plus `go tool no-js ...`.
 - Keep the repository library-focused. Do not reintroduce product-specific app
   code here.
 
