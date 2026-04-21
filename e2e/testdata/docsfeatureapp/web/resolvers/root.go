@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strconv"
 
-	i18n "example.com/templcssapp/web/generated/i18n"
-	runtime "example.com/templcssapp/web/view"
+	i18n "example.com/no-js-e2e/docsfeatureapp/web/generated/i18n"
+	runtime "example.com/no-js-e2e/docsfeatureapp/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/metagen"
 )

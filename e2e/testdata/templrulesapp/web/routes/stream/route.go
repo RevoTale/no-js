@@ -3,7 +3,7 @@ package stream
 import (
 	"net/http"
 
-	runtime "example.com/templcssapp/web/view"
+	runtime "example.com/no-js-e2e/templrulesapp/web/view"
 	"github.com/RevoTale/no-js/framework"
 )
 

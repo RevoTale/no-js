@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	runtime "example.com/templcssapp/web/view"
+	runtime "example.com/no-js-e2e/docsfeatureapp/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/discovery"
 )

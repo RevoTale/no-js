@@ -1,8 +1,8 @@
 package runtime
 
 import (
-	"example.com/templcssapp/web/components"
-	i18n "example.com/templcssapp/web/generated/i18n"
+	"example.com/no-js-e2e/docsfeatureapp/web/components"
+	i18n "example.com/no-js-e2e/docsfeatureapp/web/generated/i18n"
 	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
 	"github.com/a-h/templ"
 )

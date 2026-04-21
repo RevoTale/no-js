@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const fixtureModulePath = "example.com/templcssapp"
-
 type probeResponse struct {
 	Status               int    `json:"status"`
 	Body                 string `json:"body"`
@@ -158,12 +156,8 @@ type templRulesProbeReport struct {
 	StylesheetURL    string              `json:"stylesheet_url"`
 }
 
-func TestRoutePageCSSWorksViaNoJSGenWithoutSourcePollution(t *testing.T) {
-	appDir := prepareFixtureAppWithNoJSGen(t, "routepagecssapp")
-	output := runGo(t, appDir, "run", "./cmd/probe")
-
-	var report probeReport
-	require.NoError(t, json.Unmarshal(output, &report))
+func TestRoutePageCSSUsesGlobalStylesheetWithoutInlineStyle(t *testing.T) {
+	_, report := loadRoutePageCSSProbe(t)
 
 	require.Regexp(
 		t,
@@ -186,7 +180,16 @@ func TestRoutePageCSSWorksViaNoJSGenWithoutSourcePollution(t *testing.T) {
 
 	require.Equal(t, 200, report.Partial.Status)
 	require.NotContains(t, report.Partial.Body, `<html`)
+	require.NotContains(t, report.Partial.Body, `<style type="text/css"`)
 	require.Contains(t, report.Partial.HXTriggerAfterSettle, `styles/templ.css`)
+
+	require.Equal(t, 200, report.Stylesheet.Status)
+	require.Contains(t, report.Stylesheet.ContentType, "text/css")
+}
+
+func TestRoutePageCSSWorksViaNoJSGenWithoutSourcePollution(t *testing.T) {
+	appDir, _ := loadRoutePageCSSProbe(t)
+
 	_, err := os.Stat(filepath.Join(appDir, "web/routes", "page_templ.go"))
 	require.ErrorIs(t, err, os.ErrNotExist)
 	_, err = os.Stat(filepath.Join(appDir, "web/routes", "root_templ.go"))
@@ -197,6 +200,38 @@ func TestRoutePageCSSWorksViaNoJSGenWithoutSourcePollution(t *testing.T) {
 	require.NoError(t, err)
 	_, err = os.Stat(filepath.Join(appDir, "web/generated", "templcss", "routes", "templ_css_exports_gen.go"))
 	require.NoError(t, err)
+}
+
+func TestFixtureAppsDeclareToolsAndLocalReplaceInGoMod(t *testing.T) {
+	t.Helper()
+
+	fixturesDir := filepath.Join(repoRootPath(t), "e2e", "testdata")
+	entries, err := os.ReadDir(fixturesDir)
+	require.NoError(t, err)
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		goModPath := filepath.Join(fixturesDir, entry.Name(), "go.mod")
+		goMod, err := os.ReadFile(goModPath)
+		require.NoError(t, err, "%s missing go.mod", entry.Name())
+
+		contents := string(goMod)
+		require.Contains(t, contents, "module example.com/no-js-e2e/"+entry.Name())
+		require.Contains(t, contents, "tool (")
+		require.Contains(t, contents, "github.com/RevoTale/no-js/cmd/no-js")
+		require.Contains(t, contents, "github.com/RevoTale/no-js/cmd/templgen")
+		require.Contains(t, contents, "github.com/evanw/esbuild v0.28.0 // indirect")
+		require.Contains(t, contents, "github.com/nicksnyder/go-i18n/v2 v2.6.1 // indirect")
+		require.Contains(t, contents, "replace github.com/RevoTale/no-js => ../../..")
+
+		goSumPath := filepath.Join(fixturesDir, entry.Name(), "go.sum")
+		goSum, err := os.ReadFile(goSumPath)
+		require.NoError(t, err, "%s missing go.sum", entry.Name())
+		require.Contains(t, string(goSum), "github.com/evanw/esbuild v0.28.0/go.mod")
+	}
 }
 
 func TestTemplCSSFixtureApp(t *testing.T) {
@@ -1035,6 +1070,17 @@ func existingTemplgenPaths(t *testing.T, appDir string, paths ...string) []strin
 	return out
 }
 
+func loadRoutePageCSSProbe(t *testing.T) (string, probeReport) {
+	t.Helper()
+
+	appDir := prepareFixtureAppWithNoJSGen(t, "routepagecssapp")
+	output := runGo(t, appDir, "run", "./cmd/probe")
+
+	var report probeReport
+	require.NoError(t, json.Unmarshal(output, &report))
+	return appDir, report
+}
+
 func prepareFixtureApp(t *testing.T, fixtureName string) string {
 	t.Helper()
 
@@ -1047,10 +1093,10 @@ func prepareFixtureApp(t *testing.T, fixtureName string) string {
 	)
 	writeFixtureModuleFiles(t, repoRoot, appDir)
 
-	runGo(t, appDir, "run", "github.com/RevoTale/no-js/cmd/no-js", "gen", "routes", "-root", ".")
+	runGo(t, appDir, "tool", "no-js", "gen", "routes", "-root", ".")
 	templgenArgs := []string{
-		"run",
-		"github.com/RevoTale/no-js/cmd/templgen",
+		"tool",
+		"templgen",
 		"-base",
 		".",
 	}
@@ -1058,7 +1104,7 @@ func prepareFixtureApp(t *testing.T, fixtureName string) string {
 		templgenArgs = append(templgenArgs, "-path", path)
 	}
 	runGo(t, appDir, templgenArgs...)
-	runGo(t, appDir, "run", "github.com/RevoTale/no-js/cmd/no-js", "gen", "assets", "-root", ".", "-templ-css")
+	runGo(t, appDir, "tool", "no-js", "gen", "assets", "-root", ".", "-templ-css")
 
 	return appDir
 }
@@ -1074,7 +1120,7 @@ func prepareFixtureAppWithNoJSGen(t *testing.T, fixtureName string) string {
 		filesystem.CopyTree(filepath.Join(repoRoot, "e2e", "testdata", fixtureName), appDir),
 	)
 	writeFixtureModuleFiles(t, repoRoot, appDir)
-	runGo(t, appDir, "run", "github.com/RevoTale/no-js/cmd/no-js", "gen", "-root", ".", "-templ-css")
+	runGo(t, appDir, "tool", "no-js", "gen", "-root", ".", "-templ-css")
 
 	return appDir
 }
@@ -1082,18 +1128,17 @@ func prepareFixtureAppWithNoJSGen(t *testing.T, fixtureName string) string {
 func writeFixtureModuleFiles(t *testing.T, repoRoot string, appDir string) {
 	t.Helper()
 
-	rootGoMod, err := os.ReadFile(filepath.Join(repoRoot, "go.mod"))
+	goModPath := filepath.Join(appDir, "go.mod")
+	goMod, err := os.ReadFile(goModPath)
 	require.NoError(t, err)
-	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))
-	require.NoError(t, err)
+	replacePattern := regexp.MustCompile(`(?m)^replace github.com/RevoTale/no-js => .+$`)
+	rewrittenGoMod := replacePattern.ReplaceAllString(
+		string(goMod),
+		"replace github.com/RevoTale/no-js => "+filepath.ToSlash(repoRoot),
+	)
+	require.NotEqual(t, string(goMod), rewrittenGoMod, "fixture go.mod must declare no-js replace")
 
-	goMod := string(rootGoMod)
-	goMod = strings.Replace(goMod, "module github.com/RevoTale/no-js", "module "+fixtureModulePath, 1)
-	goMod = strings.TrimSpace(goMod) + "\n\nrequire github.com/RevoTale/no-js v0.0.0\n" +
-		"replace github.com/RevoTale/no-js => " + filepath.ToSlash(repoRoot) + "\n"
-
-	require.NoError(t, os.WriteFile(filepath.Join(appDir, "go.mod"), []byte(goMod), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(appDir, "go.sum"), goSum, 0o644))
+	require.NoError(t, os.WriteFile(goModPath, []byte(rewrittenGoMod), 0o644))
 }
 
 func runGo(t *testing.T, dir string, args ...string) []byte {

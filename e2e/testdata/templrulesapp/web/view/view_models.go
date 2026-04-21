@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"example.com/templcssapp/web/components"
+	"example.com/no-js-e2e/templrulesapp/web/components"
 	"github.com/a-h/templ"
 )
 

@@ -6,8 +6,8 @@ import (
 	"path"
 	"strings"
 
-	i18n "example.com/templcssapp/web/generated/i18n"
-	messages "example.com/templcssapp/web/generated/i18n/messages"
+	i18n "example.com/no-js-e2e/i18nprefixalwaysapp/web/generated/i18n"
+	messages "example.com/no-js-e2e/i18nprefixalwaysapp/web/generated/i18n/messages"
 	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
 )
 

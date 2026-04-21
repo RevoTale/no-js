@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	view "example.com/templcssapp/web/view"
+	view "example.com/no-js-e2e/docsfeatureapp/web/view"
 	"github.com/RevoTale/no-js/framework"
 	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
 )

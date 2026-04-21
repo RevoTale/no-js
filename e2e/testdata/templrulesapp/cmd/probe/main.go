@@ -11,8 +11,8 @@ import (
 	"regexp"
 	"strings"
 
-	gen "example.com/templcssapp/web/generated"
-	runtime "example.com/templcssapp/web/view"
+	gen "example.com/no-js-e2e/templrulesapp/web/generated"
+	runtime "example.com/no-js-e2e/templrulesapp/web/view"
 	"github.com/RevoTale/no-js/framework/httpserver"
 )
 

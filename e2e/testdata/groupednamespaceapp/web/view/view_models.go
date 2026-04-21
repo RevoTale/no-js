@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"example.com/templcssapp/web/components"
+	"example.com/no-js-e2e/groupednamespaceapp/web/components"
 	"github.com/a-h/templ"
 )
 
