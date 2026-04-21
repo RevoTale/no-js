@@ -38,7 +38,7 @@ func resolveLayout(rootDir string, configPath string) (projectlayout.ProjectLayo
 	return projectlayout.ResolveProjectLayout(rootDir, cfg)
 }
 
-func exitf(formatText string, args ...interface{}) {
+func exitf(formatText string, args ...any) {
 	fmt.Fprintf(os.Stderr, formatText+"\n", args...)
 	os.Exit(1)
 }

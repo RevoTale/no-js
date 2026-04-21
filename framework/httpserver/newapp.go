@@ -19,7 +19,7 @@ import (
 const defaultStaticManifestPath = "web/assets-build/manifest.json"
 const defaultPublicDir = "web/public"
 
-type AppBundle[C interface{}] struct {
+type AppBundle[C any] struct {
 	Context       C
 	ExactHandlers []framework.RouteHandler[C]
 	Handlers      []framework.RouteHandler[C]
@@ -54,7 +54,7 @@ type CustomConfig struct {
 	HealthBody          string
 }
 
-func NewApp[C interface{}](cfg Config[C]) (http.Handler, error) {
+func NewApp[C any](cfg Config[C]) (http.Handler, error) {
 	app := cfg.App
 	custom := cfg.Custom
 
@@ -120,7 +120,7 @@ func NewApp[C interface{}](cfg Config[C]) (http.Handler, error) {
 	})
 }
 
-func appContextIsNil[C interface{}](value C) bool {
+func appContextIsNil[C any](value C) bool {
 	rv := reflect.ValueOf(value)
 	if !rv.IsValid() {
 		return true

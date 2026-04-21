@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type testRuntime[C interface{}] struct {
+type testRuntime[C any] struct {
 	appContext C
 }
 
@@ -48,7 +48,7 @@ func (testRuntime[C]) LogServerError(error) {}
 
 func (testRuntime[C]) LogResolverTiming(framework.ResolverTiming) {}
 
-func serveExact[C interface{}](
+func serveExact[C any](
 	runtime framework.RuntimeContext[C],
 	handlers []framework.RouteHandler[C],
 	w http.ResponseWriter,

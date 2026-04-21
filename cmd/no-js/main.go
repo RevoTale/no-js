@@ -242,7 +242,7 @@ func checkGitDiff(rootDir string) error {
 	return nil
 }
 
-func exitf(formatText string, args ...interface{}) {
+func exitf(formatText string, args ...any) {
 	fmt.Fprintf(os.Stderr, formatText+"\n", args...)
 	os.Exit(1)
 }

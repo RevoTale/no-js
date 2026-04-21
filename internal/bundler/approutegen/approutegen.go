@@ -3384,7 +3384,7 @@ func pascalToken(value string) string {
 	return builder.String()
 }
 
-func writef(buffer *bytes.Buffer, pattern string, args ...interface{}) {
+func writef(buffer *bytes.Buffer, pattern string, args ...any) {
 	_, _ = fmt.Fprintf(buffer, pattern, args...)
 }
 
