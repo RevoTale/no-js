@@ -1,0 +1,14 @@
+package routes
+
+import "example.com/templcssapp/web/view"
+
+css pageShell() {
+	padding: 16px;
+	border: 1px solid #123;
+}
+
+templ Page(view runtime.RootPageView) {
+	<main data-route-page="home" class={ pageShell() }>
+		<h1>{ view.Heading }</h1>
+	</main>
+}

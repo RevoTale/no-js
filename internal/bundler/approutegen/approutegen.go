@@ -2408,13 +2408,16 @@ func generateDiscoverySource(paths projectlayout.ProjectLayout, discovery discov
 	if !discovery.HasRobots && len(discovery.Sitemaps) == 0 && len(discovery.Feeds) == 0 {
 		buffer.WriteString("\treturn nil\n")
 		buffer.WriteString("}\n")
+		buffer.WriteString("\n")
+		buffer.WriteString("func DiscoveryExactHandlers() []framework.RouteHandler[*runtime.Context] {\n")
+		buffer.WriteString("\treturn nil\n")
+		buffer.WriteString("}\n")
 		formatted, err := format.Source(buffer.Bytes())
 		if err != nil {
 			return nil, fmt.Errorf("format discovery source: %w", err)
 		}
 		return formatted, nil
 	}
-
 	buffer.WriteString("\treturn &discovery.Bundle[*runtime.Context]{\n")
 	if discovery.HasRobots {
 		writef(buffer, "\t\tRobots: %s.Robots,\n", discoveryImportAlias(""))

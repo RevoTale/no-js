@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunGeneratesPackageExportsAndRegistry(t *testing.T) {
+func TestRunGeneratesWorkspaceAndRegistryWithoutSourcePollution(t *testing.T) {
 	t.Parallel()
 
 	layout := newTemplCSSLayout(t)
@@ -43,22 +43,44 @@ css panel() {
 
 	require.NoError(t, Run(Config{Layout: layout}))
 
-	routeExport, err := os.ReadFile(filepath.Join(layout.RoutesDir, "notes", packageExportFileName))
+	_, err := os.Stat(filepath.Join(layout.RoutesDir, "notes", packageExportFileName))
+	require.ErrorIs(t, err, os.ErrNotExist)
+	_, err = os.Stat(filepath.Join(layout.RootDir, "web/components/card", packageExportFileName))
+	require.ErrorIs(t, err, os.ErrNotExist)
+
+	routeExportPath := filepath.Join(
+		layout.GeneratedDir,
+		generatedWorkspaceDirName,
+		"routes",
+		"notes",
+		packageExportFileName,
+	)
+	routeExport, err := os.ReadFile(routeExportPath)
 	require.NoError(t, err)
 	require.Contains(t, string(routeExport), "func "+packageExportFuncName+"() []templ.CSSClass")
 	require.Contains(t, string(routeExport), "button()")
 	require.NotContains(t, string(routeExport), "loading()")
 
-	componentExport, err := os.ReadFile(filepath.Join(layout.RootDir, "web/components/card", packageExportFileName))
+	componentExportPath := filepath.Join(
+		layout.GeneratedDir,
+		generatedWorkspaceDirName,
+		"components",
+		"card",
+		packageExportFileName,
+	)
+	componentExport, err := os.ReadFile(componentExportPath)
 	require.NoError(t, err)
 	require.Contains(t, string(componentExport), "panel()")
+
+	_, err = os.Stat(filepath.Join(layout.GeneratedDir, generatedWorkspaceDirName, "routes", "notes", "page.templ"))
+	require.NoError(t, err)
 
 	registry, err := os.ReadFile(filepath.Join(layout.GeneratedDir, registryFileName))
 	require.NoError(t, err)
 	require.Contains(t, string(registry), `runtime "example.com/app/web/view"`)
 	require.Contains(t, string(registry), `runtime.TemplCSSVariants()`)
-	require.Contains(t, string(registry), `example.com/app/web/components/card`)
-	require.Contains(t, string(registry), `example.com/app/web/routes/notes`)
+	require.Contains(t, string(registry), `example.com/app/web/generated/templcss/components/card`)
+	require.Contains(t, string(registry), `example.com/app/web/generated/templcss/routes/notes`)
 }
 
 func TestRunRemovesStalePackageExport(t *testing.T) {

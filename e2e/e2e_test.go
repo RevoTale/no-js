@@ -158,6 +158,47 @@ type templRulesProbeReport struct {
 	StylesheetURL    string              `json:"stylesheet_url"`
 }
 
+func TestRoutePageCSSWorksViaNoJSGenWithoutSourcePollution(t *testing.T) {
+	appDir := prepareFixtureAppWithNoJSGen(t, "routepagecssapp")
+	output := runGo(t, appDir, "run", "./cmd/probe")
+
+	var report probeReport
+	require.NoError(t, json.Unmarshal(output, &report))
+
+	require.Regexp(
+		t,
+		regexp.MustCompile(`^/_assets/[0-9a-f]{16}/styles/templ\.css$`),
+		report.StylesheetURL,
+	)
+
+	require.Equal(t, 200, report.Home.Status)
+	require.Contains(t, report.Home.ContentType, "text/html")
+	require.Contains(t, report.Home.Body, `data-route-page="home"`)
+	require.Contains(t, report.Home.Body, report.StylesheetURL)
+	require.NotContains(t, report.Home.Body, `<style type="text/css"`)
+
+	pageClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<main[^>]*data-route-page="home"[^>]*>`, report.Home.Body),
+	)
+	requireClassWithToken(t, report.Stylesheet.Body, pageClasses, "padding:16px")
+	requireClassWithToken(t, report.Stylesheet.Body, pageClasses, "border:1px solid #123")
+
+	require.Equal(t, 200, report.Partial.Status)
+	require.NotContains(t, report.Partial.Body, `<html`)
+	require.Contains(t, report.Partial.HXTriggerAfterSettle, `styles/templ.css`)
+	_, err := os.Stat(filepath.Join(appDir, "web/routes", "page_templ.go"))
+	require.ErrorIs(t, err, os.ErrNotExist)
+	_, err = os.Stat(filepath.Join(appDir, "web/routes", "root_templ.go"))
+	require.ErrorIs(t, err, os.ErrNotExist)
+	_, err = os.Stat(filepath.Join(appDir, "web/routes", "templ_css_exports_gen.go"))
+	require.ErrorIs(t, err, os.ErrNotExist)
+	_, err = os.Stat(filepath.Join(appDir, "web/generated", "templcss", "routes", "page_templ.go"))
+	require.NoError(t, err)
+	_, err = os.Stat(filepath.Join(appDir, "web/generated", "templcss", "routes", "templ_css_exports_gen.go"))
+	require.NoError(t, err)
+}
+
 func TestTemplCSSFixtureApp(t *testing.T) {
 	appDir := prepareFixtureApp(t, "templcssapp")
 	output := runGo(t, appDir, "run", "./cmd/probe")
@@ -971,11 +1012,10 @@ func TestExistingTemplgenPathsSkipsMissing(t *testing.T) {
 	t.Parallel()
 
 	appDir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(appDir, "web", "routes"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(appDir, "web", "generated"), 0o755))
 
-	paths := existingTemplgenPaths(t, appDir, "web/routes", "web/generated", "web/components")
-	require.Equal(t, []string{"web/routes", "web/generated"}, paths)
+	paths := existingTemplgenPaths(t, appDir, "web/generated", "web/components", "web/view")
+	require.Equal(t, []string{"web/generated"}, paths)
 }
 
 func existingTemplgenPaths(t *testing.T, appDir string, paths ...string) []string {
@@ -1014,11 +1054,27 @@ func prepareFixtureApp(t *testing.T, fixtureName string) string {
 		"-base",
 		".",
 	}
-	for _, path := range existingTemplgenPaths(t, appDir, "web/routes", "web/generated", "web/components") {
+	for _, path := range existingTemplgenPaths(t, appDir, "web/generated", "web/components", "web/view") {
 		templgenArgs = append(templgenArgs, "-path", path)
 	}
 	runGo(t, appDir, templgenArgs...)
 	runGo(t, appDir, "run", "github.com/RevoTale/no-js/cmd/no-js", "gen", "assets", "-root", ".", "-templ-css")
+
+	return appDir
+}
+
+func prepareFixtureAppWithNoJSGen(t *testing.T, fixtureName string) string {
+	t.Helper()
+
+	repoRoot := repoRootPath(t)
+	appDir := filepath.Join(t.TempDir(), fixtureName)
+
+	require.NoError(
+		t,
+		filesystem.CopyTree(filepath.Join(repoRoot, "e2e", "testdata", fixtureName), appDir),
+	)
+	writeFixtureModuleFiles(t, repoRoot, appDir)
+	runGo(t, appDir, "run", "github.com/RevoTale/no-js/cmd/no-js", "gen", "-root", ".", "-templ-css")
 
 	return appDir
 }

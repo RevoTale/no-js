@@ -1,0 +1,7 @@
+package routes
+
+import "example.com/templcssapp/web/view"
+
+templ NotFound(view runtime.RootLayoutView, path string) {
+	<main id="not-found">Missing { path }</main>
+}

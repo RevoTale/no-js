@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"github.com/RevoTale/no-js/internal/bundler/i18ngen"
 	bundlerstaticassets "github.com/RevoTale/no-js/internal/bundler/staticassets"
 	"github.com/RevoTale/no-js/internal/bundler/templcssgen"
+	bundlertemplgen "github.com/RevoTale/no-js/internal/bundler/templgen"
 	"github.com/RevoTale/no-js/internal/filesystem"
 	"github.com/RevoTale/no-js/internal/projectlayout"
 )
@@ -114,6 +116,9 @@ func generateRoutes(layout projectlayout.ProjectLayout) error {
 	if err := i18ngen.Run(i18ngen.Config{Layout: layout}); err != nil {
 		return fmt.Errorf("generate i18n: %w", err)
 	}
+	if err := generateTemplInDir(layout.RootDir, layout.GeneratedDir); err != nil {
+		return fmt.Errorf("generate templ for generated routes: %w", err)
+	}
 	return nil
 }
 
@@ -172,6 +177,56 @@ func generateAssets(layout projectlayout.ProjectLayout, templCSS bool) error {
 		return fmt.Errorf("write manifest %q: %w", manifestPath, err)
 	}
 	return nil
+}
+
+func generateTemplInDir(baseDir string, dir string) error {
+	hasTempl, err := directoryHasTemplFiles(dir)
+	if err != nil {
+		return err
+	}
+	if !hasTempl {
+		return nil
+	}
+	return bundlertemplgen.Run(bundlertemplgen.Config{
+		Paths:    []string{dir},
+		BasePath: baseDir,
+	})
+}
+
+func directoryHasTemplFiles(root string) (bool, error) {
+	trimmed := strings.TrimSpace(root)
+	if trimmed == "" {
+		return false, nil
+	}
+	info, err := os.Stat(trimmed)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if !info.IsDir() {
+		return false, nil
+	}
+
+	hasTempl := false
+	walkErr := filepath.WalkDir(trimmed, func(filePath string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		if filepath.Ext(filePath) != ".templ" {
+			return nil
+		}
+		hasTempl = true
+		return fs.SkipAll
+	})
+	if walkErr != nil && !errors.Is(walkErr, fs.SkipAll) {
+		return false, walkErr
+	}
+	return hasTempl, nil
 }
 
 func checkGitDiff(rootDir string) error {

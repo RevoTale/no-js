@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 
+	bundlertemplgen "github.com/RevoTale/no-js/internal/bundler/templgen"
 	"github.com/RevoTale/no-js/internal/projectlayout"
 	templparser "github.com/a-h/templ/parser/v2"
 )
@@ -23,6 +24,7 @@ const (
 	packageExportFileName      = "templ_css_exports_gen.go"
 	packageExportFuncName      = "NoJSTemplCSSClasses"
 	registryFileName           = "templ_css_gen.go"
+	generatedWorkspaceDirName  = "templcss"
 	defaultStylesheetAssetPath = "styles/templ.css"
 	frameworkModuleTemplImport = "github.com/a-h/templ"
 )
@@ -31,11 +33,26 @@ type Config struct {
 	Layout projectlayout.ProjectLayout
 }
 
+type packageKind string
+
+const (
+	routePackageKind     packageKind = "routes"
+	componentPackageKind packageKind = "components"
+)
+
+type cssScanRoot struct {
+	Dir             string
+	GeneratedPrefix string
+	Kind            packageKind
+}
+
 type packageSpec struct {
-	Dir        string
-	ImportPath string
-	Package    string
-	Functions  []string
+	Kind         packageKind
+	SourceDir    string
+	GeneratedDir string
+	ImportPath   string
+	Package      string
+	Functions    []string
 }
 
 func Run(cfg Config) error {
@@ -54,10 +71,8 @@ func Run(cfg Config) error {
 		return err
 	}
 
-	for _, pkg := range packages {
-		if err := writePackageExport(pkg); err != nil {
-			return err
-		}
+	if err := prepareGeneratedWorkspace(layout, packages); err != nil {
+		return err
 	}
 
 	if err := writeRegistry(layout, packages); err != nil {
@@ -87,34 +102,44 @@ func validateLayout(layout projectlayout.ProjectLayout) (projectlayout.ProjectLa
 	return layout, nil
 }
 
-func cssScanRoots(layout projectlayout.ProjectLayout) []string {
-	roots := []string{layout.RoutesDir}
+func cssScanRoots(layout projectlayout.ProjectLayout) []cssScanRoot {
+	roots := []cssScanRoot{{
+		Dir:             layout.RoutesDir,
+		GeneratedPrefix: string(routePackageKind),
+		Kind:            routePackageKind,
+	}}
 	componentsDir := filepath.Join(filepath.Dir(layout.RoutesDir), "components")
 	if info, err := os.Stat(componentsDir); err == nil && info.IsDir() {
-		roots = append(roots, filepath.ToSlash(componentsDir))
+		roots = append(roots, cssScanRoot{
+			Dir:             filepath.ToSlash(componentsDir),
+			GeneratedPrefix: string(componentPackageKind),
+			Kind:            componentPackageKind,
+		})
 	}
 
-	sort.Strings(roots)
+	sort.Slice(roots, func(i int, j int) bool {
+		return roots[i].Dir < roots[j].Dir
+	})
 	return roots
 }
 
-func cleanupPackageExports(roots []string) error {
+func cleanupPackageExports(roots []cssScanRoot) error {
 	for _, root := range roots {
-		if strings.TrimSpace(root) == "" {
+		if strings.TrimSpace(root.Dir) == "" {
 			continue
 		}
-		info, err := os.Stat(root)
+		info, err := os.Stat(root.Dir)
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
 			}
-			return fmt.Errorf("stat css scan root %q: %w", root, err)
+			return fmt.Errorf("stat css scan root %q: %w", root.Dir, err)
 		}
 		if !info.IsDir() {
 			continue
 		}
 
-		if err := filepath.WalkDir(root, func(filePath string, entry fs.DirEntry, walkErr error) error {
+		if err := filepath.WalkDir(root.Dir, func(filePath string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}
@@ -133,11 +158,11 @@ func cleanupPackageExports(roots []string) error {
 	return nil
 }
 
-func collectPackages(layout projectlayout.ProjectLayout, roots []string) ([]packageSpec, error) {
+func collectPackages(layout projectlayout.ProjectLayout, roots []cssScanRoot) ([]packageSpec, error) {
 	byDir := make(map[string]*packageSpec)
 
 	for _, root := range roots {
-		files, err := collectTemplFiles(root)
+		files, err := collectTemplFiles(root.Dir)
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +174,7 @@ func collectPackages(layout projectlayout.ProjectLayout, roots []string) ([]pack
 			}
 
 			dir := filepath.ToSlash(filepath.Dir(fileName))
-			pkg, err := ensurePackage(layout, byDir, dir, parsed.Package.Expression.Value)
+			pkg, err := ensurePackage(layout, byDir, root, dir, parsed.Package.Expression.Value)
 			if err != nil {
 				return nil, err
 			}
@@ -222,6 +247,7 @@ func collectTemplFiles(root string) ([]string, error) {
 func ensurePackage(
 	layout projectlayout.ProjectLayout,
 	byDir map[string]*packageSpec,
+	root cssScanRoot,
 	dir string,
 	packageExpr string,
 ) (*packageSpec, error) {
@@ -234,19 +260,28 @@ func ensurePackage(
 		return nil, fmt.Errorf("parse package declaration for %q: %w", dir, err)
 	}
 
-	relativeDir, err := filepath.Rel(layout.RootDir, dir)
+	relativeDir, err := filepath.Rel(root.Dir, dir)
 	if err != nil {
 		return nil, fmt.Errorf("resolve relative package dir for %q: %w", dir, err)
 	}
 	relativeDir = filepath.ToSlash(relativeDir)
-	if relativeDir == "." || strings.HasPrefix(relativeDir, "../") {
-		return nil, fmt.Errorf("package dir %q must stay inside %q", dir, layout.RootDir)
+	if strings.HasPrefix(relativeDir, "../") {
+		return nil, fmt.Errorf("package dir %q must stay inside %q", dir, root.Dir)
+	}
+
+	generatedDir := filepath.Join(layout.GeneratedDir, generatedWorkspaceDirName, root.GeneratedPrefix)
+	importPath := path.Join(layout.AppModulePath, layout.GeneratedImport, generatedWorkspaceDirName, root.GeneratedPrefix)
+	if relativeDir != "." && strings.TrimSpace(relativeDir) != "" {
+		generatedDir = filepath.Join(generatedDir, filepath.FromSlash(relativeDir))
+		importPath = path.Join(importPath, relativeDir)
 	}
 
 	pkg := &packageSpec{
-		Dir:        dir,
-		ImportPath: path.Join(layout.AppModulePath, relativeDir),
-		Package:    packageName,
+		Kind:         root.Kind,
+		SourceDir:    dir,
+		GeneratedDir: filepath.ToSlash(generatedDir),
+		ImportPath:   importPath,
+		Package:      packageName,
 	}
 	byDir[dir] = pkg
 	return pkg, nil
@@ -294,6 +329,97 @@ func parseZeroArgCSSFunc(expression string) (string, bool, error) {
 	return funcDecl.Name.Name, true, nil
 }
 
+func prepareGeneratedWorkspace(layout projectlayout.ProjectLayout, packages []packageSpec) error {
+	workspaceDir := filepath.Join(layout.GeneratedDir, generatedWorkspaceDirName)
+	if err := os.RemoveAll(workspaceDir); err != nil {
+		return fmt.Errorf("clean templ css workspace %q: %w", filepath.ToSlash(workspaceDir), err)
+	}
+	if len(packages) == 0 {
+		return nil
+	}
+
+	for _, pkg := range packages {
+		if err := mirrorPackageSource(pkg); err != nil {
+			return err
+		}
+		if err := writePackageExport(pkg); err != nil {
+			return err
+		}
+	}
+
+	if err := bundlertemplgen.Run(bundlertemplgen.Config{
+		Paths:    []string{workspaceDir},
+		BasePath: layout.RootDir,
+	}); err != nil {
+		return fmt.Errorf("generate templ css workspace templates: %w", err)
+	}
+
+	return nil
+}
+
+func mirrorPackageSource(pkg packageSpec) error {
+	entries, err := os.ReadDir(pkg.SourceDir)
+	if err != nil {
+		return fmt.Errorf("read css package dir %q: %w", pkg.SourceDir, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		fileName := entry.Name()
+		if !shouldCopyPackageFile(pkg.Kind, fileName) {
+			continue
+		}
+
+		sourcePath := filepath.Join(pkg.SourceDir, fileName)
+		targetPath := filepath.Join(pkg.GeneratedDir, fileName)
+		if err := copyFile(sourcePath, targetPath); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func shouldCopyPackageFile(kind packageKind, fileName string) bool {
+	switch {
+	case strings.HasSuffix(fileName, ".templ"):
+		return true
+	case filepath.Ext(fileName) != ".go":
+		return false
+	case strings.HasSuffix(fileName, "_test.go"):
+		return false
+	case strings.HasSuffix(fileName, "_templ.go"):
+		return false
+	case fileName == packageExportFileName:
+		return false
+	}
+
+	if kind == routePackageKind {
+		switch fileName {
+		case "route.go", "robots.go", "feed.go", "sitemap.go":
+			return false
+		}
+	}
+
+	return true
+}
+
+func copyFile(sourcePath string, targetPath string) error {
+	content, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return fmt.Errorf("read %q: %w", filepath.ToSlash(sourcePath), err)
+	}
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+		return fmt.Errorf("create dir for %q: %w", filepath.ToSlash(targetPath), err)
+	}
+	if err := os.WriteFile(targetPath, content, 0o644); err != nil {
+		return fmt.Errorf("write %q: %w", filepath.ToSlash(targetPath), err)
+	}
+	return nil
+}
+
 func writePackageExport(pkg packageSpec) error {
 	buffer := &bytes.Buffer{}
 	buffer.WriteString(generatedHeader + "\n")
@@ -309,7 +435,7 @@ func writePackageExport(pkg packageSpec) error {
 	buffer.WriteString("\t}\n")
 	buffer.WriteString("}\n")
 
-	return writeFormattedFile(filepath.Join(pkg.Dir, packageExportFileName), buffer.Bytes())
+	return writeFormattedFile(filepath.Join(pkg.GeneratedDir, packageExportFileName), buffer.Bytes())
 }
 
 func writeRegistry(layout projectlayout.ProjectLayout, packages []packageSpec) error {

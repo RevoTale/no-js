@@ -1331,6 +1331,21 @@ func GET(
 	require.NotContains(t, string(resolverSource), "MetaGenGroupMarketingDashboardSlotAnalyticsPage")
 }
 
+func TestGenerateDiscoverySourceWithoutDiscoveryRoutesStillDefinesExactHandlers(t *testing.T) {
+	t.Parallel()
+
+	source, err := generateDiscoverySource(projectlayout.ProjectLayout{
+		AppModulePath: testAppModulePath,
+		ViewImport:    "web/view",
+	}, discoveryConventions{})
+	require.NoError(t, err)
+
+	text := string(source)
+	require.Contains(t, text, "func DiscoveryBundle() *discovery.Bundle[*runtime.Context]")
+	require.Contains(t, text, "func DiscoveryExactHandlers() []framework.RouteHandler[*runtime.Context]")
+	require.Contains(t, text, "return nil")
+}
+
 func TestRewritePackageDeclarationAddsGeneratedMarker(t *testing.T) {
 	source := "package appsrc\n\nimport (\n\t\"fmt\"\n)\n"
 
