@@ -1346,6 +1346,21 @@ func TestGenerateDiscoverySourceWithoutDiscoveryRoutesStillDefinesExactHandlers(
 	require.Contains(t, text, "return nil")
 }
 
+func TestGenerateBundleSourceWiresTemplCSSRegistry(t *testing.T) {
+	t.Parallel()
+
+	source, err := generateBundleSource(projectlayout.ProjectLayout{
+		AppModulePath:   testAppModulePath,
+		GeneratedImport: "web/generated",
+		ViewImport:      "web/view",
+	})
+	require.NoError(t, err)
+
+	text := string(source)
+	require.Contains(t, text, "func Bundle(appContext *runtime.Context) httpserver.AppBundle[*runtime.Context]")
+	require.Contains(t, text, "TemplCSSClasses:               TemplCSSClasses,")
+}
+
 func TestRewritePackageDeclarationAddsGeneratedMarker(t *testing.T) {
 	source := "package appsrc\n\nimport (\n\t\"fmt\"\n)\n"
 

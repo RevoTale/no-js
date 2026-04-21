@@ -116,6 +116,9 @@ func generateRoutes(layout projectlayout.ProjectLayout) error {
 	if err := i18ngen.Run(i18ngen.Config{Layout: layout}); err != nil {
 		return fmt.Errorf("generate i18n: %w", err)
 	}
+	if err := templcssgen.Run(templcssgen.Config{Layout: layout}); err != nil {
+		return fmt.Errorf("generate templ css registry: %w", err)
+	}
 	if err := generateTemplInDir(layout.RootDir, layout.GeneratedDir); err != nil {
 		return fmt.Errorf("generate templ for generated routes: %w", err)
 	}

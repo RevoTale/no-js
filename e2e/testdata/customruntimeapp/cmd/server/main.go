@@ -26,7 +26,6 @@ func main() {
 
 	appContext := &runtime.Context{}
 	bundle := gen.Bundle(appContext)
-	bundle.TemplCSSClasses = gen.TemplCSSClasses
 
 	mainMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

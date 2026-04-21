@@ -88,13 +88,7 @@ a small helper:
 <link rel="stylesheet" href={ runtime.StaticAssetURL("app.css") }/>
 ```
 
-For templ `css` components, opt in at runtime so registered classes are treated
-as globally available:
-
-```go
-bundle := generated.Bundle(appContext)
-bundle.TemplCSSClasses = generated.TemplCSSClasses
-```
+For templ `css` components, the generated `App Bundle` now wires the CSS registry automatically. Running `go tool no-js gen routes -root .` generates `generated.TemplCSSClasses()` in `web/generated`, and `generated.Bundle(appContext)` passes it through to `httpserver.NewApp(...)` for you.
 
 `generated.TemplCSSClasses()` auto-registers zero-arg templ `css` components
 from `web/routes` and `web/components`. Explicit variants still belong in
