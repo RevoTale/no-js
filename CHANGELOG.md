@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/RevoTale/no-js/compare/v1.2.0...v1.3.0) (2026-04-21)
+
+
+### Features
+
+* **templ:** auto-wire global css from the generated bundle ([44b3622](https://github.com/RevoTale/no-js/commit/44b3622635583c9e9aa0d1b05fe220564527eef7))
+* **templ:** auto-wire global css from the generated bundle ([7a20690](https://github.com/RevoTale/no-js/commit/7a206904f0bbec53fd1f6b31742092524c2591a6))
+
 ## [1.2.0](https://github.com/RevoTale/no-js/compare/v1.1.0...v1.2.0) (2026-04-21)
 
 
