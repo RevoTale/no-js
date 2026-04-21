@@ -6,6 +6,12 @@ built-in framework features.
 
 ## Current Fixtures
 
+- `routepagecssapp`
+  - Route-local templ `css` declared directly in `web/routes/page.templ`
+  - `no-js gen -templ-css` as the only generation command for the fixture setup
+  - No `web/assets` source directory; the hashed global templ stylesheet must still be built and loaded
+  - Route source directories must stay free of `*_templ.go` and `templ_css_exports_gen.go`
+
 - `templcssapp`
   - Root page rendering
   - Root metadata and `metagen.Head(...)`

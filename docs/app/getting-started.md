@@ -67,6 +67,15 @@ go tool no-js gen assets -root .
 go tool no-js gen check -root .
 ```
 
+To also generate a global templ stylesheet from templ `css` components, add `-templ-css`:
+
+```bash
+go tool no-js gen -root . -templ-css
+```
+
+That flag tells `no-js` to build `styles/templ.css` from registered templ CSS classes and pass it through the normal hashed asset pipeline.
+Without `-templ-css`, templ component CSS stays on templ's normal render path instead of becoming a hashed static asset.
+
 If your app also keeps `.templ` files outside generated routes, compile those as a
 separate templ step. A matching `go.mod` shape is:
 

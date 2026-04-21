@@ -35,11 +35,22 @@ go tool no-js gen assets -root .
 ```
 
 To build a global templ stylesheet and send it through the same hashed asset
-pipeline:
+pipeline, add `-templ-css`. That flag tells `no-js` to generate `styles/templ.css` from templ `css` components before bundling assets:
 
 ```bash
 go tool no-js gen assets -root . -templ-css
 ```
+
+Without `-templ-css`, templ `css` output does not go through `web/assets-build`
+or the hashed manifest path. It stays on templ's normal render path, which means
+it also bypasses the asset pipeline's esbuild transform.
+
+In the current `no-js` asset pipeline, esbuild is used for CSS transform and
+minification. So the practical difference today is that templ CSS only gets the
+same pipeline treatment as asset CSS when `-templ-css` is enabled. If you later
+add compatibility-oriented CSS processing to the asset pipeline, only the
+build-time `-templ-css` path can benefit from it. Do not assume the inline/runtime
+path gets the same rewrites.
 
 The generated manifest lives at:
 

@@ -98,40 +98,14 @@ Localization: auto-wired when built-in i18n is enabled and `web/i18n/messages` e
 
 ## Build-Time templ CSS
 
-`no-js` can collect templ `css` components into a generated global stylesheet,
-run it through the hashed asset pipeline, and inject the final stylesheet link
-through `@metagen.Head(meta)`.
+`-templ-css` enables build-time generation of `styles/templ.css` from templ
+`css` components and sends that stylesheet through the hashed asset pipeline.
 
-Build the hashed asset bundle with templ CSS enabled:
+See the app docs for the full setup and behavior details:
 
-```bash
-go run github.com/RevoTale/no-js/cmd/no-js gen assets -root . -templ-css
-```
-
-Or generate only the templ CSS registry:
-
-```bash
-go run github.com/RevoTale/no-js/cmd/templcssgen -root .
-```
-
-Runtime opt-in:
-
-```go
-bundle := generated.Bundle(appContext)
-bundle.TemplCSSClasses = generated.TemplCSSClasses
-
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
-	App:    bundle,
-	Custom: customConfig,
-})
-```
-
-Contract details:
-
-- Zero-arg templ `css` components under `web/routes` and `web/components` are
-  auto-collected.
-- Dynamic variants belong in `web/view.TemplCSSVariants() []templ.CSSClass`.
-- Your root template must render `@metagen.Head(meta)`.
+- [Getting Started](docs/app/getting-started.md)
+- [Static Assets](docs/app/features/static-assets.md)
+- [Metadata and Head](docs/app/features/metadata-and-head.md)
 
 ## Discovery Conventions
 
