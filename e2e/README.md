@@ -1,8 +1,41 @@
 # E2E Fixture Apps
 
-`e2e/testdata` contains real consuming apps that are generated, built, and
-served through the public `no-js` toolchain. Each fixture should exercise only
-built-in framework features.
+`e2e/testdata` contains real consuming apps. Each fixture is a runnable example app with its own `go.mod`, real `tool` directives, and a production-style `cmd/server` entrypoint.
+
+The `e2e` package treats them as black-box apps:
+- copy the fixture into a temp dir
+- rewrite only the local `replace github.com/RevoTale/no-js => ...`
+- run the real public generation flow for that app
+- build `./cmd/server`
+- start the compiled binary as a child process
+- wait for `LISTEN_URL=http://127.0.0.1:NNNN` on stdout
+- assert over real loopback HTTP requests
+
+## Fixture App Contract
+
+Every fixture app should:
+- be generatable in place with `go tool no-js ...`
+- expose `cmd/server/main.go`
+- accept `-addr`
+- print exactly one readiness line to stdout: `LISTEN_URL=http://127.0.0.1:NNNN`
+- keep operational logs on stderr
+- shut down cleanly on `SIGINT` or `SIGTERM`
+- avoid `cmd/probe` or other e2e-only runtime helpers
+
+Manual verification looks like this from a fixture root:
+
+```bash
+go tool no-js gen -root . -templ-css
+go run ./cmd/server -addr 127.0.0.1:8080
+```
+
+Some fixtures still use the split generation flow in the test harness where the framework currently requires it:
+
+```bash
+go tool no-js gen routes -root .
+go tool templgen -base . -path web/generated -path web/components -path web/view
+go tool no-js gen assets -root . -templ-css
+```
 
 ## Current Fixtures
 
@@ -47,7 +80,7 @@ built-in framework features.
   - Bundled templ CSS checks against the actual generated class names rendered for each branch
 
 - `templrulesapp`
-  - Real HTTP requests through `httptest.Server`, including streamed partial output
+  - Real child-process server coverage over loopback HTTP, including streamed output
   - Isolated self-contained components with local templ `css`
   - `templ.KV(...)` class toggles and CSS custom properties on component roots
   - Wrapper composition through `children...` and `templ.Attributes`
@@ -57,6 +90,7 @@ built-in framework features.
   - Grouped route namespaces plus slot defaults
   - Metadata rendering through `metagen.Head(...)` and HTMX head patches
   - Registered dynamic templ CSS variants and unregistered inline fallback behavior
+  - App-owned `POST /__e2e/release-stream` only for the stream boundary assertion
 
 - `catchallapp`
   - `_catchall__...` route matching with joined params and depth-sensitive rendering
@@ -90,6 +124,4 @@ built-in framework features.
 
 ## Planned Fixtures
 
-- Add focused fixtures only when a built-in feature still lacks isolated coverage
-  or a regression is easier to diagnose outside the combined `docsfeatureapp`
-  case.
+- Add focused fixtures only when a built-in feature still lacks isolated coverage or a regression is easier to diagnose outside the combined `docsfeatureapp` case.

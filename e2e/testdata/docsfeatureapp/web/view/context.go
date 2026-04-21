@@ -34,7 +34,7 @@ func (c *Context) ResolveRoot(r *http.Request) *url.URL {
 		if strings.TrimSpace(r.Host) != "" {
 			clone.Host = strings.TrimSpace(r.Host)
 		}
-		if r.TLS != nil {
+		if r.TLS != nil || strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https") {
 			clone.Scheme = "https"
 		}
 	}

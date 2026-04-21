@@ -3,161 +3,16 @@ package e2e
 import (
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"testing"
 
-	"github.com/RevoTale/no-js/internal/filesystem"
 	"github.com/stretchr/testify/require"
 )
 
-type probeResponse struct {
-	Status               int    `json:"status"`
-	Body                 string `json:"body"`
-	ContentType          string `json:"content_type"`
-	HXTriggerAfterSettle string `json:"hx_trigger_after_settle"`
-	Location             string `json:"location"`
-	Allow                string `json:"allow"`
-	XMainMiddleware      string `json:"x_main_middleware"`
-}
-
-type probeReport struct {
-	Home          probeResponse `json:"home"`
-	Partial       probeResponse `json:"partial"`
-	NotFound      probeResponse `json:"not_found"`
-	Stylesheet    probeResponse `json:"stylesheet"`
-	StylesheetURL string        `json:"stylesheet_url"`
-}
-
-type namespacedProbeReport struct {
-	Dashboard     probeResponse `json:"dashboard"`
-	Partial       probeResponse `json:"partial"`
-	NotFound      probeResponse `json:"not_found"`
-	Stylesheet    probeResponse `json:"stylesheet"`
-	StylesheetURL string        `json:"stylesheet_url"`
-}
-
-type docsFeatureProbeReport struct {
-	AuthorDE                  probeResponse `json:"author_de"`
-	AuthorEN                  probeResponse `json:"author_en"`
-	AuthorENRedirect          probeResponse `json:"author_en_redirect"`
-	AuthorMissing             probeResponse `json:"author_missing"`
-	AuthorError               probeResponse `json:"author_error"`
-	Dashboard                 probeResponse `json:"dashboard"`
-	DashboardPartial          probeResponse `json:"dashboard_partial"`
-	PingDE                    probeResponse `json:"ping_de"`
-	Robots                    probeResponse `json:"robots"`
-	Feed                      probeResponse `json:"feed"`
-	AuthorFeed                probeResponse `json:"author_feed"`
-	Sitemap                   probeResponse `json:"sitemap"`
-	SitemapIndex              probeResponse `json:"sitemap_index"`
-	SitemapChunk              probeResponse `json:"sitemap_chunk"`
-	Favicon                   probeResponse `json:"favicon"`
-	SiteCSS                   probeResponse `json:"site_css"`
-	TemplCSS                  probeResponse `json:"templ_css"`
-	Health                    probeResponse `json:"health"`
-	SiteCSSURL                string        `json:"site_css_url"`
-	TemplCSSURL               string        `json:"templ_css_url"`
-	ExpensiveLoadsAfterFirst  int           `json:"expensive_loads_after_first"`
-	ExpensiveLoadsAfterSecond int           `json:"expensive_loads_after_second"`
-}
-
-type groupedNamespaceProbeReport struct {
-	Notes         probeResponse `json:"notes"`
-	NotesPartial  probeResponse `json:"notes_partial"`
-	Guides        probeResponse `json:"guides"`
-	Tags          probeResponse `json:"tags"`
-	TagsPartial   probeResponse `json:"tags_partial"`
-	Stylesheet    probeResponse `json:"stylesheet"`
-	StylesheetURL string        `json:"stylesheet_url"`
-}
-
-type catchAllProbeReport struct {
-	Docs          probeResponse `json:"docs"`
-	Nested        probeResponse `json:"nested"`
-	Partial       probeResponse `json:"partial"`
-	Missing       probeResponse `json:"missing"`
-	Stylesheet    probeResponse `json:"stylesheet"`
-	StylesheetURL string        `json:"stylesheet_url"`
-}
-
-type optionalCatchAllProbeReport struct {
-	Root          probeResponse `json:"root"`
-	Nested        probeResponse `json:"nested"`
-	Partial       probeResponse `json:"partial"`
-	Stylesheet    probeResponse `json:"stylesheet"`
-	StylesheetURL string        `json:"stylesheet_url"`
-}
-
-type methodMatrixProbeReport struct {
-	Home          probeResponse `json:"home"`
-	Get           probeResponse `json:"get"`
-	Head          probeResponse `json:"head"`
-	Options       probeResponse `json:"options"`
-	Post          probeResponse `json:"post"`
-	Patch         probeResponse `json:"patch"`
-	Delete        probeResponse `json:"delete"`
-	Put           probeResponse `json:"put"`
-	Missing       probeResponse `json:"missing"`
-	Stylesheet    probeResponse `json:"stylesheet"`
-	StylesheetURL string        `json:"stylesheet_url"`
-}
-
-type prefixAlwaysProbeReport struct {
-	RootRedirect  probeResponse `json:"root_redirect"`
-	HomeEN        probeResponse `json:"home_en"`
-	HomeDE        probeResponse `json:"home_de"`
-	GreetRedirect probeResponse `json:"greet_redirect"`
-	GreetEN       probeResponse `json:"greet_en"`
-	GreetDE       probeResponse `json:"greet_de"`
-	GreetPartial  probeResponse `json:"greet_partial"`
-	Stylesheet    probeResponse `json:"stylesheet"`
-	StylesheetURL string        `json:"stylesheet_url"`
-}
-
-type customRuntimeProbeReport struct {
-	Home          probeResponse `json:"home"`
-	Extra         probeResponse `json:"extra"`
-	Public        probeResponse `json:"public"`
-	Health        probeResponse `json:"health"`
-	DefaultHealth probeResponse `json:"default_health"`
-	SiteCSS       probeResponse `json:"site_css"`
-	TemplCSS      probeResponse `json:"templ_css"`
-	SiteCSSURL    string        `json:"site_css_url"`
-	TemplCSSURL   string        `json:"templ_css_url"`
-}
-
-type streamProbeResponse struct {
-	Status      int    `json:"status"`
-	ContentType string `json:"content_type"`
-	FirstChunk  string `json:"first_chunk"`
-	Body        string `json:"body"`
-}
-
-type templRulesProbeReport struct {
-	BaseURL          string              `json:"base_url"`
-	Card             probeResponse       `json:"card"`
-	Panel            probeResponse       `json:"panel"`
-	Board            probeResponse       `json:"board"`
-	Deps             probeResponse       `json:"deps"`
-	Hooks            probeResponse       `json:"hooks"`
-	Vars             probeResponse       `json:"vars"`
-	Fallback         probeResponse       `json:"fallback"`
-	Metadata         probeResponse       `json:"metadata"`
-	MetadataPartial  probeResponse       `json:"metadata_partial"`
-	Dashboard        probeResponse       `json:"dashboard"`
-	DashboardPartial probeResponse       `json:"dashboard_partial"`
-	TemplCSS         probeResponse       `json:"templ_css"`
-	MeterScript      probeResponse       `json:"meter_script"`
-	Stream           streamProbeResponse `json:"stream"`
-	StylesheetURL    string              `json:"stylesheet_url"`
-}
-
 func TestRoutePageCSSUsesGlobalStylesheetWithoutInlineStyle(t *testing.T) {
-	_, report := loadRoutePageCSSProbe(t)
+	_, report := loadRoutePageCSSFixture(t)
 
 	require.Regexp(
 		t,
@@ -188,7 +43,7 @@ func TestRoutePageCSSUsesGlobalStylesheetWithoutInlineStyle(t *testing.T) {
 }
 
 func TestRoutePageCSSWorksViaNoJSGenWithoutSourcePollution(t *testing.T) {
-	appDir, _ := loadRoutePageCSSProbe(t)
+	appDir, _ := loadRoutePageCSSFixture(t)
 
 	_, err := os.Stat(filepath.Join(appDir, "web/routes", "page_templ.go"))
 	require.ErrorIs(t, err, os.ErrNotExist)
@@ -231,15 +86,19 @@ func TestFixtureAppsDeclareToolsAndLocalReplaceInGoMod(t *testing.T) {
 		goSum, err := os.ReadFile(goSumPath)
 		require.NoError(t, err, "%s missing go.sum", entry.Name())
 		require.Contains(t, string(goSum), "github.com/evanw/esbuild v0.28.0/go.mod")
+
+		serverPath := filepath.Join(fixturesDir, entry.Name(), "cmd", "server", "main.go")
+		_, err = os.Stat(serverPath)
+		require.NoError(t, err, "%s missing cmd/server/main.go", entry.Name())
+
+		probePath := filepath.Join(fixturesDir, entry.Name(), "cmd", "probe", "main.go")
+		_, err = os.Stat(probePath)
+		require.ErrorIs(t, err, os.ErrNotExist, "%s still has cmd/probe/main.go", entry.Name())
 	}
 }
 
 func TestTemplCSSFixtureApp(t *testing.T) {
-	appDir := prepareFixtureApp(t, "templcssapp")
-	output := runGo(t, appDir, "run", "./cmd/probe")
-
-	var report probeReport
-	require.NoError(t, json.Unmarshal(output, &report))
+	report := loadTemplCSSFixture(t)
 
 	require.Regexp(
 		t,
@@ -277,11 +136,7 @@ func TestTemplCSSFixtureApp(t *testing.T) {
 }
 
 func TestNamespacedRoutesTemplCSSFixtureApp(t *testing.T) {
-	appDir := prepareFixtureApp(t, "namespacedtemplcssapp")
-	output := runGo(t, appDir, "run", "./cmd/probe")
-
-	var report namespacedProbeReport
-	require.NoError(t, json.Unmarshal(output, &report))
+	report := loadNamespacedFixture(t)
 
 	require.Regexp(
 		t,
@@ -323,11 +178,7 @@ func TestNamespacedRoutesTemplCSSFixtureApp(t *testing.T) {
 }
 
 func TestDocsFeatureFixtureApp(t *testing.T) {
-	appDir := prepareFixtureApp(t, "docsfeatureapp")
-	output := runGo(t, appDir, "run", "./cmd/probe")
-
-	var report docsFeatureProbeReport
-	require.NoError(t, json.Unmarshal(output, &report))
+	report := loadDocsFeatureFixture(t)
 
 	require.Regexp(
 		t,
@@ -462,11 +313,7 @@ func TestDocsFeatureFixtureApp(t *testing.T) {
 }
 
 func TestGroupedNamespaceFixtureApp(t *testing.T) {
-	appDir := prepareFixtureApp(t, "groupednamespaceapp")
-	output := runGo(t, appDir, "run", "./cmd/probe")
-
-	var report groupedNamespaceProbeReport
-	require.NoError(t, json.Unmarshal(output, &report))
+	report := loadGroupedNamespaceFixture(t)
 
 	require.Regexp(
 		t,
@@ -583,11 +430,7 @@ func TestGroupedNamespaceFixtureApp(t *testing.T) {
 }
 
 func TestCatchAllFixtureApp(t *testing.T) {
-	appDir := prepareFixtureApp(t, "catchallapp")
-	output := runGo(t, appDir, "run", "./cmd/probe")
-
-	var report catchAllProbeReport
-	require.NoError(t, json.Unmarshal(output, &report))
+	report := loadCatchAllFixture(t)
 	require.Regexp(
 		t,
 		regexp.MustCompile(`^/_assets/[0-9a-f]{16}/styles/templ\.css$`),
@@ -629,11 +472,7 @@ func TestCatchAllFixtureApp(t *testing.T) {
 }
 
 func TestOptionalCatchAllFixtureApp(t *testing.T) {
-	appDir := prepareFixtureApp(t, "optionalcatchallapp")
-	output := runGo(t, appDir, "run", "./cmd/probe")
-
-	var report optionalCatchAllProbeReport
-	require.NoError(t, json.Unmarshal(output, &report))
+	report := loadOptionalCatchAllFixture(t)
 	require.Regexp(
 		t,
 		regexp.MustCompile(`^/_assets/[0-9a-f]{16}/styles/templ\.css$`),
@@ -671,11 +510,7 @@ func TestOptionalCatchAllFixtureApp(t *testing.T) {
 }
 
 func TestMethodMatrixFixtureApp(t *testing.T) {
-	appDir := prepareFixtureApp(t, "methodmatrixapp")
-	output := runGo(t, appDir, "run", "./cmd/probe")
-
-	var report methodMatrixProbeReport
-	require.NoError(t, json.Unmarshal(output, &report))
+	report := loadMethodMatrixFixture(t)
 	require.Regexp(
 		t,
 		regexp.MustCompile(`^/_assets/[0-9a-f]{16}/styles/templ\.css$`),
@@ -734,11 +569,7 @@ func TestMethodMatrixFixtureApp(t *testing.T) {
 }
 
 func TestI18nPrefixAlwaysFixtureApp(t *testing.T) {
-	appDir := prepareFixtureApp(t, "i18nprefixalwaysapp")
-	output := runGo(t, appDir, "run", "./cmd/probe")
-
-	var report prefixAlwaysProbeReport
-	require.NoError(t, json.Unmarshal(output, &report))
+	report := loadPrefixAlwaysFixture(t)
 	require.Regexp(
 		t,
 		regexp.MustCompile(`^/_assets/[0-9a-f]{16}/styles/templ\.css$`),
@@ -800,11 +631,7 @@ func TestI18nPrefixAlwaysFixtureApp(t *testing.T) {
 }
 
 func TestCustomRuntimeFixtureApp(t *testing.T) {
-	appDir := prepareFixtureApp(t, "customruntimeapp")
-	output := runGo(t, appDir, "run", "./cmd/probe")
-
-	var report customRuntimeProbeReport
-	require.NoError(t, json.Unmarshal(output, &report))
+	report := loadCustomRuntimeFixture(t)
 	require.Regexp(
 		t,
 		regexp.MustCompile(`^/build/[0-9a-f]{16}/site\.css$`),
@@ -857,11 +684,7 @@ func TestCustomRuntimeFixtureApp(t *testing.T) {
 }
 
 func TestTemplRulesFixtureApp(t *testing.T) {
-	appDir := prepareFixtureApp(t, "templrulesapp")
-	output := runGo(t, appDir, "run", "./cmd/probe")
-
-	var report templRulesProbeReport
-	require.NoError(t, json.Unmarshal(output, &report))
+	report := loadTemplRulesFixture(t)
 	require.Regexp(
 		t,
 		regexp.MustCompile(`^/_assets/[0-9a-f]{16}/styles/templ\.css$`),
@@ -1051,160 +874,4 @@ func TestExistingTemplgenPathsSkipsMissing(t *testing.T) {
 
 	paths := existingTemplgenPaths(t, appDir, "web/generated", "web/components", "web/view")
 	require.Equal(t, []string{"web/generated"}, paths)
-}
-
-func existingTemplgenPaths(t *testing.T, appDir string, paths ...string) []string {
-	t.Helper()
-
-	out := make([]string, 0, len(paths))
-	for _, path := range paths {
-		info, err := os.Stat(filepath.Join(appDir, filepath.FromSlash(path)))
-		if os.IsNotExist(err) {
-			continue
-		}
-		require.NoError(t, err)
-		require.True(t, info.IsDir(), "%s must be a directory", path)
-		out = append(out, path)
-	}
-
-	return out
-}
-
-func loadRoutePageCSSProbe(t *testing.T) (string, probeReport) {
-	t.Helper()
-
-	appDir := prepareFixtureAppWithNoJSGen(t, "routepagecssapp")
-	output := runGo(t, appDir, "run", "./cmd/probe")
-
-	var report probeReport
-	require.NoError(t, json.Unmarshal(output, &report))
-	return appDir, report
-}
-
-func prepareFixtureApp(t *testing.T, fixtureName string) string {
-	t.Helper()
-
-	repoRoot := repoRootPath(t)
-	appDir := filepath.Join(t.TempDir(), fixtureName)
-
-	require.NoError(
-		t,
-		filesystem.CopyTree(filepath.Join(repoRoot, "e2e", "testdata", fixtureName), appDir),
-	)
-	writeFixtureModuleFiles(t, repoRoot, appDir)
-
-	runGo(t, appDir, "tool", "no-js", "gen", "routes", "-root", ".")
-	templgenArgs := []string{
-		"tool",
-		"templgen",
-		"-base",
-		".",
-	}
-	for _, path := range existingTemplgenPaths(t, appDir, "web/generated", "web/components", "web/view") {
-		templgenArgs = append(templgenArgs, "-path", path)
-	}
-	runGo(t, appDir, templgenArgs...)
-	runGo(t, appDir, "tool", "no-js", "gen", "assets", "-root", ".", "-templ-css")
-
-	return appDir
-}
-
-func prepareFixtureAppWithNoJSGen(t *testing.T, fixtureName string) string {
-	t.Helper()
-
-	repoRoot := repoRootPath(t)
-	appDir := filepath.Join(t.TempDir(), fixtureName)
-
-	require.NoError(
-		t,
-		filesystem.CopyTree(filepath.Join(repoRoot, "e2e", "testdata", fixtureName), appDir),
-	)
-	writeFixtureModuleFiles(t, repoRoot, appDir)
-	runGo(t, appDir, "tool", "no-js", "gen", "-root", ".", "-templ-css")
-
-	return appDir
-}
-
-func writeFixtureModuleFiles(t *testing.T, repoRoot string, appDir string) {
-	t.Helper()
-
-	goModPath := filepath.Join(appDir, "go.mod")
-	goMod, err := os.ReadFile(goModPath)
-	require.NoError(t, err)
-	replacePattern := regexp.MustCompile(`(?m)^replace github.com/RevoTale/no-js => .+$`)
-	rewrittenGoMod := replacePattern.ReplaceAllString(
-		string(goMod),
-		"replace github.com/RevoTale/no-js => "+filepath.ToSlash(repoRoot),
-	)
-	require.NotEqual(t, string(goMod), rewrittenGoMod, "fixture go.mod must declare no-js replace")
-
-	require.NoError(t, os.WriteFile(goModPath, []byte(rewrittenGoMod), 0o644))
-}
-
-func runGo(t *testing.T, dir string, args ...string) []byte {
-	t.Helper()
-
-	cmd := exec.Command("go", args...)
-	cmd.Dir = dir
-	goCacheDir := filepath.Join(dir, ".cache", "go-build")
-	require.NoError(t, os.MkdirAll(goCacheDir, 0o755))
-	cmd.Env = append(
-		os.Environ(),
-		"GOWORK=off",
-		"GOCACHE="+goCacheDir,
-	)
-	output, err := cmd.CombinedOutput()
-	require.NoError(t, err, "%s", strings.TrimSpace(string(output)))
-	return output
-}
-
-func repoRootPath(t *testing.T) string {
-	t.Helper()
-
-	_, fileName, _, ok := runtime.Caller(0)
-	require.True(t, ok)
-	return filepath.Clean(filepath.Join(filepath.Dir(fileName), ".."))
-}
-
-func mustMatchString(t *testing.T, pattern string, value string) string {
-	t.Helper()
-
-	re := regexp.MustCompile(pattern)
-	match := re.FindString(value)
-	require.NotEmpty(t, match, "pattern %q not found", pattern)
-	return match
-}
-
-func classesForOpeningTag(t *testing.T, tag string) []string {
-	t.Helper()
-
-	re := regexp.MustCompile(`class="([^"]+)"`)
-	matches := re.FindStringSubmatch(tag)
-	require.Len(t, matches, 2, "class attribute missing from %s", tag)
-	return strings.Fields(matches[1])
-}
-
-func requireClassWithToken(t *testing.T, css string, classes []string, token string) string {
-	t.Helper()
-
-	for _, className := range classes {
-		pattern := `\.` + regexp.QuoteMeta(className) +
-			`\{[^}]*` + regexp.QuoteMeta(token) + `[^}]*\}`
-		rulePattern := regexp.MustCompile(pattern)
-		if rulePattern.MatchString(css) {
-			return className
-		}
-	}
-
-	t.Fatalf("no css rule for classes %v contains %q", classes, token)
-	return ""
-}
-
-func requireContainsInlineClassRule(t *testing.T, html string, className string, token string) {
-	t.Helper()
-
-	pattern := `\.` + regexp.QuoteMeta(className) +
-		`\{[^}]*` + regexp.QuoteMeta(token) + `[^}]*\}`
-	rulePattern := regexp.MustCompile(pattern)
-	require.Regexp(t, rulePattern, html)
 }
