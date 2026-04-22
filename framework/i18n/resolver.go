@@ -1,6 +1,7 @@
 package i18n
 
 import (
+	"maps"
 	"net/http"
 	"strings"
 )
@@ -119,9 +120,7 @@ func cloneConfig(cfg Config) Config {
 	}
 	if len(cfg.DisplayLabels) > 0 {
 		cloned.DisplayLabels = make(map[string]string, len(cfg.DisplayLabels))
-		for locale, label := range cfg.DisplayLabels {
-			cloned.DisplayLabels[locale] = label
-		}
+		maps.Copy(cloned.DisplayLabels, cfg.DisplayLabels)
 	}
 	return cloned
 }

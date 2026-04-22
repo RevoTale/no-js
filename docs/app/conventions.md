@@ -1,6 +1,9 @@
 # App Conventions
 
-This is the contract a consuming app follows when using `no-js`.
+This page is the consuming-app contract for `no-js`.
+
+If you stay on the default path, keep the layout and generated-code assumptions
+stable and let generation own the wiring.
 
 ## Required Layout
 
@@ -17,85 +20,95 @@ your-app/
     view/
 ```
 
-## Route Tree Rules
+Optional app-owned directories:
 
-- Routes live under `web/routes`.
-- Dynamic and namespaced route directories use reserved control names:
-  - `_param__slug`
-  - `_catchall__slug`
-  - `_optional_catchall__slug`
-  - `_group__marketing`
-  - `_slot__analytics`
-- Any other `_...` route directory name is a generation error.
-- `root.templ` is required at `web/routes/root.templ`.
-- Root `404.templ` and root `error.templ` are required.
-- Route templates use fixed names: `root.templ`, `layout.templ`, `page.templ`,
-  `default.templ`, `404.templ`, and `error.templ`.
-- `route.go` is a reserved method-route file. It may not exist at the same
-  route as `page.templ`.
-- `default.templ` is allowed only at a slot root such as
-  `web/routes/dashboard/_slot__analytics/default.templ`.
-- Slots require a same-level owning `layout.templ`.
-- Only `root.templ` may contain document-level tags such as `<html>`, `<head>`,
-  and `<body>`.
-- Route-local `components/` directories are rejected by the generator.
+- `web/components`
+- `web/i18n`
+- `web/assets`
+- `web/public`
 
-See [Routing and Generation](features/routing-and-generation.md) for the normal
-page/resolver flow.
+## Route Files And Directories
+
+Reserved route template names:
+
+- `root.templ`
+  Required at `web/routes/root.templ`. This is the only place that may render
+  document-level tags such as `<html>`, `<head>`, and `<body>`.
+- `page.templ`
+  A page route.
+- `layout.templ`
+  A nested layout.
+- `default.templ`
+  A slot fallback. Only valid at a slot root.
+- `404.templ`
+  Required at the app root. Optional deeper in normal route trees.
+- `error.templ`
+  Required at the app root. Optional deeper in normal route trees.
+
+Reserved route Go files:
+
+- `route.go`
+  Method-only route. It may not exist at the same route as `page.templ`.
+- `robots.go`
+  `robots.txt` convention.
+- `feed.go`
+  RSS convention.
+- `sitemap.go`
+  XML sitemap convention.
+
+Reserved control directories:
+
+- `_param__slug`
+- `_catchall__slug`
+- `_optional_catchall__slug`
+- `_group__marketing`
+- `_slot__analytics`
+
+Any other `_...` route directory name is a generation error.
+
+Important route rules:
+
+- slots require a same-level owning `layout.templ`
+- nested slots are not allowed
+- `default.templ` is only valid inside slot directories
+- `route.go`, `robots.go`, `feed.go`, and `sitemap.go` are not allowed inside
+  slot directories
+- route-local `components/` directories are rejected; put reusable templates
+  under `web/components`
 
 ## Generated Output
 
-Generated files are written to:
+`no-js` writes generated files to:
 
 ```text
 web/generated/
 web/resolvers/generated.go
 ```
 
-Generated code imports:
-
-- `web/view`
-- `web/resolvers`
-
-Do not edit generated files manually. Change the source route tree or resolver
-contracts, then regenerate.
-
-See [Routing and Generation](features/routing-and-generation.md) for the public
-contract behind the generated `App Bundle`.
+Do not edit generated files manually. Change source templates, resolvers, or
+configuration, then regenerate.
 
 ## View Contract Rules
 
-Current generated contracts still expect:
+Current generated contracts expect the `web/view` package to expose a few
+specific names.
 
-- the `web/view` package to use the Go package identifier `runtime`
-- page view types under `runtime.*`
-- layout and not-found contracts through `runtime.RootLayoutView`
+- the Go package identifier must currently be `runtime`
+- generated code expects `*runtime.Context` as the app context type
+- page templates should accept view types from `runtime.*`
+- generated bundle wiring references `runtime.SetStaticAssetBasePath`
+- generated not-found and error helpers call `runtime.NewNotFoundView(appCtx.I18n(r))`
+  and `runtime.NewErrorView(appCtx.I18n(r))`
+- generated templ CSS registration appends `runtime.TemplCSSVariants()`
 
-This is a framework contract today, even though the directory name is `web/view`.
+That is the framework contract today. Keep those names stable unless you are
+also changing the generator.
 
-See [Metadata and Head](features/metadata-and-head.md) and
-[Request Cache and Partials](features/request-cache-and-partials.md) for the
-request-scoped runtime surface built on top of these contracts.
+Recommended pattern:
 
-## Discovery Conventions
-
-Reserved files under `web/routes` let the app provide discovery data while the
-framework owns HTTP transport and serialization:
-
-- root `robots.go`
-- root or nested `sitemap.go`
-- root or nested `feed.go`
-
-Nested discovery files inherit their route directory. Examples:
-
-- `web/routes/feed.go` serves `/feed.xml`
-- `web/routes/author/_param__slug/feed.go` serves `/author/:slug/feed.xml`
-- `web/routes/notes/sitemap.go` serves `/notes/sitemap.xml` and nested sitemap
-  index endpoints under `/notes/...`
-
-See `framework/discovery/discovery.go` for the field-level return contracts.
-
-See [Discovery](features/discovery.md) for the app-facing usage model.
+- keep templates focused on rendering
+- keep data loading, URL policy, and reshaping logic in resolvers or view
+  models
 
 ## Runtime Happy Path
 
@@ -107,36 +120,38 @@ handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
 })
 ```
 
-Terminology used across the framework:
+Terminology used across the docs:
 
-- `App Bundle`: the generated route/runtime contract
-- `Custom Config`: isolated app-owned hooks passed to `httpserver.NewApp(...)`
-- `Site Resolver`: app-owned domain and canonical-URL policy
-- `Advanced composition`: any app-owned package used only when the happy path is
-  not enough
+- `App Bundle`: generated route and runtime contract
+- `Custom Config`: app-owned hooks passed to `httpserver.NewApp(...)`
+- `Site Resolver`: app-owned canonical URL policy
+- `Advanced composition`: app-owned runtime packages used only when the
+  default path is not enough
 
-See [HTTP Server and Runtime](features/httpserver-and-runtime.md) and
-[Site Resolution](features/site-resolution.md).
-
-## Build Config
+## Build-Time Config Boundary
 
 `no-js.bundle.yaml` is optional and build-time only.
 
 Use it for:
 
 - path overrides
-- feature flags used during layout resolution
-- static asset build settings
+- feature auto-detection overrides
+- static asset manifest settings
 
 Do not use it for:
 
-- listen address
+- listen addresses
 - API tokens
 - analytics IDs
-- site/domain runtime policy
+- middleware wiring
+- site resolution policy
 - app service wiring
 
-Those belong in app-owned Go runtime code.
+Those belong in app-owned Go code.
 
-See [i18n](features/i18n.md) and [Static Assets](features/static-assets.md) for
-the main build-time features currently controlled through `no-js.bundle.yaml`.
+## Related Docs
+
+- [Getting Started](getting-started.md)
+- [CLI Reference](reference/cli.md)
+- [Bundle Config Reference](reference/bundle-config.md)
+- [Feature Guides](features/overview.md)

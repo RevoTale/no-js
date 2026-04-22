@@ -1,14 +1,43 @@
 # Getting Started
 
-`no-js` is designed around a strict app layout and a convention-first runtime.
-The normal flow is:
+This guide shows the shortest working path from an empty Go module to a running
+`no-js` app.
 
-1. create the `web/*` app tree
-2. generate routes and assets
-3. build your app context
-4. pass the generated `App Bundle` into `httpserver.NewApp(...)`
+## Prerequisites
 
-## Minimal App Shape
+- a Go module
+- a server entrypoint such as `cmd/server/main.go`
+- willingness to keep the strict `web/*` layout
+
+## 1. Add The Framework And Tool
+
+Put `no-js` in your app's `go.mod` as both a dependency and a Go tool:
+
+```go
+module example.com/your-app
+
+go 1.25.0
+
+require (
+	github.com/RevoTale/no-js vX.Y.Z
+	github.com/a-h/templ v0.3.1001
+)
+
+tool github.com/RevoTale/no-js/cmd/no-js
+```
+
+Or add the entries with Go commands:
+
+```bash
+go get github.com/RevoTale/no-js@latest
+go get -tool github.com/RevoTale/no-js/cmd/no-js@latest
+```
+
+The quickstart view-model snippet imports `github.com/a-h/templ`, so your app
+module needs that dependency too. You can add it explicitly or let
+`go mod tidy` resolve it after you add the files below.
+
+## 2. Create The Minimal App Tree
 
 ```text
 your-app/
@@ -19,167 +48,301 @@ your-app/
   web/
     routes/
       root.templ
+      page.templ
       404.templ
       error.templ
-      page.templ
-    generated/
     resolvers/
     view/
       context.go
       view_models.go
 ```
 
-## Generation Loop
+## 3. Add The Minimal Files
 
-Add `no-js` as both a normal module dependency and a pinned Go tool dependency.
-For the Go-side rationale, see the official docs for [tool dependencies](https://go.dev/doc/modules/managing-dependencies#tools)
-and the [`tool` directive](https://go.dev/doc/modules/gomod-ref#tool).
-
-A minimal `go.mod` looks like:
+`web/view/context.go`
 
 ```go
-module example.com/your-app
+package runtime
 
-go 1.26
+import (
+	"net/http"
+	"net/url"
+	"path"
+	"strings"
+)
 
-require github.com/RevoTale/no-js vX.Y.Z
+type Messages struct{}
 
-tool github.com/RevoTale/no-js/cmd/no-js
+type Context struct{}
+
+var staticAssetBasePath string
+
+func NewContext() *Context {
+	return &Context{}
+}
+
+func (c *Context) ResolveRoot(*http.Request) *url.URL {
+	root, _ := url.Parse("https://example.com")
+	return root
+}
+
+func (c *Context) I18n(*http.Request) *Messages {
+	return nil
+}
+
+func SetStaticAssetBasePath(prefix string) {
+	staticAssetBasePath = strings.TrimRight(strings.TrimSpace(prefix), "/")
+}
+
+func StaticAssetURL(assetPath string) string {
+	trimmed := strings.TrimPrefix(strings.TrimSpace(assetPath), "/")
+	if trimmed == "" {
+		if staticAssetBasePath == "" {
+			return "/"
+		}
+		return staticAssetBasePath
+	}
+	if staticAssetBasePath == "" {
+		return "/" + trimmed
+	}
+	return path.Join(staticAssetBasePath, trimmed)
+}
 ```
 
-Or add the entries with Go commands:
+`web/view/view_models.go`
+
+```go
+package runtime
+
+import "github.com/a-h/templ"
+
+type RootLayoutView struct {
+	PageTitle string
+}
+
+func (view RootLayoutView) LayoutPageTitle() string {
+	return view.PageTitle
+}
+
+type RootPageView struct {
+	RootLayoutView
+	Heading string
+}
+
+func NewNotFoundView(*Messages) RootLayoutView {
+	return RootLayoutView{PageTitle: "Not Found"}
+}
+
+func NewErrorView(*Messages) RootLayoutView {
+	return RootLayoutView{PageTitle: "Error"}
+}
+
+func TemplCSSVariants() []templ.CSSClass {
+	return nil
+}
+```
+
+`web/routes/root.templ`
+
+```templ
+package routes
+
+import (
+	"example.com/your-app/web/view"
+	"github.com/RevoTale/no-js/framework/metagen"
+)
+
+templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) {
+	<html lang={ locale }>
+		<head>
+			@metagen.Head(meta)
+		</head>
+		<body>
+			@child
+		</body>
+	</html>
+}
+```
+
+`web/routes/page.templ`
+
+```templ
+package routes
+
+import "example.com/your-app/web/view"
+
+templ Page(view runtime.RootPageView) {
+	<main>
+		<h1>{ view.Heading }</h1>
+	</main>
+}
+```
+
+`web/routes/404.templ`
+
+```templ
+package routes
+
+import "example.com/your-app/web/view"
+
+templ NotFound(view runtime.RootLayoutView, path string) {
+	<main>Missing { path }</main>
+}
+```
+
+`web/routes/error.templ`
+
+```templ
+package routes
+
+import "example.com/your-app/web/view"
+
+templ Error(view runtime.RootLayoutView, path string) {
+	<main>Error { path }</main>
+}
+```
+
+Run `go mod tidy` once after you add the files:
 
 ```bash
-go get -tool github.com/RevoTale/no-js/cmd/no-js@latest
+go mod tidy
 ```
 
-Use `go tool no-js` as the primary build-time entrypoint from the consuming app root.
+## 4. Generate The App Bundle First
+
+Run generation from the app root:
 
 ```bash
 go tool no-js gen -root .
 ```
 
-Common split commands:
+This generates:
 
-```bash
-go tool no-js gen routes -root .
-go tool no-js gen assets -root .
-go tool no-js gen check -root .
-```
+- `web/generated/*`
+- `web/resolvers/generated.go`
+- built-in i18n output if `web/i18n/messages` exists
+- static assets if `web/assets` exists
 
-To also generate a global templ stylesheet from templ `css` components, add `-templ-css`:
+Generation also creates `web/resolvers/generated.go`. That file defines the
+`Resolver` type and the exact method signatures your handwritten resolver code
+must implement.
 
-```bash
-go tool no-js gen -root . -templ-css
-```
-
-That flag tells `no-js` to build `styles/templ.css` from the generated templ CSS registry and pass it through the normal hashed asset pipeline. The generated `App Bundle` wires that registry into `httpserver.NewApp(...)` automatically.
-Without `-templ-css`, templ component CSS stays on templ's normal render path instead of becoming a hashed static asset.
-
-If your app also keeps `.templ` files outside generated routes, compile those as a
-separate templ step. A matching `go.mod` shape is:
+A minimal generated contract for the root route looks like:
 
 ```go
-module example.com/your-app
+type RootParams struct{}
 
-go 1.26
+type RouteResolver interface {
+	MetaGenRootLayout(meta framework.MetaContext[*runtime.Context]) (metagen.Metadata, error)
+	MetaGenRootPage(meta framework.MetaContext[*runtime.Context], params RootParams) (metagen.Metadata, error)
+	ResolveRootPage(ctx context.Context, appCtx *runtime.Context, r *http.Request, params RootParams) (runtime.RootPageView, error)
+}
 
-require github.com/RevoTale/no-js vX.Y.Z
+type Resolver struct{}
+```
 
+## 5. Implement The Generated Resolver Methods
+
+Create `web/resolvers/root.go` after generation:
+
+```go
+package resolvers
+
+import (
+	"context"
+	"net/http"
+
+	runtime "example.com/your-app/web/view"
+	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/framework/metagen"
+)
+
+func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*runtime.Context]) (metagen.Metadata, error) {
+	return metagen.Metadata{}, nil
+}
+
+func (Resolver) MetaGenRootPage(
+	meta framework.MetaContext[*runtime.Context],
+	params RootParams,
+) (metagen.Metadata, error) {
+	return metagen.Metadata{Title: "Home"}, nil
+}
+
+func (Resolver) ResolveRootPage(
+	ctx context.Context,
+	appCtx *runtime.Context,
+	r *http.Request,
+	params RootParams,
+) (runtime.RootPageView, error) {
+	return runtime.RootPageView{
+		RootLayoutView: runtime.RootLayoutView{PageTitle: "Home"},
+		Heading:        "Hello from no-js",
+	}, nil
+}
+```
+
+## 6. Add The Server Entrypoint
+
+`cmd/server/main.go`
+
+```go
+package main
+
+import (
+	"log"
+	"net/http"
+
+	generated "example.com/your-app/web/generated"
+	runtime "example.com/your-app/web/view"
+	"github.com/RevoTale/no-js/framework/httpserver"
+)
+
+func main() {
+	appContext := runtime.NewContext()
+
+	handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
+		App: generated.Bundle(appContext),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Fatal(http.ListenAndServe("127.0.0.1:8080", handler))
+}
+```
+
+## 7. Run The Server
+
+```bash
+go run ./cmd/server
+```
+
+Open `http://127.0.0.1:8080`.
+
+## 8. Add `templgen` Only If You Need Extra `.templ` Packages
+
+`go tool no-js gen` handles `web/routes` and the generated route output. If your
+app also has `.templ` files under `web/components`, `web/view`, or other
+app-owned packages, add the companion tool:
+
+```go
 tool (
 	github.com/RevoTale/no-js/cmd/no-js
 	github.com/RevoTale/no-js/cmd/templgen
 )
 ```
 
-Then run:
-
 ```bash
 go get -tool github.com/RevoTale/no-js/cmd/templgen@latest
 go tool templgen -base . -path web/components -path web/view -path web/generated
 ```
 
-If you want a convenience wrapper, keep it thin and let it call `go tool` rather
-than making `go generate` the primary interface:
-
-```go
-package web
-
-// Optional convenience wrapper. The primary entrypoint is `go tool no-js ...`.
-//go:generate go tool no-js gen -root ..
-//go:generate go tool templgen -base .. -path web/components -path web/view -path web/generated
-```
-
-## Runtime Happy Path
-
-The generated bundle is the app contract. `httpserver.NewApp(...)` applies the
-default runtime wiring for static assets, public files, health, and discovery
-conventions.
-
-```go
-appContext := runtime.NewContext(...)
-
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
-	App: generated.Bundle(appContext),
-})
-if err != nil {
-	return err
-}
-```
-
-Add `Custom` only when the default path is not enough:
-
-```go
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
-	App: generated.Bundle(appContext),
-	Custom: httpserver.CustomConfig{
-		MainMiddlewares: []func(http.Handler) http.Handler{
-			runtime.WithCanonicalNotesRedirects,
-		},
-	},
-})
-```
-
-## Default Conventions
-
-The happy path assumes:
-
-```text
-Routes: web/routes
-Generated code: web/generated
-View contracts: web/view
-Source assets: web/assets
-Built assets: web/assets-build
-Static URL prefix: /_assets/
-Public files: web/public
-```
-
-You can override build-time paths with `no-js.bundle.yaml`, but that is a
-compatibility escape hatch, not the primary model.
-
-## What You Edit
-
-You usually edit:
-
-- `web/routes/*`
-- `web/resolvers/*`
-- `web/view/*`
-- `web/components/*`
-- `web/i18n/*`
-
-You usually do not edit:
-
-- `web/generated/*`
-- `web/resolvers/generated.go`
-- `web/assets-build/*`
-
-Change the source files, then regenerate.
+Keep `go tool no-js` as the main entrypoint. Use `templgen` only for additional
+templ packages outside `web/routes`.
 
 ## Next
 
-- [Feature Guides Overview](features/overview.md)
-- [Routing and Generation](features/routing-and-generation.md)
-- [HTTP Server and Runtime](features/httpserver-and-runtime.md)
-- [Metadata and Head](features/metadata-and-head.md)
-- [i18n](features/i18n.md)
-- [Static Assets](features/static-assets.md)
+- [App Conventions](conventions.md)
+- [Feature Guides](features/overview.md)
+- [CLI Reference](reference/cli.md)
+- [Bundle Config Reference](reference/bundle-config.md)

@@ -7,17 +7,22 @@ This guide is for agents modifying the `no-js` framework repository itself.
 When you need context, inspect in this order:
 
 1. `README.md`
-2. `docs/framework/developing-no-js.md`
-3. `AGENTS.md`
-4. `framework/httpserver/`
-5. `framework/discovery/`
-6. `internal/projectlayout/`
-7. `internal/bundler/approutegen/`
+2. `docs/app/overview.md`
+3. `docs/framework/developing-no-js.md`
+4. `AGENTS.md`
+5. `framework/httpserver/`
+6. `framework/discovery/`
+7. `internal/projectlayout/`
+8. `internal/bundler/approutegen/`
 
 If the task affects the consuming-app contract, also check:
 
+- `docs/app/reference/cli.md`
+- `docs/app/reference/bundle-config.md`
+- `docs/app/reference/httpserver.md`
 - `docs/app/getting-started.md`
 - `docs/app/conventions.md`
+- `docs/app/troubleshooting.md`
 
 ## Editing Rules
 

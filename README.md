@@ -1,205 +1,100 @@
 # no-js
 
-[![Status: Work in Progress](https://img.shields.io/badge/status-work%20in%20progress-orange)](#)
-
 `no-js` is an opinionated Go framework for server-rendered web applications.
-
 It is built around a strict `web/*` app tree, a generated `App Bundle`, and a
 convention-first runtime.
 
+## What You Get
+
+- file-system routing with generated resolver contracts and an `App Bundle`
+- `httpserver.NewApp(...)` as the default runtime entrypoint
+- metadata, i18n, discovery, static asset, public file, and HTMX partial
+  support
+- build-time configuration through `no-js.bundle.yaml`
+
 ## Start Here
 
-For app developers using `no-js`:
+For app developers:
 
+- [App Docs Overview](docs/app/overview.md)
 - [Getting Started](docs/app/getting-started.md)
-  The shortest path from empty app tree to `httpserver.NewApp(...)`.
 - [App Conventions](docs/app/conventions.md)
-  The strict `web/*` contract, generated outputs, and reserved route files.
-- [Feature Guides Overview](docs/app/features/overview.md)
-  The module-by-module guide for public framework features.
+- [CLI Reference](docs/app/reference/cli.md)
+- [Bundle Config Reference](docs/app/reference/bundle-config.md)
+- [HTTP Server Reference](docs/app/reference/httpserver.md)
+- [Feature Guides](docs/app/features/overview.md)
+- [Troubleshooting](docs/app/troubleshooting.md)
 
-For contributors developing `no-js` itself:
+For contributors:
 
 - [Developing `no-js`](docs/framework/developing-no-js.md)
-  Repository boundaries, main implementation areas, and contributor rules.
 - [AI Agents](docs/framework/ai-agents.md)
-  A framework-repo reading order and editing guide for agents.
-
-## Feature Guides
-
-- [Routing and Generation](docs/app/features/routing-and-generation.md)
-  Route tree conventions, generated handlers, resolver contracts, and the
-  `App Bundle`.
-- [HTTP Server and Runtime](docs/app/features/httpserver-and-runtime.md)
-  `httpserver.NewApp(...)`, default runtime wiring, and `Custom Config`.
-- [Metadata and Head](docs/app/features/metadata-and-head.md)
-  `MetaContext`, `<head>` composition, alternates, and HTMX metadata patches.
-- [i18n](docs/app/features/i18n.md)
-  Localized routing, generated message keys, and request-scoped translation
-  context.
-- [Discovery](docs/app/features/discovery.md)
-  `robots.go`, `feed.go`, `sitemap.go`, and generated sitemap chunks.
-- [Static Assets](docs/app/features/static-assets.md)
-  Fingerprinted asset output, manifests, runtime prefixes, and public-file
-  boundaries.
-- [Site Resolution](docs/app/features/site-resolution.md)
-  `Site Resolver` contracts and request-aware canonical roots.
-- [Request Cache and Partials](docs/app/features/request-cache-and-partials.md)
-  Request-scoped cache sharing and HTMX partial rendering behavior.
-
-## Using `no-js` In An App
-
-## Core Contract
-
-The route generator is strict. The happy path assumes:
-
-```text
-web/routes          route tree
-web/generated       generated route modules and App Bundle boundary
-web/resolvers       handwritten resolver methods
-web/view            runtime contracts used by generated code
-web/assets          source bundled static assets
-web/assets-build    generated hashed static assets
-web/public          fixed-path public files served by convention
-```
-
-See [App Conventions](docs/app/conventions.md) for the full layout and route
-rules.
 
 ## Happy Path
 
-The preferred runtime integration is:
+In `no-js`, the "happy path" means the default way to build an app without
+custom runtime wiring:
+
+1. Keep the standard `web/*` app layout.
+2. Run generation from the app root to produce `web/generated` and
+   `web/resolvers/generated.go`.
+3. Implement the generated resolver methods in `web/resolvers`.
+4. Build your app context and pass the generated `App Bundle` into
+   `httpserver.NewApp(...)`.
+
+Minimum required route files:
+
+- `web/routes/root.templ`
+  Defines `templ RootLayout(meta metagen.Metadata, locale string, child templ.Component)`.
+- one page route such as `web/routes/page.templ`
+  Defines `templ Page(view runtime.YourPageView)`.
+- `web/routes/404.templ`
+  Defines `templ NotFound(view runtime.RootLayoutView, path string)`.
+- `web/routes/error.templ`
+  Defines `templ Error(view runtime.RootLayoutView, path string)`.
+
+Minimum required app-owned runtime/view definitions:
+
+- `web/view` must currently use the Go package name `runtime`
+- `type Context`
+- `func (c *Context) ResolveRoot(*http.Request) *url.URL`
+- `func (c *Context) I18n(*http.Request) ...`
+- `func SetStaticAssetBasePath(string)`
+- `type RootLayoutView`
+- `func (view RootLayoutView) LayoutPageTitle() string`
+- `func NewNotFoundView(...) RootLayoutView`
+- `func NewErrorView(...) RootLayoutView`
+- `func TemplCSSVariants() []templ.CSSClass`
+  This may return `nil` if you do not use templ CSS variants.
+
+For each page route, run generation first, then implement the generated
+resolver methods in `web/resolvers`, such as `MetaGenRootPage(...)` and
+`ResolveRootPage(...)`.
+
+```bash
+go tool no-js gen -root .
+```
 
 ```go
+appContext := runtime.NewContext(...)
+
 handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
-	App:    generated.Bundle(appContext),
-	Custom: customConfig,
+	App: generated.Bundle(appContext),
 })
 ```
 
-Terminology:
+Most apps should start there. Reach for `Custom Config` only when the default
+runtime wiring is not enough.
 
-```text
-Framework Config: generic runtime behavior only
-App Bundle: generated route/runtime contract
-Custom Config: isolated app-specific hooks
-Site Resolver: shared domain and canonical URL policy
-Advanced composition: any app-owned package, only when needed
-```
+See [Getting Started](docs/app/getting-started.md) for the smallest runnable
+example and [App Conventions](docs/app/conventions.md) for the stricter
+contract details.
 
-Convention defaults:
+Terminology used across the docs:
 
-```text
-Assets manifest: web/assets-build/manifest.json
-Static prefix: /_assets/
-Public files: web/public
-Localization: auto-wired when built-in i18n is enabled and `web/i18n/messages` exists
-```
-
-## Build-Time templ CSS
-
-`-templ-css` enables build-time generation of `styles/templ.css` from templ
-`css` components and sends that stylesheet through the hashed asset pipeline.
-
-See the app docs for the full setup and behavior details:
-
-- [Getting Started](docs/app/getting-started.md)
-- [Static Assets](docs/app/features/static-assets.md)
-- [Metadata and Head](docs/app/features/metadata-and-head.md)
-
-## Discovery Conventions
-
-Reserved files under `web/routes` return structured discovery data. `sitemap.go`
-and `feed.go` may live at the route root or in nested route directories. The
-framework owns the transport, endpoint paths, and XML/text rendering:
-
-- `robots.go` returns `discovery.Robots`
-- `sitemap.go` returns `[]discovery.SitemapEntry`, plus optional
-  `GenerateSitemaps` and `SitemapChunk`
-- `feed.go` returns `discovery.FeedDocument`
-
-Use the exported structs in `framework/discovery/discovery.go` as the
-field-level source of truth.
-
-Specification references:
-
-- Robots Exclusion Protocol: [RFC 9309](https://www.rfc-editor.org/rfc/rfc9309.html)
-- RSS 2.0: [RSS Specification](https://www.rssboard.org/rss-specification)
-- XML Sitemaps: [Sitemaps XML format](https://www.sitemaps.org/protocol.html)
-- Alternate-language sitemap links:
-  [Google Search Central hreflang guidance](https://developers.google.com/search/docs/advanced/crawling/localized-versions)
-- Image sitemap extensions:
-  [Google Search Central image sitemaps](https://developers.google.com/search/docs/crawling-indexing/sitemaps/image-sitemaps)
-
-## Build Config
-
-`no-js` supports an optional root config file named `no-js.bundle.yaml`.
-
-This file is for build-time configuration only. It controls deterministic inputs such as project layout paths,
-feature flags used during layout resolution, and static asset build settings.
-
-If `no-js.bundle.yaml` is missing, the CLI uses framework defaults. A missing config file is not an error.
-
-If the file exists, `version: 1` is required and unknown fields are rejected.
-
-YAML values override defaults field by field. Unspecified fields keep their default values.
-
-There are no globally required operational YAML fields. Requirements are resolved from the command and enabled
-features. For example, `go.mod`, `web/routes`, and `web/view` must exist, the resolved i18n directory must exist if
-i18n routing is enabled, and static asset paths must be valid when running static asset generation.
-
-Invalid YAML is an error.
-
-`no-js.bundle.yaml` must not contain runtime or environment-specific values. Keep process-time configuration such as
-listen address, site-resolution policy, API tokens, analytics IDs, cache overrides, advanced asset overrides, and
-service wiring in app-owned Go server code.
-
-Example default-equivalent config:
-
-```yaml
-version: 1
-
-project:
-  routes_dir: web/routes
-  generated_dir: web/generated
-  resolvers_dir: web/resolvers
-  view_dir: web/view
-  i18n_dir: web/i18n
-  assets_dir: web/assets
-  assets_build_dir: web/assets-build
-
-server:
-  features:
-    i18n_routing: auto
-    static_assets: auto
-    health_endpoint: auto
-
-i18n:
-  mode: auto
-
-static_assets:
-  manifest_path: web/assets-build/manifest.json
-```
-
-`manifest_path` points to generated static-bundle metadata. It stores the asset hash used by the runtime to construct
-the final versioned asset prefix. The happy path uses runtime convention defaults instead of manual asset wiring.
-
-## Nuances
-
-- This framework is intentionally opinionated. The generator assumes the strict `web/*` layout and specific template
-  signatures.
-- The preferred runtime integration is `generated.Bundle(appContext)` with `httpserver.NewApp(...)`.
-- Generated code imports `web/view`, but current view contracts still use the package identifier `runtime`.
-- The generator is module-aware: framework imports point to `github.com/RevoTale/no-js`, but generated app imports are resolved from the consuming app's `go.mod`.
-- Localization is convention-first: built-in i18n is generated when enabled and `web/i18n/messages` exists.
-- Advanced composition is supported, but it is not tied to a reserved package or directory name.
-- Site and canonical-domain policy should be centralized through a `Site Resolver`.
-- i18n locales are currently normalized to two-letter lowercase codes.
-- HTMX support is request-driven. Partial requests are detected through `HX-Request`, and metadata patches are emitted through response headers.
-- Static assets and public files are separate concerns:
-  `/_assets/` is the default runtime prefix for fingerprinted build output, while public files are served as fixed
-  request paths.
-
-## Origin
-
-`no-js` originated as an extraction from [RevoTale/blog](https://github.com/RevoTale/blog).
+- `App Bundle`: generated route and runtime contract returned by
+  `generated.Bundle(appContext)`
+- `Custom Config`: app-owned hooks passed to `httpserver.NewApp(...)`
+- `Site Resolver`: app-owned canonical root policy
+- `Advanced composition`: app-owned runtime packages used only when the
+  default path is not enough

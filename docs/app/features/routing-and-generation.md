@@ -1,21 +1,21 @@
-# Routing and Generation
+# Routing And Generation
+
+Use this guide when you are adding pages, method routes, layouts, slots, or
+dynamic paths.
 
 ## What This Feature Does
 
-`no-js` turns a strict `web/routes` tree into generated route handlers, resolver
-contracts, and an `App Bundle` that you pass into `httpserver.NewApp(...)`.
+`no-js` turns a strict `web/routes` tree into:
 
-The route tree is the source of truth. Generated code owns wiring. Your app owns
-templates, resolvers, and view contracts.
+- generated route handlers
+- generated resolver contracts
+- generated route-param types
+- an `App Bundle` that you pass into `httpserver.NewApp(...)`
 
-## Modules
-
-- `internal/bundler/approutegen`
-- `framework/contracts`
+You edit the route tree, resolver implementations, and view models. Generation
+owns the handler wiring.
 
 ## Happy Path
-
-Routes live under `web/routes`:
 
 ```text
 web/routes/
@@ -23,118 +23,127 @@ web/routes/
   404.templ
   error.templ
   page.templ
-  note/
+  author/
     _param__slug/
       page.templ
   api/
-    health/
+    ping/
       route.go
   _group__marketing/
-    about/
+    dashboard/
+      layout.templ
       page.templ
-  dashboard/
-    layout.templ
-    page.templ
-    _slot__analytics/
-      default.templ
-      page.templ
+      _slot__analytics/
+        default.templ
 ```
 
-Generation writes:
+Run generation:
+
+```bash
+go tool no-js gen routes -root .
+```
+
+`no-js` writes:
 
 ```text
 web/generated/
 web/resolvers/generated.go
 ```
 
-Your server wiring stays short:
+Implement the methods declared in `web/resolvers/generated.go` from handwritten
+files under `web/resolvers`. Run generation before you start writing those
+resolver methods, because the generated file defines the exact params and method
+signatures you need to satisfy.
+
+Then wire the bundle into the runtime:
 
 ```go
-appContext, err := runtime.NewContext(...)
-if err != nil {
-	return err
-}
-
 handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
 	App: generated.Bundle(appContext),
 })
-if err != nil {
-	return err
-}
 ```
 
-## Focused Example
+## Dynamic Routes Produce Generated Param Types
 
-Control directories are reserved. The generator accepts only these forms:
+A route like:
 
-- `_param__slug`
-- `_catchall__slug`
-- `_optional_catchall__slug`
-- `_group__marketing`
-- `_slot__analytics`
+```text
+web/routes/author/_param__slug/page.templ
+```
 
-Any other `_...` route directory is a generation error.
-
-## Why This Syntax Exists
-
-`no-js` does not use Next.js symbols like `[slug]`, `(group)`, or `@slot` on
-disk because route directories may also contain `.go` files such as `route.go`,
-`feed.go`, and `sitemap.go`.
-
-Those symbolic names are not valid Go package path segments. The reserved
-`_...__` form keeps the route tree:
-
-- valid for Go source packages
-- unambiguous for the generator
-- visually distinct from normal URL segments
-- strict enough to fail fast on unknown control directories
-
-So the tradeoff is deliberate: slightly noisier directory names in exchange for
-a route tree that works with both templates and Go source files.
-
-For a dynamic page under `web/routes/note/_param__slug/page.templ`, the generated
-resolver contract uses typed params:
+generates a route-specific params type and resolver contract:
 
 ```go
-func (Resolver) LoadNotePage(
+func (Resolver) ResolveAuthorParamSlugPage(
 	ctx context.Context,
 	appCtx *runtime.Context,
 	r *http.Request,
-	params framework.SlugParams,
-) (runtime.NotePageView, error) {
-	return runtime.LoadNotePage(ctx, appCtx, r, params)
-}
-
-func (Resolver) MetaGenNotePage(
-	meta framework.MetaContext[*runtime.Context],
-	params framework.SlugParams,
-) (metagen.Metadata, error) {
-	return seo.MetaGenNotePage(meta, params.Slug)
+	params AuthorParamSlugParams,
+) (runtime.AuthorPageView, error) {
+	return runtime.AuthorPageView{
+		Heading: params.Slug,
+	}, nil
 }
 ```
 
-The template and route path define the shape. Generated code keeps the handler
-wiring in sync.
+The generated param shape follows the route path. Change the route tree, then
+regenerate.
 
-For method-only routes, use `route.go` instead of `page.templ`:
+## Method Routes
+
+Use `route.go` for method-only endpoints:
 
 ```go
 func GET(
 	runtime framework.RuntimeContext[*runtime.Context],
 	w http.ResponseWriter,
 	r *http.Request,
-	params NoteParamSlugParams,
+	params ApiPingParams,
 ) error {
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }
 ```
 
+Supported method functions:
+
+- `GET`
+- `POST`
+- `PUT`
+- `PATCH`
+- `DELETE`
+- `HEAD`
+- `OPTIONS`
+
 `route.go` and `page.templ` are mutually exclusive at the same route.
+
+## Control Directories
+
+Reserved control directories shape the route tree:
+
+- `_param__slug`
+  Single dynamic path segment.
+- `_catchall__slug`
+  Required catch-all path segments.
+- `_optional_catchall__slug`
+  Optional catch-all path segments.
+- `_group__marketing`
+  Grouping that does not appear in the public URL.
+- `_slot__analytics`
+  Layout slot that does not appear in the public URL.
+
+Any other `_...` route directory name is invalid.
+
+## Recommended Patterns
+
+- Keep page templates view-model-shaped.
+- Keep data loading and reshaping in resolvers, not in templ files.
+- Put reusable templates under `web/components`, not under `web/routes`.
+- Treat generated files as build output, not handwritten source.
 
 ## Related Docs
 
 - [Getting Started](../getting-started.md)
 - [App Conventions](../conventions.md)
+- [CLI Reference](../reference/cli.md)
 - [HTTP Server and Runtime](httpserver-and-runtime.md)
-- [Metadata and Head](metadata-and-head.md)

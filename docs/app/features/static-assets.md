@@ -1,121 +1,117 @@
 # Static Assets
 
+Use this guide when your app needs hashed asset URLs, fixed-path public files,
+or templ CSS bundled into the asset pipeline.
+
 ## What This Feature Does
 
 `no-js` fingerprints bundled assets, writes a manifest, and serves the built
-output under a versioned runtime prefix. This is separate from fixed-path public
-files under `web/public`.
+output under a versioned runtime prefix.
 
-## Modules
-
-- `framework/staticassets`
-- `framework/httpserver`
-- `internal/bundler/staticassets`
+This is separate from fixed-path public files under `web/public`.
 
 ## Happy Path
 
-Asset generation reads from `web/assets` and writes to `web/assets-build`.
-Declare `no-js` in `go.mod` using Go's documented [tool dependency](https://go.dev/doc/modules/managing-dependencies#tools)
-pattern and the [`tool` directive](https://go.dev/doc/modules/gomod-ref#tool):
-
-```go
-module example.com/your-app
-
-go 1.26
-
-require github.com/RevoTale/no-js vX.Y.Z
-
-tool github.com/RevoTale/no-js/cmd/no-js
-```
-
-Then run:
+Put source assets in `web/assets`, then run:
 
 ```bash
 go tool no-js gen assets -root .
 ```
 
-To build a global templ stylesheet and send it through the same hashed asset
-pipeline, add `-templ-css`. That flag tells `no-js` to generate `styles/templ.css` from templ `css` components before bundling assets:
+By default this writes:
 
-```bash
-go tool no-js gen assets -root . -templ-css
-```
+- processed assets to `web/assets-build`
+- the manifest to `web/assets-build/manifest.json`
 
-Without `-templ-css`, templ `css` output does not go through `web/assets-build`
-or the hashed manifest path. It stays on templ's normal render path, which means
-it also bypasses the asset pipeline's esbuild transform.
-
-In the current `no-js` asset pipeline, esbuild is used for CSS transform and
-minification. So the practical difference today is that templ CSS only gets the
-same pipeline treatment as asset CSS when `-templ-css` is enabled. If you later
-add compatibility-oriented CSS processing to the asset pipeline, only the
-build-time `-templ-css` path can benefit from it. Do not assume the inline/runtime
-path gets the same rewrites.
-
-The generated manifest lives at:
-
-```text
-web/assets-build/manifest.json
-```
-
-At runtime, `httpserver.NewApp(...)` reads that manifest and serves assets under
-the default versioned prefix:
+At runtime, `httpserver.NewApp(...)` reads that manifest and serves assets
+under:
 
 ```text
 /_assets/<hash>/
 ```
 
-## Focused Example
+## Template Usage
 
-If you need to override the defaults, do it in `Custom Config`:
+Most apps expose a small helper in `web/view`:
 
 ```go
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
-	App: generated.Bundle(appContext),
-	Custom: httpserver.CustomConfig{
-		StaticAssets: &httpserver.StaticAssetsConfig{
-			ManifestPath: "web/assets-build/manifest.json",
-			URLPrefix:    "/_assets/",
-		},
-	},
-})
+func StaticAssetURL(assetPath string) string {
+	trimmed := strings.TrimPrefix(strings.TrimSpace(assetPath), "/")
+	if trimmed == "" {
+		return staticAssetBasePath
+	}
+	return path.Join(staticAssetBasePath, trimmed)
+}
 ```
 
-At the app layer, templates usually point to the resolved runtime prefix through
-a small helper:
+Then templates use that helper:
 
 ```templ
-<link rel="stylesheet" href={ runtime.StaticAssetURL("app.css") }/>
+<link rel="stylesheet" href={ runtime.StaticAssetURL("site.css") }>
 ```
 
-For templ `css` components, the generated `App Bundle` now wires the CSS registry automatically. Running `go tool no-js gen routes -root .` generates `generated.TemplCSSClasses()` in `web/generated`, and `generated.Bundle(appContext)` passes it through to `httpserver.NewApp(...)` for you.
+## `-templ-css`
 
-`generated.TemplCSSClasses()` auto-registers zero-arg templ `css` components
-from `web/routes` and `web/components`. Explicit variants still belong in
-`web/view.TemplCSSVariants() []templ.CSSClass`.
+If you want templ `css` components to become a hashed static stylesheet, add
+`-templ-css`:
 
-## `/_assets/` Versus `web/public`
+```bash
+go tool no-js gen assets -root . -templ-css
+```
 
-Use `web/assets` for files that should be fingerprinted and served from the
-versioned prefix.
+That generates `styles/templ.css` and sends it through the same hashed asset
+pipeline as the rest of `web/assets`.
+
+Without `-templ-css`, templ `css` output stays on templ's normal render path and
+does not go through the static asset manifest.
+
+## Zero-Arg CSS And Explicit Variants
+
+The generated CSS registry automatically picks up zero-argument templ `css`
+components from:
+
+- `web/routes`
+- `web/components`
+
+If you need parameterized variants, return them from:
+
+```go
+func TemplCSSVariants() []templ.CSSClass
+```
+
+in `web/view`.
+
+## `web/assets` Versus `web/public`
+
+Use `web/assets` for files that should be fingerprinted and versioned:
+
+- `web/assets/site.css` -> `/_assets/<hash>/site.css`
 
 Use `web/public` for fixed request paths:
 
-- `web/assets/app.css` -> `/_assets/<hash>/app.css`
 - `web/public/favicon.ico` -> `/favicon.ico`
 - `web/public/site.webmanifest` -> `/site.webmanifest`
 
 Do not mix the two concerns.
 
-## When To Use `Custom Config` Or Advanced Composition
+## Runtime Overrides
 
-Stay on the default manifest and prefix unless you have a deployment constraint
-that forces an override.
+If you need to override the manifest path or base URL prefix, do it in
+`Custom Config`:
 
-If your app needs a different template helper or CDN policy, keep that in
-app-owned runtime code. The manifest and static mount stay framework-owned.
+```go
+Custom: httpserver.CustomConfig{
+	StaticAssets: &httpserver.StaticAssetsConfig{
+		ManifestPath: "web/assets-build/manifest.json",
+		URLPrefix:    "/_assets/",
+	},
+}
+```
+
+Most apps should keep the default path.
 
 ## Related Docs
 
-- [Getting Started](../getting-started.md)
-- [HTTP Server and Runtime](httpserver-and-runtime.md)
+- [HTTP Server Reference](../reference/httpserver.md)
+- [Bundle Config Reference](../reference/bundle-config.md)
+- [Metadata and Head](metadata-and-head.md)

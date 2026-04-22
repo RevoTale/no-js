@@ -1,27 +1,31 @@
 # Discovery
 
+Use this guide when your app needs `robots.txt`, RSS feeds, or XML sitemaps.
+
 ## What This Feature Does
 
-Discovery conventions let your app return structured data for `robots.txt`,
-RSS feeds, and XML sitemaps while the framework owns routing, serialization, and
-cache headers.
+Discovery conventions let your app return structured data while the framework
+owns routing, serialization, and cache headers.
 
-Reserved files live under `web/routes`:
+Reserved files under `web/routes`:
 
 - `robots.go`
 - `feed.go`
 - `sitemap.go`
 
-`feed.go` and `sitemap.go` may live at the route root or inside nested route
-directories.
+`feed.go` and `sitemap.go` may live at the route root or inside nested
+non-slot route directories.
 
-## Modules
+## File To Endpoint Mapping
 
-- `framework/discovery`
+- `web/routes/robots.go` -> `/robots.txt`
+- `web/routes/feed.go` -> `/feed.xml`
+- `web/routes/sitemap.go` -> `/sitemap.xml` and `/sitemap-index.xml`
+- `web/routes/author/_param__slug/feed.go` -> `/author/:slug/feed.xml`
+- `web/routes/notes/sitemap.go` -> `/notes/sitemap.xml` and nested sitemap
+  index endpoints
 
-## Happy Path
-
-A root feed is just a function that returns `discovery.FeedDocument`:
+## Feed Example
 
 ```go
 func Feed(
@@ -38,56 +42,46 @@ func Feed(
 
 Placed at `web/routes/feed.go`, this serves `/feed.xml`.
 
-## Focused Example
+## Sitemap Example
 
-Nested discovery files inherit their route directory. For example:
-
-```text
-web/routes/author/_param__slug/feed.go
-```
-
-serves:
-
-```text
-/author/:slug/feed.xml
-```
-
-The current discovery callback is still request-based, so dynamic nested routes
-read params from the request path or app-owned helpers:
+Static sitemaps return `[]discovery.SitemapEntry`:
 
 ```go
-func Feed(
+func Sitemap(
 	runtime framework.RuntimeContext[*runtime.Context],
 	r *http.Request,
-) (discovery.FeedDocument, error) {
-	slug := strings.TrimPrefix(r.URL.Path, "/author/")
-	slug = strings.TrimSuffix(slug, "/feed.xml")
-
-	return discovery.FeedDocument{
-		Title: "Author feed",
-		Link:  "https://example.com/author/" + slug,
+) ([]discovery.SitemapEntry, error) {
+	return []discovery.SitemapEntry{
+		{URL: "https://example.com/"},
+		{URL: "https://example.com/notes"},
 	}, nil
 }
 ```
 
-That part is more manual than page routes. If you need shared parsing, keep it in
-an app-owned helper.
-
-## Sitemap Chunks
-
-Static sitemaps return `[]discovery.SitemapEntry`.
-
-Large sitemaps can opt into chunk generation with these functions:
+Large sitemaps can opt into chunk generation:
 
 ```go
 func GenerateSitemaps(runtime framework.RuntimeContext[*runtime.Context], r *http.Request) ([]discovery.SitemapID, error)
 func SitemapChunk(runtime framework.RuntimeContext[*runtime.Context], r *http.Request, id string) ([]discovery.SitemapEntry, error)
 ```
 
-`GenerateSitemaps` is used for sitemap indexes. The framework serves chunk requests at `/sitemap/[id].xml` under the matched route and passes the extracted `id` into `SitemapChunk`.
+The framework serves chunk requests at `/sitemap/[id].xml` under the matched
+route.
+
+## `robots.txt`
+
+`robots.go` returns `discovery.Robots`. The framework renders the text output.
+
+Use it when you want the app to own allow/disallow rules but keep the transport
+and serialization in one place.
+
+## Caveat For Dynamic Nested Discovery
+
+Nested discovery callbacks are still request-based. If the route is dynamic, the
+callback reads what it needs from the request path or from app-owned helpers.
 
 ## Related Docs
 
-- [App Conventions](../conventions.md)
 - [Site Resolution](site-resolution.md)
 - [HTTP Server and Runtime](httpserver-and-runtime.md)
+- [Troubleshooting](../troubleshooting.md)

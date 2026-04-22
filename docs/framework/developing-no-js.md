@@ -80,7 +80,10 @@ task test
 ## Documentation Rules
 
 - Keep `README.md` focused on using `no-js` in an app.
+- Use `docs/app/overview.md` as the routing page for app-consumer docs.
 - Keep app-consumer docs under `docs/app/`.
+- Keep app reference pages under `docs/app/reference/`.
+- Keep symptom-first fixes under `docs/app/troubleshooting.md`.
 - Keep framework-contributor docs under `docs/framework/`.
 - Put field-level contract truth on exported Go types and focused reference
   docs, not in long README inventories.
