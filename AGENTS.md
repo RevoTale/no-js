@@ -55,6 +55,12 @@ If a task affects the consuming-app contract, also inspect:
   failures for missing required context or dependencies.
 - MUST keep `README.md` high-level and task-oriented; field-level contract truth belongs in exported Go types and
   focused reference docs, not long README inventories.
+- MUST name app migration docs by source and target version, for example
+  `docs/app/migrations/v1.3.0-to-v1.4.0.md`. Use `next` only before the target
+  release version exists, and rename it to the concrete higher version after release.
+- MUST make migration guide titles include both the version range and migration topic.
+- MUST make migration guides list concrete refactors: affected symbols/files, old code shape, new code shape, and
+  verification commands.
 - MUST learn the `https://templ.guide/llms.md` before dicussing the new features related to the Go Templ, or if eny knowledge is missing regarding Go Templ.
 
 ## Working Agreements
