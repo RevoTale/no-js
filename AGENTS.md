@@ -58,6 +58,8 @@ If a task affects the consuming-app contract, also inspect:
 - MUST name app migration docs by source and target version, for example
   `docs/app/migrations/v1.3.0-to-v1.4.0.md`. Use `next` only before the target
   release version exists, and rename it to the concrete higher version after release.
+- MUST keep the migration versions linking in the `docs/app/migrations.md` file with higher version on the top. 
+- MUST keep the migration guide related only to the `docs/app/migrations` directory and `docs/app/migrations.md`. Only `docs/app/migrations.md` file can point to the cocrete migrations.
 - MUST make migration guide titles include both the version range and migration topic.
 - MUST make migration guides list concrete refactors: affected symbols/files, old code shape, new code shape, and
   verification commands.
