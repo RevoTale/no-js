@@ -85,21 +85,12 @@ func (c *Context) ResolveRoot(*http.Request) *url.URL {
 ```go
 package view
 
-type RootLayoutView struct {
-	PageTitle string
-}
-
-func (view RootLayoutView) LayoutPageTitle() string {
-	return view.PageTitle
-}
-
 type RootPageView struct {
-	RootLayoutView
 	Heading string
 }
 
-func NewNotFoundView() RootLayoutView {
-	return RootLayoutView{PageTitle: "Not Found"}
+type NotFoundView struct {
+	Message string
 }
 ```
 
@@ -143,8 +134,8 @@ package routes
 
 import "example.com/your-app/web/view"
 
-templ NotFound(model view.RootLayoutView, path string) {
-	<main>Missing { path }</main>
+templ NotFound(model view.NotFoundView, path string) {
+	<main>{ model.Message } { path }</main>
 }
 ```
 
@@ -189,7 +180,19 @@ type RootParams struct{}
 type RouteResolver interface {
 	MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (metagen.Metadata, error)
 	MetaGenRootPage(meta framework.MetaContext[*view.Context], params RootParams) (metagen.Metadata, error)
-	ResolveRootPage(ctx context.Context, appCtx *view.Context, r *http.Request, params RootParams) (view.RootPageView, error)
+	ResolveRootPage(
+		ctx context.Context,
+		appCtx *view.Context,
+		r *http.Request,
+		params RootParams,
+	) (view.RootPageView, error)
+	ResolveRootNotFound(
+		ctx context.Context,
+		appCtx *view.Context,
+		r *http.Request,
+		notFound framework.NotFoundContext,
+		params RootParams,
+	) (view.NotFoundView, error)
 }
 
 type Resolver struct{}
@@ -229,9 +232,18 @@ func (Resolver) ResolveRootPage(
 	params RootParams,
 ) (view.RootPageView, error) {
 	return view.RootPageView{
-		RootLayoutView: view.RootLayoutView{PageTitle: "Home"},
-		Heading:        "Hello from no-js",
+		Heading: "Hello from no-js",
 	}, nil
+}
+
+func (Resolver) ResolveRootNotFound(
+	ctx context.Context,
+	appCtx *view.Context,
+	r *http.Request,
+	notFound framework.NotFoundContext,
+	params RootParams,
+) (view.NotFoundView, error) {
+	return view.NotFoundView{Message: "Missing"}, nil
 }
 ```
 

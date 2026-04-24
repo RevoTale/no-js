@@ -30,7 +30,7 @@ type AppBundle[C any] struct {
 		appCtx C,
 		r *http.Request,
 		notFoundContext framework.NotFoundContext,
-	) templ.Component
+	) (templ.Component, error)
 	TemplCSSClasses               func() []templ.CSSClass
 	OnStaticAssetBasePathResolved func(prefix string)
 }

@@ -13,11 +13,14 @@ your-app/
   web/
     routes/
       root.templ
+      page.templ
       404.templ
     generated/
     resolvers/
     view/
 ```
+
+At least one `page.templ` or `route.go` must exist under `web/routes`.
 
 Optional app-owned directories:
 
@@ -89,23 +92,45 @@ regenerate.
 
 ## View Contract Rules
 
-Current generated contracts expect the `web/view` package to expose a few
-specific names.
+Current generated contracts expect the `web/view` package to expose app-owned
+model types, not one shared framework model.
 
 - the Go package identifier must be `view`
 - generated code expects `*view.Context` as the app context type
-- page templates should accept view types from `view.*`
-- system-page rendering requires:
-  `func NewNotFoundView() RootLayoutView`
-- an optional resolver hook can override the 404 default when not-found pages
-  need request-scoped view data:
-  `func (Resolver) ResolveNotFoundView(ctx context.Context, appCtx *view.Context, r *http.Request, notFound framework.NotFoundContext) view.RootLayoutView`
+- `view.Context` must expose `ResolveRoot(*http.Request) *url.URL`
+- `Page`, `Layout`, `Default`, and `NotFound` templates must use model types
+  from `view.*`
+- generation reads those template signatures and writes matching resolver
+  methods to `web/resolvers/generated.go`
 - server errors use the default plain `Internal Server Error` response unless
   you configure `httpserver.CustomConfig.ServerErrorPage`
 - generated bundle wiring calls `view.SetStaticAssetBasePath` only when that
   function exists
 - generated templ CSS registration appends `view.TemplCSSVariants()` only
   when that function exists
+
+Example route template signatures:
+
+```templ
+templ Page(model view.HomePageView) {}
+templ Layout(model view.MarketingLayoutView, child templ.Component) {}
+templ Default(model view.SidebarDefaultView) {}
+templ NotFound(model view.NotFoundView, path string) {}
+```
+
+Example generated resolver shape:
+
+```go
+func (Resolver) ResolveRootNotFound(
+	ctx context.Context,
+	appCtx *view.Context,
+	r *http.Request,
+	notFound framework.NotFoundContext,
+	params RootParams,
+) (view.NotFoundView, error) {
+	return view.NotFoundView{Message: "Missing"}, nil
+}
+```
 
 That is the framework contract today. Keep those names stable unless you are
 also changing the generator.

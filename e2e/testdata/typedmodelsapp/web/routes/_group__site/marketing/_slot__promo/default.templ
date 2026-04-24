@@ -1,0 +1,9 @@
+package promo
+
+import "example.com/no-js-e2e/typedmodelsapp/web/view"
+
+templ Default(model view.PromoDefaultView) {
+	<div id="promo-default" data-message={ model.Message }>
+		{ model.Message }
+	</div>
+}

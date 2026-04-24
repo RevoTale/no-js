@@ -8,7 +8,8 @@ temporary and must be renamed to the concrete release version after release.
 
 ## Next
 
-- [v1.3.0 to Next: View Package, 404 Constructors, And Server Error UI](migrations/v1.3.0-to-next.md)
-  Rename app `web/view` packages to `package view`, refactor typed
-  `NewNotFoundView(T)` constructors to `NewNotFoundView()`, and move custom 500
-  UI from generated `error.templ` wiring to `httpserver.CustomConfig.ServerErrorPage`.
+- [v1.3.0 to Next: View Package, Typed System Pages, And Server Error UI](migrations/v1.3.0-to-next.md)
+  Rename app `web/view` packages to `package view`, move 404 model construction
+  into generated `Resolve...NotFound(...)` resolver methods, and move custom
+  500 UI from generated `error.templ` wiring to
+  `httpserver.CustomConfig.ServerErrorPage`.

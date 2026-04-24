@@ -1,0 +1,9 @@
+package routes
+
+import "example.com/no-js-e2e/typedmodelsapp/web/view"
+
+templ Page(model view.RootPageView) {
+	<main id="typed-root-page" data-heading={ model.Heading }>
+		{ model.Heading }
+	</main>
+}

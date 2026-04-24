@@ -14,22 +14,6 @@ func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (me
 	return metagen.Metadata{Publisher: "Prefix Always Fixture"}, nil
 }
 
-func (Resolver) ResolveNotFoundView(
-	_ context.Context,
-	appCtx *view.Context,
-	r *http.Request,
-	notFound framework.NotFoundContext,
-) view.RootLayoutView {
-	tr := appCtx.I18n(r)
-	return view.RootLayoutView{
-		PageTitle:         i18n.TUiNotFoundTitle(tr),
-		NotFoundHeading:   i18n.TUiNotFoundHeading(tr),
-		SystemLocale:      tr.Locale(),
-		SystemRequestPath: notFound.RequestPath,
-		NotFoundSource:    string(notFound.Source),
-	}
-}
-
 func (Resolver) ResolveFailPage(
 	_ context.Context,
 	_ *view.Context,

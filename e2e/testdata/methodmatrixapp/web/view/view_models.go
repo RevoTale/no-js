@@ -12,11 +12,3 @@ type RootPageView struct {
 	RootLayoutView
 	SummarySlug string
 }
-
-func NewNotFoundView() RootLayoutView {
-	return RootLayoutView{PageTitle: "Not Found"}
-}
-
-func NewErrorView() RootLayoutView {
-	return RootLayoutView{PageTitle: "Error"}
-}

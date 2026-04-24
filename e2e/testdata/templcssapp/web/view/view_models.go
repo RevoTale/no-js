@@ -20,14 +20,6 @@ type RootPageView struct {
 	Progress int
 }
 
-func NewNotFoundView() RootLayoutView {
-	return RootLayoutView{PageTitle: "Not Found"}
-}
-
-func NewErrorView() RootLayoutView {
-	return RootLayoutView{PageTitle: "Error"}
-}
-
 func TemplCSSVariants() []templ.CSSClass {
 	return []templ.CSSClass{
 		components.Progress(50),

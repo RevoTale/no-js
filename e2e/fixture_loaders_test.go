@@ -130,6 +130,12 @@ type customRuntimeFixture struct {
 	TemplCSSURL   string
 }
 
+type typedModelsFixture struct {
+	Home      responseSnapshot
+	Marketing responseSnapshot
+	NotFound  responseSnapshot
+}
+
 type streamSnapshot struct {
 	Status      int
 	ContentType string
@@ -419,6 +425,18 @@ func loadCustomRuntimeFixture(t *testing.T) customRuntimeFixture {
 		TemplCSS:      requestFixture(t, server, http.MethodGet, templCSSURL, nil, requestOptions{}),
 		SiteCSSURL:    siteCSSURL,
 		TemplCSSURL:   templCSSURL,
+	}
+}
+
+func loadTypedModelsFixture(t *testing.T) typedModelsFixture {
+	t.Helper()
+
+	_, server := startPreparedFixture(t, "typedmodelsapp")
+
+	return typedModelsFixture{
+		Home:      requestFixture(t, server, http.MethodGet, "/", nil, requestOptions{}),
+		Marketing: requestFixture(t, server, http.MethodGet, "/marketing", nil, requestOptions{}),
+		NotFound:  requestFixture(t, server, http.MethodGet, "/missing", nil, requestOptions{}),
 	}
 }
 

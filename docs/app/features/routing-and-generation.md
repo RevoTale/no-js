@@ -112,9 +112,31 @@ Route groups such as `_group__support` do not appear in the URL, but they still
 participate in route ownership. In the example above, `/help/missing` can render
 the `help/404.templ` page inside `help/layout.templ`.
 
+`404.templ` declares its own model type:
+
+```templ
+templ NotFound(model view.HelpNotFoundView, path string) {
+	<main>{ model.Message } { path }</main>
+}
+```
+
+Generation adds a matching resolver method for that route-local 404:
+
+```go
+func (Resolver) ResolveGroupSupportHelpNotFound(
+	ctx context.Context,
+	appCtx *view.Context,
+	r *http.Request,
+	notFound framework.NotFoundContext,
+	params GroupSupportHelpParams,
+) (view.HelpNotFoundView, error) {
+	return view.HelpNotFoundView{Message: "Missing help page"}, nil
+}
+```
+
 If the app uses built-in i18n, generated not-found rendering resolves the locale
-before the optional `ResolveNotFoundView(...)` hook runs. Use that hook when the
-404 view model needs translations, localized URLs, or request-scoped data.
+before `Resolve...NotFound(...)` runs. Use that resolver when the 404 view model
+needs translations, localized URLs, or request-scoped data.
 
 ## Method Routes
 

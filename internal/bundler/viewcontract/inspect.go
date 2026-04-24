@@ -13,14 +13,8 @@ import (
 )
 
 type Inspection struct {
-	SystemPages                SystemPageHooks
 	HasStaticAssetBasePathHook bool
 	HasTemplCSSVariantsHook    bool
-}
-
-type SystemPageHooks struct {
-	HasZeroArgNotFoundView bool
-	HasZeroArgErrorView    bool
 }
 
 func Inspect(viewDir string) (Inspection, error) {
@@ -67,14 +61,6 @@ func Inspect(viewDir string) (Inspection, error) {
 	return inspection, nil
 }
 
-func (hooks SystemPageHooks) Validate() error {
-	if hooks.HasZeroArgNotFoundView {
-		return nil
-	}
-
-	return fmt.Errorf("web/view must define func NewNotFoundView() RootLayoutView")
-}
-
 func inspectFile(inspection *Inspection, fset *token.FileSet, file *ast.File) {
 	for _, decl := range file.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
@@ -83,30 +69,12 @@ func inspectFile(inspection *Inspection, fset *token.FileSet, file *ast.File) {
 		}
 
 		switch fn.Name.Name {
-		case "NewNotFoundView":
-			if matchesZeroArgRootLayoutConstructor(fset, fn) {
-				inspection.SystemPages.HasZeroArgNotFoundView = true
-			}
-		case "NewErrorView":
-			if matchesZeroArgRootLayoutConstructor(fset, fn) {
-				inspection.SystemPages.HasZeroArgErrorView = true
-			}
 		case "SetStaticAssetBasePath":
 			inspection.HasStaticAssetBasePathHook = matchesStaticAssetBasePathHook(fset, fn)
 		case "TemplCSSVariants":
 			inspection.HasTemplCSSVariantsHook = matchesTemplCSSVariantsHook(fset, fn)
 		}
 	}
-}
-
-func matchesZeroArgRootLayoutConstructor(fset *token.FileSet, fn *ast.FuncDecl) bool {
-	if fn.Recv != nil {
-		return false
-	}
-	if countFields(fn.Type.Params) != 0 {
-		return false
-	}
-	return singleResultType(fset, fn.Type.Results) == "RootLayoutView"
 }
 
 func matchesStaticAssetBasePathHook(fset *token.FileSet, fn *ast.FuncDecl) bool {

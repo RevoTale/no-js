@@ -49,16 +49,15 @@ Minimum required route files:
 - one page route such as `web/routes/page.templ`
   Defines `templ Page(model view.YourPageView)`.
 - `web/routes/404.templ`
-  Defines `templ NotFound(model view.RootLayoutView, path string)`.
+  Defines `templ NotFound(model view.YourNotFoundView, path string)`.
 
 Minimum required app-owned view definitions:
 
 - `web/view` must use the Go package name `view`
 - `type Context`
 - `func (c *Context) ResolveRoot(*http.Request) *url.URL`
-- `type RootLayoutView`
-- `func (view RootLayoutView) LayoutPageTitle() string`
-- `func NewNotFoundView() RootLayoutView`
+- view model types used by your `Page`, `Layout`, `Default`, and `NotFound`
+  template signatures
 
 Optional feature hooks:
 

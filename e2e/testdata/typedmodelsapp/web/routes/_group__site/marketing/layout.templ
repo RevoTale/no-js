@@ -1,0 +1,12 @@
+package marketing
+
+import "example.com/no-js-e2e/typedmodelsapp/web/view"
+
+templ Layout(model view.MarketingLayoutView, child templ.Component, promo templ.Component) {
+	<section id="marketing-layout" data-shell={ model.Shell }>
+		@child
+		<aside id="promo-slot">
+			@promo
+		</aside>
+	</section>
+}

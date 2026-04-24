@@ -198,8 +198,8 @@ func TestHTTPServerCachePoliciesAndHTMX(t *testing.T) {
 			Health:         "health-cache",
 			Error:          "error-cache",
 		},
-		NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) templ.Component {
-			return textComponent("not-found")
+		NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) (templ.Component, error) {
+			return textComponent("not-found"), nil
 		},
 	})
 	require.NoError(t, err)
@@ -445,8 +445,8 @@ func TestHTTPServerCanDisableHealthEndpoint(t *testing.T) {
 	handler, err := New(Config[*struct{}]{
 		AppContext:    &struct{}{},
 		DisableHealth: true,
-		NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) templ.Component {
-			return textComponent("not-found")
+		NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) (templ.Component, error) {
+			return textComponent("not-found"), nil
 		},
 		CachePolicies:  DefaultCachePolicies(),
 		LogServerError: func(error) {},
@@ -620,8 +620,8 @@ func TestNewAppUsesBundleAndCustomConfig(t *testing.T) {
 					},
 				},
 			},
-			NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) templ.Component {
-				return textComponent("not-found")
+			NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) (templ.Component, error) {
+				return textComponent("not-found"), nil
 			},
 			OnStaticAssetBasePathResolved: func(prefix string) {
 				staticBasePath = prefix
@@ -831,9 +831,9 @@ func TestHTTPServerNotFoundContextForLoadAndUnmatched(t *testing.T) {
 				},
 			},
 		},
-		NotFoundPage: func(_ *struct{}, _ *http.Request, notFoundContext framework.NotFoundContext) templ.Component {
+		NotFoundPage: func(_ *struct{}, _ *http.Request, notFoundContext framework.NotFoundContext) (templ.Component, error) {
 			ctxs = append(ctxs, notFoundContext)
-			return textComponent("missing")
+			return textComponent("missing"), nil
 		},
 		CachePolicies: CachePolicies{
 			Error: "error-cache",

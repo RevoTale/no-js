@@ -203,6 +203,7 @@ type templateDef struct {
 	Package            string
 	OutputDir          string
 	OutputFile         string
+	ModelType          string
 }
 
 type routeParamDef struct {
@@ -327,28 +328,11 @@ func Run(cfg Config) error {
 	if _, ok := routes.NotFounds[""]; !ok {
 		return errors.New("root 404 template is required: web/routes/404.templ")
 	}
-	if err := validateRootTemplateSignature(routes.Root.SourcePath); err != nil {
+	if err := inspectRouteTemplateModels(&routes); err != nil {
 		return err
 	}
-	for _, layout := range routes.Layouts {
-		if err := validateLayoutTemplateSignature(layout, routes.LayoutSlots[layout.RouteID]); err != nil {
-			return err
-		}
-	}
-	for _, layout := range routes.SlotLayouts {
-		if err := validateLayoutTemplateSignature(layout, nil); err != nil {
-			return err
-		}
-	}
-	for _, fallback := range routes.Defaults {
-		if err := validateDefaultTemplateSignature(fallback.SourcePath); err != nil {
-			return err
-		}
-	}
-	for _, notFound := range routes.NotFounds {
-		if err := validateNotFoundTemplateSignature(notFound.SourcePath); err != nil {
-			return err
-		}
+	if err := validateRootTemplateSignature(routes.Root.SourcePath); err != nil {
+		return err
 	}
 	for _, tpl := range routes.Templates {
 		if tpl.Kind == rootTemplate {
@@ -364,9 +348,6 @@ func Run(cfg Config) error {
 	viewHooks, err := viewcontract.Inspect(paths.ViewDir)
 	if err != nil {
 		return fmt.Errorf("inspect view contract: %w", err)
-	}
-	if err := viewHooks.SystemPages.Validate(); err != nil {
-		return fmt.Errorf("validate view contract: %w", err)
 	}
 
 	metas, err := buildRouteMetas(routes.Pages, paths)
@@ -400,7 +381,15 @@ func Run(cfg Config) error {
 		}
 	}
 
-	resolversSource, err := generateResolverNamespaceSource(paths, metas, slotMetas, routes.Layouts)
+	resolversSource, err := generateResolverNamespaceSource(
+		paths,
+		metas,
+		slotMetas,
+		routes.Layouts,
+		routes.SlotLayouts,
+		routes.Defaults,
+		routes.NotFounds,
+	)
 	if err != nil {
 		return err
 	}
@@ -1529,16 +1518,65 @@ func parsePageViewType(pageTemplatePath string) (string, error) {
 	return viewType, nil
 }
 
-func validateLayoutTemplateSignature(layout templateDef, slotNames []string) error {
+func inspectRouteTemplateModels(routes *routeFiles) error {
+	for routeID, layout := range routes.Layouts {
+		modelType, err := parseLayoutTemplateModelType(layout, routes.LayoutSlots[layout.RouteID])
+		if err != nil {
+			return err
+		}
+		layout.ModelType = modelType
+		routes.Layouts[routeID] = layout
+		routes.Templates = updateTemplateModelType(routes.Templates, layout)
+	}
+	for routeID, layout := range routes.SlotLayouts {
+		modelType, err := parseLayoutTemplateModelType(layout, nil)
+		if err != nil {
+			return err
+		}
+		layout.ModelType = modelType
+		routes.SlotLayouts[routeID] = layout
+		routes.Templates = updateTemplateModelType(routes.Templates, layout)
+	}
+	for routeID, fallback := range routes.Defaults {
+		modelType, err := parseDefaultTemplateModelType(fallback.SourcePath)
+		if err != nil {
+			return err
+		}
+		fallback.ModelType = modelType
+		routes.Defaults[routeID] = fallback
+		routes.Templates = updateTemplateModelType(routes.Templates, fallback)
+	}
+	for routeID, notFound := range routes.NotFounds {
+		modelType, err := parseNotFoundTemplateModelType(notFound.SourcePath)
+		if err != nil {
+			return err
+		}
+		notFound.ModelType = modelType
+		routes.NotFounds[routeID] = notFound
+		routes.Templates = updateTemplateModelType(routes.Templates, notFound)
+	}
+	return nil
+}
+
+func updateTemplateModelType(templates []templateDef, updated templateDef) []templateDef {
+	for idx, tpl := range templates {
+		if tpl.Kind == updated.Kind && tpl.RouteID == updated.RouteID && tpl.Namespace == updated.Namespace {
+			templates[idx].ModelType = updated.ModelType
+		}
+	}
+	return templates
+}
+
+func parseLayoutTemplateModelType(layout templateDef, slotNames []string) (string, error) {
 	layoutTemplatePath := layout.SourcePath
 	source, err := os.ReadFile(layoutTemplatePath)
 	if err != nil {
-		return fmt.Errorf("read %q: %w", filepath.ToSlash(layoutTemplatePath), err)
+		return "", fmt.Errorf("read %q: %w", filepath.ToSlash(layoutTemplatePath), err)
 	}
 
 	matches := layoutSignaturePattern.FindStringSubmatch(string(source))
 	if len(matches) < 2 {
-		return fmt.Errorf(
+		return "", fmt.Errorf(
 			"%q must declare %s",
 			filepath.ToSlash(layoutTemplatePath),
 			expectedLayoutSignature(layout, slotNames),
@@ -1547,7 +1585,7 @@ func validateLayoutTemplateSignature(layout templateDef, slotNames []string) err
 	params := splitSignatureParams(matches[1])
 	expected := expectedLayoutParams(layout, slotNames)
 	if len(params) != len(expected) {
-		return fmt.Errorf(
+		return "", fmt.Errorf(
 			"%q must declare %s",
 			filepath.ToSlash(layoutTemplatePath),
 			expectedLayoutSignature(layout, slotNames),
@@ -1555,7 +1593,7 @@ func validateLayoutTemplateSignature(layout templateDef, slotNames []string) err
 	}
 	for idx := range expected {
 		if !layoutParamMatches(params[idx], expected[idx]) {
-			return fmt.Errorf(
+			return "", fmt.Errorf(
 				"%q must declare %s",
 				filepath.ToSlash(layoutTemplatePath),
 				expectedLayoutSignature(layout, slotNames),
@@ -1563,7 +1601,22 @@ func validateLayoutTemplateSignature(layout templateDef, slotNames []string) err
 		}
 	}
 
-	return nil
+	modelParamIndex := 0
+	if layout.RouteID == "" {
+		modelParamIndex = 1
+	}
+	_, modelType, ok := splitNamedParam(params[modelParamIndex])
+	if !ok {
+		return "", fmt.Errorf(
+			"%q must declare %s",
+			filepath.ToSlash(layoutTemplatePath),
+			expectedLayoutSignature(layout, slotNames),
+		)
+	}
+	if err := validateViewQualifiedType(layoutTemplatePath, "layout model", modelType); err != nil {
+		return "", err
+	}
+	return modelType, nil
 }
 
 func expectedLayoutParams(layout templateDef, slotNames []string) []string {
@@ -1571,7 +1624,7 @@ func expectedLayoutParams(layout templateDef, slotNames []string) []string {
 	if layout.RouteID == "" {
 		params = append(params, "meta metagen.Metadata")
 	}
-	params = append(params, "model view.RootLayoutView", "child templ.Component")
+	params = append(params, "model view.<LayoutView>", "child templ.Component")
 	for _, slotName := range slotNames {
 		params = append(params, slotName+" templ.Component")
 	}
@@ -1583,14 +1636,19 @@ func expectedLayoutSignature(layout templateDef, slotNames []string) string {
 }
 
 func layoutParamMatches(actual string, expected string) bool {
-	if expected == "model view.RootLayoutView" {
-		parts := strings.Fields(actual)
-		if len(parts) != 2 {
-			return false
-		}
-		return token.IsIdentifier(parts[0]) && parts[1] == "view.RootLayoutView"
+	if expected == "model view.<LayoutView>" {
+		name, paramType, ok := splitNamedParam(actual)
+		return ok && token.IsIdentifier(name) && strings.HasPrefix(paramType, viewPackageName+".")
 	}
 	return actual == expected
+}
+
+func splitNamedParam(param string) (string, string, bool) {
+	parts := strings.Fields(strings.TrimSpace(param))
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
 }
 
 func splitSignatureParams(raw string) []string {
@@ -1622,55 +1680,66 @@ func validateRootTemplateSignature(rootTemplatePath string) error {
 	return nil
 }
 
-func validateDefaultTemplateSignature(defaultTemplatePath string) error {
+func parseDefaultTemplateModelType(defaultTemplatePath string) (string, error) {
 	source, err := os.ReadFile(defaultTemplatePath)
 	if err != nil {
-		return fmt.Errorf("read %q: %w", filepath.ToSlash(defaultTemplatePath), err)
+		return "", fmt.Errorf("read %q: %w", filepath.ToSlash(defaultTemplatePath), err)
 	}
 
 	matches := defaultSignaturePattern.FindStringSubmatch(string(source))
 	if len(matches) < 2 {
-		return fmt.Errorf(
-			"%q must declare templ Default(model view.RootLayoutView)",
+		return "", fmt.Errorf(
+			"%q must declare templ Default(model view.<DefaultView>)",
 			filepath.ToSlash(defaultTemplatePath),
 		)
 	}
 
 	viewType := strings.TrimSpace(matches[1])
-	if viewType != viewPackageName+".RootLayoutView" {
-		return fmt.Errorf(
-			"%q default view type %q must be view.RootLayoutView",
-			filepath.ToSlash(defaultTemplatePath),
-			viewType,
-		)
+	if err := validateViewQualifiedType(defaultTemplatePath, "default view", viewType); err != nil {
+		return "", err
 	}
 
-	return nil
+	return viewType, nil
 }
 
-func validateNotFoundTemplateSignature(notFoundTemplatePath string) error {
+func parseNotFoundTemplateModelType(notFoundTemplatePath string) (string, error) {
 	source, err := os.ReadFile(notFoundTemplatePath)
 	if err != nil {
-		return fmt.Errorf("read %q: %w", filepath.ToSlash(notFoundTemplatePath), err)
+		return "", fmt.Errorf("read %q: %w", filepath.ToSlash(notFoundTemplatePath), err)
 	}
 
 	matches := notFoundSignaturePattern.FindStringSubmatch(string(source))
 	if len(matches) < 2 {
-		return fmt.Errorf(
-			"%q must declare templ NotFound(model view.RootLayoutView, path string)",
+		return "", fmt.Errorf(
+			"%q must declare templ NotFound(model view.<NotFoundView>, path string)",
 			filepath.ToSlash(notFoundTemplatePath),
 		)
 	}
 
 	viewType := strings.TrimSpace(matches[1])
-	if viewType != viewPackageName+".RootLayoutView" {
-		return fmt.Errorf(
-			"%q 404 view type %q must be view.RootLayoutView",
-			filepath.ToSlash(notFoundTemplatePath),
-			viewType,
-		)
+	if err := validateViewQualifiedType(notFoundTemplatePath, "404 view", viewType); err != nil {
+		return "", err
 	}
 
+	return viewType, nil
+}
+
+func validateViewQualifiedType(templatePath string, label string, viewType string) error {
+	if strings.TrimSpace(viewType) == "" {
+		return fmt.Errorf("%q has empty %s type", filepath.ToSlash(templatePath), label)
+	}
+	if !strings.Contains(viewType, ".") {
+		return fmt.Errorf("%q %s type %q must be package qualified", filepath.ToSlash(templatePath), label, viewType)
+	}
+	if !strings.HasPrefix(viewType, viewPackageName+".") {
+		return fmt.Errorf(
+			"%q %s type %q must be %s-qualified",
+			filepath.ToSlash(templatePath),
+			label,
+			viewType,
+			viewPackageName,
+		)
+	}
 	return nil
 }
 
@@ -1949,8 +2018,10 @@ func writeContractParamsStruct(buffer *bytes.Buffer, contract routeContractDef) 
 func buildRouteContracts(
 	metas []routeMeta,
 	layouts map[string]templateDef,
+	defaults map[string]templateDef,
+	notFounds map[string]templateDef,
 ) ([]routeContractDef, error) {
-	contractsByRoute := make(map[string]routeContractDef, len(metas)+len(layouts)+1)
+	contractsByRoute := make(map[string]routeContractDef, len(metas)+len(layouts)+len(defaults)+len(notFounds)+1)
 
 	for _, meta := range metas {
 		contractsByRoute[meta.RouteID] = routeContractDef{
@@ -1967,7 +2038,7 @@ func buildRouteContracts(
 		if _, ok := contractsByRoute[routeID]; ok {
 			continue
 		}
-		params, err := routeParamsFromSegments(routeID, layout.Segments)
+		params, err := routeParamsFromSegments(layout.PublicRouteID, layout.PublicSegments)
 		if err != nil {
 			return nil, err
 		}
@@ -1976,6 +2047,44 @@ func buildRouteContracts(
 			RouteID:         routeID,
 			InternalRouteID: layout.InternalRouteID,
 			PublicRouteID:   layout.PublicRouteID,
+			RouteName:       routeName,
+			ParamsTypeName:  routeName + "Params",
+			Params:          params,
+		}
+	}
+
+	for routeID, fallback := range defaults {
+		if _, ok := contractsByRoute[routeID]; ok {
+			continue
+		}
+		params, err := routeParamsFromSegments(fallback.PublicRouteID, fallback.PublicSegments)
+		if err != nil {
+			return nil, err
+		}
+		routeName := routeNameFromSegments(fallback.Segments)
+		contractsByRoute[routeID] = routeContractDef{
+			RouteID:         routeID,
+			InternalRouteID: fallback.InternalRouteID,
+			PublicRouteID:   fallback.PublicRouteID,
+			RouteName:       routeName,
+			ParamsTypeName:  routeName + "Params",
+			Params:          params,
+		}
+	}
+
+	for routeID, notFound := range notFounds {
+		if _, ok := contractsByRoute[routeID]; ok {
+			continue
+		}
+		params, err := routeParamsFromSegments(notFound.PublicRouteID, notFound.PublicSegments)
+		if err != nil {
+			return nil, err
+		}
+		routeName := routeNameFromSegments(notFound.Segments)
+		contractsByRoute[routeID] = routeContractDef{
+			RouteID:         routeID,
+			InternalRouteID: notFound.InternalRouteID,
+			PublicRouteID:   notFound.PublicRouteID,
 			RouteName:       routeName,
 			ParamsTypeName:  routeName + "Params",
 			Params:          params,
@@ -2013,14 +2122,65 @@ func contractsByRouteID(contracts []routeContractDef) map[string]routeContractDe
 	return byRoute
 }
 
+func mergeTemplateMaps(maps ...map[string]templateDef) map[string]templateDef {
+	total := 0
+	for _, items := range maps {
+		total += len(items)
+	}
+	out := make(map[string]templateDef, total)
+	for _, items := range maps {
+		for routeID, tpl := range items {
+			out[routeID] = tpl
+		}
+	}
+	return out
+}
+
+func sortedTemplateRouteIDs(templates map[string]templateDef) []string {
+	routeIDs := make([]string, 0, len(templates))
+	for routeID := range templates {
+		routeIDs = append(routeIDs, routeID)
+	}
+	sort.Strings(routeIDs)
+	return routeIDs
+}
+
+func slotLayoutsFromOwners(slotOwners map[string][]slotDef) map[string]templateDef {
+	out := make(map[string]templateDef)
+	for _, slots := range slotOwners {
+		for _, slot := range slots {
+			for routeID, layout := range slot.Layouts {
+				out[routeID] = layout
+			}
+		}
+	}
+	return out
+}
+
+func defaultsFromSlotOwners(slotOwners map[string][]slotDef) map[string]templateDef {
+	out := make(map[string]templateDef)
+	for _, slots := range slotOwners {
+		for _, slot := range slots {
+			if slot.Default != nil {
+				out[slot.Default.RouteID] = *slot.Default
+			}
+		}
+	}
+	return out
+}
+
 func generateResolverNamespaceSource(
 	paths projectlayout.ProjectLayout,
 	metas []routeMeta,
 	slotMetas []routeMeta,
 	layouts map[string]templateDef,
+	slotLayouts map[string]templateDef,
+	defaults map[string]templateDef,
+	notFounds map[string]templateDef,
 ) ([]byte, error) {
 	allMetas := append(slices.Clone(metas), slotMetas...)
-	contracts, err := buildRouteContracts(allMetas, layouts)
+	allLayouts := mergeTemplateMaps(layouts, slotLayouts)
+	contracts, err := buildRouteContracts(allMetas, allLayouts, defaults, notFounds)
 	if err != nil {
 		return nil, fmt.Errorf("build route contracts: %w", err)
 	}
@@ -2034,6 +2194,9 @@ func generateResolverNamespaceSource(
 		layoutRouteIDs = append(layoutRouteIDs, routeID)
 	}
 	sort.Strings(layoutRouteIDs)
+	layoutModelRouteIDs := sortedTemplateRouteIDs(allLayouts)
+	defaultRouteIDs := sortedTemplateRouteIDs(defaults)
+	notFoundRouteIDs := sortedTemplateRouteIDs(notFounds)
 
 	buffer := &bytes.Buffer{}
 	buffer.WriteString(generatedGoHeader + "\n")
@@ -2067,6 +2230,49 @@ func generateResolverNamespaceSource(
 				"(metagen.Metadata, error)\n",
 			metaGenLayoutMethod(layout),
 			contract.ParamsTypeName,
+		)
+	}
+	for _, routeID := range layoutModelRouteIDs {
+		layout := allLayouts[routeID]
+		contract, ok := contractsByID[routeID]
+		if !ok {
+			return nil, fmt.Errorf("missing route contract for layout route %q", routeID)
+		}
+		writef(
+			buffer,
+			"\t%s(ctx context.Context, appCtx *view.Context, r *http.Request, params %s) (%s, error)\n",
+			resolveLayoutMethod(layout),
+			contract.ParamsTypeName,
+			layout.ModelType,
+		)
+	}
+	for _, routeID := range defaultRouteIDs {
+		fallback := defaults[routeID]
+		contract, ok := contractsByID[routeID]
+		if !ok {
+			return nil, fmt.Errorf("missing route contract for default route %q", routeID)
+		}
+		writef(
+			buffer,
+			"\t%s(ctx context.Context, appCtx *view.Context, r *http.Request, params %s) (%s, error)\n",
+			resolveDefaultMethod(fallback),
+			contract.ParamsTypeName,
+			fallback.ModelType,
+		)
+	}
+	for _, routeID := range notFoundRouteIDs {
+		notFound := notFounds[routeID]
+		contract, ok := contractsByID[routeID]
+		if !ok {
+			return nil, fmt.Errorf("missing route contract for not-found route %q", routeID)
+		}
+		writef(
+			buffer,
+			"\t%s(ctx context.Context, appCtx *view.Context, r *http.Request, "+
+				"notFound framework.NotFoundContext, params %s) (%s, error)\n",
+			resolveNotFoundMethod(notFound),
+			contract.ParamsTypeName,
+			notFound.ModelType,
 		)
 	}
 	for _, meta := range metas {
@@ -2124,11 +2330,10 @@ func generateRegistrySource(
 	if _, ok := notFounds[""]; !ok {
 		return nil, errors.New("missing root 404 template metadata")
 	}
-	if err := viewHooks.SystemPages.Validate(); err != nil {
-		return nil, err
-	}
 	allMetas := append(slices.Clone(metas), slotMetas...)
-	contracts, err := buildRouteContracts(allMetas, layouts)
+	allLayouts := mergeTemplateMaps(layouts, slotLayoutsFromOwners(slotOwners))
+	defaults := defaultsFromSlotOwners(slotOwners)
+	contracts, err := buildRouteContracts(allMetas, allLayouts, defaults, notFounds)
 	if err != nil {
 		return nil, fmt.Errorf("build route contracts: %w", err)
 	}
@@ -2262,23 +2467,13 @@ func generateRegistrySource(
 	buffer.WriteString("\treturn &route_resolvers.Resolver{}\n")
 	buffer.WriteString("}\n\n")
 
-	buffer.WriteString("type NotFoundViewResolver interface {\n")
-	buffer.WriteString(
-		"	ResolveNotFoundView(" +
-			"ctx context.Context, " +
-			"appCtx *view.Context, " +
-			"r *http.Request, " +
-			"notFound framework.NotFoundContext" +
-			") view.RootLayoutView\n",
-	)
-	buffer.WriteString("}\n\n")
-
 	buffer.WriteString(
 		"func NotFoundPage(resolvers RouteResolvers) " +
-			"func(appCtx *view.Context, r *http.Request, notFound framework.NotFoundContext) templ.Component {\n",
+			"func(appCtx *view.Context, r *http.Request, notFound framework.NotFoundContext) (templ.Component, error) {\n",
 	)
 	buffer.WriteString(
-		"	return func(appCtx *view.Context, r *http.Request, notFound framework.NotFoundContext) templ.Component {\n",
+		"	return func(appCtx *view.Context, r *http.Request, " +
+			"notFound framework.NotFoundContext) (templ.Component, error) {\n",
 	)
 	buffer.WriteString("		return renderNotFoundPage(resolvers, appCtx, r, notFound)\n")
 	buffer.WriteString("	}\n")
@@ -2328,20 +2523,6 @@ func generateRegistrySource(
 	buffer.WriteString("	return requestPath\n")
 	buffer.WriteString("}\n\n")
 
-	buffer.WriteString(
-		"func resolveNotFoundView(" +
-			"resolvers RouteResolvers, " +
-			"appCtx *view.Context, " +
-			"r *http.Request, " +
-			"notFound framework.NotFoundContext" +
-			") view.RootLayoutView {\n",
-	)
-	buffer.WriteString("	if resolver, ok := any(resolvers).(NotFoundViewResolver); ok {\n")
-	buffer.WriteString("		return resolver.ResolveNotFoundView(requestContext(r), appCtx, r, notFound)\n")
-	buffer.WriteString("	}\n")
-	buffer.WriteString("	return view.NewNotFoundView()\n")
-	buffer.WriteString("}\n\n")
-
 	buffer.WriteString("func Handlers(resolvers RouteResolvers) []framework.RouteHandler[*view.Context] {\n")
 	buffer.WriteString("\treturn []framework.RouteHandler[*view.Context]{\n")
 	for _, meta := range metas {
@@ -2388,17 +2569,18 @@ func generateRegistrySource(
 	buffer.WriteString("\t}\n")
 	buffer.WriteString("}\n\n")
 
-	writeNotFoundPageFunc(buffer, root, layouts, notFounds, slotNames)
+	if err := writeNotFoundPageFunc(buffer, root, layouts, notFounds, slotNames, contractsByID); err != nil {
+		return nil, err
+	}
 
-	for _, meta := range metas {
-		writeParseParamsFunc(buffer, meta)
+	for _, contract := range contracts {
+		writeParseParamsFunc(buffer, contract)
 	}
-	for _, meta := range slotMetas {
-		writeParseParamsFunc(buffer, meta)
+	if err := writeSlotResolveFuncs(buffer, slotOwners, slotNames, contractsByID); err != nil {
+		return nil, err
 	}
-	writeSlotResolveFuncs(buffer, slotOwners, slotNames, layouts)
 	for _, meta := range metas {
-		if err := writeComposeFunc(buffer, meta, slotOwners, slotNames, layouts); err != nil {
+		if err := writeComposeFunc(buffer, meta, slotOwners, slotNames, layouts, contractsByID); err != nil {
 			return nil, err
 		}
 	}
@@ -2568,7 +2750,8 @@ func writeNotFoundPageFunc(
 	layouts map[string]templateDef,
 	notFounds map[string]templateDef,
 	slotNames map[string][]string,
-) {
+	contractsByID map[string]routeContractDef,
+) error {
 	notFoundKeys := make([]string, 0, len(notFounds))
 	dynamicNotFoundKeys := make([]string, 0, len(notFounds))
 	for routeID := range notFounds {
@@ -2589,7 +2772,7 @@ func writeNotFoundPageFunc(
 
 	buffer.WriteString(
 		"func renderNotFoundPage(resolvers RouteResolvers, appCtx *view.Context, r *http.Request, " +
-			"notFound framework.NotFoundContext) templ.Component {\n",
+			"notFound framework.NotFoundContext) (templ.Component, error) {\n",
 	)
 	buffer.WriteString("\tpathValue := strings.TrimSpace(notFound.RequestPath)\n")
 	buffer.WriteString("\tif pathValue == \"\" {\n")
@@ -2597,9 +2780,7 @@ func writeNotFoundPageFunc(
 	buffer.WriteString("\t}\n")
 	buffer.WriteString("\trouteID := nearestNotFoundRouteID(notFound)\n")
 	buffer.WriteString("\tr = withNotFoundRequestInfo(r, notFound)\n")
-	buffer.WriteString("\tview := resolveNotFoundView(resolvers, appCtx, r, notFound)\n")
 	buffer.WriteString("\tmeta := metagen.Metadata{\n")
-	buffer.WriteString("\t\tTitle: view.LayoutPageTitle(),\n")
 	buffer.WriteString("\t\tRobots: &metagen.Robots{\n")
 	buffer.WriteString("\t\t\tIndex: metagen.Bool(false),\n")
 	buffer.WriteString("\t\t\tFollow: metagen.Bool(false),\n")
@@ -2612,25 +2793,93 @@ func writeNotFoundPageFunc(
 			continue
 		}
 		notFound := notFounds[routeID]
+		contract, ok := contractsByID[routeID]
+		if !ok {
+			return fmt.Errorf("missing route contract for not-found route %q", routeID)
+		}
 		writef(buffer, "\tcase %q:\n", routeID)
+		writeNotFoundParams(buffer, "\t\t", contract)
+		writef(
+			buffer,
+			"\t\tview, err := resolvers.%s(requestContext(r), appCtx, r, notFound, params)\n",
+			resolveNotFoundMethod(notFound),
+		)
+		buffer.WriteString("\t\tif err != nil {\n")
+		buffer.WriteString("\t\t\treturn nil, err\n")
+		buffer.WriteString("\t\t}\n")
 		writef(buffer, "\t\tcomponent := %s.NotFound(view, pathValue)\n", notFound.ModuleName)
 		chain := layoutChain(routeID, layouts)
+		layoutModelVars, err := writeResolveLayoutModels(
+			buffer,
+			"\t\t",
+			chain,
+			contractsByID,
+			"requestContext(r)",
+			"params",
+			contract.Params,
+			"appCtx",
+		)
+		if err != nil {
+			return err
+		}
 		for idx := len(chain) - 1; idx >= 0; idx-- {
-			expr := layoutInvocationExpr(chain[idx], slotNames[chain[idx].RouteID], "meta", "view", "component", nil)
+			layout := chain[idx]
+			expr := layoutInvocationExpr(
+				layout,
+				slotNames[layout.RouteID],
+				"meta",
+				layoutModelVars[layout.RouteID],
+				"component",
+				nil,
+			)
 			writef(buffer, "\t\tcomponent = %s\n", expr)
 		}
-		writef(buffer, "\t\treturn %s.RootLayout(meta, notFound.Locale, component)\n", root.ModuleName)
+		writef(buffer, "\t\treturn %s.RootLayout(meta, notFound.Locale, component), nil\n", root.ModuleName)
 	}
 
 	rootNotFound := notFounds[""]
+	rootContract, ok := contractsByID[""]
+	if !ok {
+		return fmt.Errorf("missing route contract for root not-found route")
+	}
 	buffer.WriteString("\tdefault:\n")
+	writeNotFoundParams(buffer, "\t\t", rootContract)
+	writef(
+		buffer,
+		"\t\tview, err := resolvers.%s(requestContext(r), appCtx, r, notFound, params)\n",
+		resolveNotFoundMethod(rootNotFound),
+	)
+	buffer.WriteString("\t\tif err != nil {\n")
+	buffer.WriteString("\t\t\treturn nil, err\n")
+	buffer.WriteString("\t\t}\n")
 	writef(buffer, "\t\tcomponent := %s.NotFound(view, pathValue)\n", rootNotFound.ModuleName)
 	rootChain := layoutChain("", layouts)
+	layoutModelVars, err := writeResolveLayoutModels(
+		buffer,
+		"\t\t",
+		rootChain,
+		contractsByID,
+		"requestContext(r)",
+		"params",
+		rootContract.Params,
+		"appCtx",
+	)
+	if err != nil {
+		return err
+	}
 	for idx := len(rootChain) - 1; idx >= 0; idx-- {
-		expr := layoutInvocationExpr(rootChain[idx], slotNames[rootChain[idx].RouteID], "meta", "view", "component", nil)
+		layout := rootChain[idx]
+		expr := layoutInvocationExpr(
+			layout,
+			slotNames[layout.RouteID],
+			"meta",
+			layoutModelVars[layout.RouteID],
+			"component",
+			nil,
+		)
 		writef(buffer, "\t\tcomponent = %s\n", expr)
 	}
-	writef(buffer, "\t\treturn %s.RootLayout(meta, notFound.Locale, component)\n", root.ModuleName)
+	writef(buffer, "\t\treturn %s.RootLayout(meta, notFound.Locale, component), nil\n", root.ModuleName)
 	buffer.WriteString("\t}\n")
 	buffer.WriteString("}\n\n")
 
@@ -2740,6 +2989,7 @@ func writeNotFoundPageFunc(
 	buffer.WriteString("\tout = append(out, \"\")\n")
 	buffer.WriteString("\treturn out\n")
 	buffer.WriteString("}\n\n")
+	return nil
 }
 
 func routeIDHasParams(routeID string) bool {
@@ -2789,6 +3039,96 @@ func layoutParamAssignments(
 		})
 	}
 	return assignments, nil
+}
+
+func writeParamsAssignment(
+	buffer *bytes.Buffer,
+	indent string,
+	targetVar string,
+	targetTypeName string,
+	sourceVar string,
+	sourceParams []routeParamDef,
+	targetParams []routeParamDef,
+) error {
+	writef(buffer, "%s%s := route_resolvers.%s{}\n", indent, targetVar, targetTypeName)
+	if len(targetParams) == 0 {
+		return nil
+	}
+	assignments, err := layoutParamAssignments(mapPageParamsByName(sourceParams), targetParams)
+	if err != nil {
+		return err
+	}
+	for _, assignment := range assignments {
+		writef(buffer, "%s%s.%s = %s.%s\n", indent, targetVar, assignment.TargetField, sourceVar, assignment.SourceField)
+	}
+	return nil
+}
+
+func writeNotFoundParams(buffer *bytes.Buffer, indent string, contract routeContractDef) {
+	writef(buffer, "%sparams, _ := %s(notFoundStrippedPath(notFound))\n", indent, parseParamsFuncNameForContract(contract))
+}
+
+func layoutModelVarName(layout templateDef) string {
+	return strings.ToLower(routeNameFromSegments(layout.Segments)) + "LayoutView"
+}
+
+func layoutParamsVarName(layout templateDef) string {
+	return strings.ToLower(routeNameFromSegments(layout.Segments)) + "LayoutParams"
+}
+
+func defaultModelVarName(fallback templateDef) string {
+	return strings.ToLower(routeNameFromSegments(fallback.Segments)) + "DefaultView"
+}
+
+func defaultParamsVarName(fallback templateDef) string {
+	return strings.ToLower(routeNameFromSegments(fallback.Segments)) + "DefaultParams"
+}
+
+func writeResolveLayoutModels(
+	buffer *bytes.Buffer,
+	indent string,
+	chain []templateDef,
+	contractsByID map[string]routeContractDef,
+	ctxExpr string,
+	sourceParamsVar string,
+	sourceParams []routeParamDef,
+	appCtxExpr string,
+) (map[string]string, error) {
+	modelVars := make(map[string]string, len(chain))
+	for _, layout := range chain {
+		contract, ok := contractsByID[layout.RouteID]
+		if !ok {
+			return nil, fmt.Errorf("missing route contract for layout route %q", layout.RouteID)
+		}
+		paramsVar := layoutParamsVarName(layout)
+		if err := writeParamsAssignment(
+			buffer,
+			indent,
+			paramsVar,
+			contract.ParamsTypeName,
+			sourceParamsVar,
+			sourceParams,
+			contract.Params,
+		); err != nil {
+			return nil, fmt.Errorf("layout %q params: %w", layout.RouteID, err)
+		}
+		modelVar := layoutModelVarName(layout)
+		writef(
+			buffer,
+			"%s%s, err := resolvers.%s(%s, %s, r, %s)\n",
+			indent,
+			modelVar,
+			resolveLayoutMethod(layout),
+			ctxExpr,
+			appCtxExpr,
+			paramsVar,
+		)
+		writef(buffer, "%sif err != nil {\n", indent)
+		writef(buffer, "%s\treturn nil, err\n", indent)
+		writef(buffer, "%s}\n", indent)
+		modelVars[layout.RouteID] = modelVar
+	}
+	return modelVars, nil
 }
 
 func writePageModule(
@@ -2932,27 +3272,31 @@ func parseParamsFuncName(meta routeMeta) string {
 	return "parse" + meta.RouteName + "Params"
 }
 
-func writeParseParamsFunc(buffer *bytes.Buffer, meta routeMeta) {
-	funcName := parseParamsFuncName(meta)
-	pattern := routePattern(meta.PublicRouteID)
+func parseParamsFuncNameForContract(contract routeContractDef) string {
+	return "parse" + contract.RouteName + "Params"
+}
 
-	writef(buffer, "func %s(requestPath string) (%s, bool) {\n", funcName, meta.ParamsTypeName)
-	if len(meta.Params) == 0 {
+func writeParseParamsFunc(buffer *bytes.Buffer, contract routeContractDef) {
+	funcName := parseParamsFuncNameForContract(contract)
+	pattern := routePattern(contract.PublicRouteID)
+
+	writef(buffer, "func %s(requestPath string) (route_resolvers.%s, bool) {\n", funcName, contract.ParamsTypeName)
+	if len(contract.Params) == 0 {
 		writef(buffer, "\t_, ok := router.MatchPathPattern(%q, requestPath)\n", pattern)
 		buffer.WriteString("\tif !ok {\n")
-		writef(buffer, "\t\treturn %s{}, false\n", meta.ParamsTypeName)
+		writef(buffer, "\t\treturn route_resolvers.%s{}, false\n", contract.ParamsTypeName)
 		buffer.WriteString("\t}\n")
-		writef(buffer, "\treturn %s{}, true\n", meta.ParamsTypeName)
+		writef(buffer, "\treturn route_resolvers.%s{}, true\n", contract.ParamsTypeName)
 		buffer.WriteString("}\n\n")
 		return
 	}
 
 	writef(buffer, "\tparams, ok := router.MatchPathPattern(%q, requestPath)\n", pattern)
 	buffer.WriteString("\tif !ok {\n")
-	writef(buffer, "\t\treturn %s{}, false\n", meta.ParamsTypeName)
+	writef(buffer, "\t\treturn route_resolvers.%s{}, false\n", contract.ParamsTypeName)
 	buffer.WriteString("\t}\n")
-	writef(buffer, "\tout := %s{}\n", meta.ParamsTypeName)
-	for _, param := range meta.Params {
+	writef(buffer, "\tout := route_resolvers.%s{}\n", contract.ParamsTypeName)
+	for _, param := range contract.Params {
 		switch param.Type {
 		case "[]string":
 			writef(buffer, "\tif %sValue, exists := params[%q]; exists {\n", param.FieldName, param.Name)
@@ -2961,7 +3305,7 @@ func writeParseParamsFunc(buffer *bytes.Buffer, meta routeMeta) {
 		default:
 			writef(buffer, "\t%sValue, exists := params[%q]\n", param.FieldName, param.Name)
 			buffer.WriteString("\tif !exists || len(" + param.FieldName + "Value) == 0 {\n")
-			writef(buffer, "\t\treturn %s{}, false\n", meta.ParamsTypeName)
+			writef(buffer, "\t\treturn route_resolvers.%s{}, false\n", contract.ParamsTypeName)
 			buffer.WriteString("\t}\n")
 			writef(buffer, "\tout.%s = strings.TrimSpace(%sValue[0])\n", param.FieldName, param.FieldName)
 		}
@@ -3014,6 +3358,18 @@ func conventionEndpointPattern(routeID string, leaf string) string {
 
 func resolvePageMethod(meta routeMeta) string {
 	return "Resolve" + meta.RouteName + "Page"
+}
+
+func resolveLayoutMethod(layout templateDef) string {
+	return "Resolve" + routeNameFromSegments(layout.Segments) + "Layout"
+}
+
+func resolveDefaultMethod(fallback templateDef) string {
+	return "Resolve" + routeNameFromSegments(fallback.Segments) + "Default"
+}
+
+func resolveNotFoundMethod(notFound templateDef) string {
+	return "Resolve" + routeNameFromSegments(notFound.Segments) + "NotFound"
 }
 
 func metaGenPageMethod(meta routeMeta) string {
@@ -3096,8 +3452,8 @@ func writeSlotResolveFuncs(
 	buffer *bytes.Buffer,
 	slotOwners map[string][]slotDef,
 	slotNames map[string][]string,
-	layouts map[string]templateDef,
-) {
+	contractsByID map[string]routeContractDef,
+) error {
 	ownerRouteIDs := make([]string, 0, len(slotOwners))
 	for ownerRouteID := range slotOwners {
 		ownerRouteIDs = append(ownerRouteIDs, ownerRouteID)
@@ -3110,9 +3466,12 @@ func writeSlotResolveFuncs(
 			return slots[i].Name < slots[j].Name
 		})
 		for _, slot := range slots {
-			writeSlotResolveFunc(buffer, ownerRouteID, slot, slotNames, layouts)
+			if err := writeSlotResolveFunc(buffer, ownerRouteID, slot, slotNames, contractsByID); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 func writeSlotResolveFunc(
@@ -3120,15 +3479,20 @@ func writeSlotResolveFunc(
 	ownerRouteID string,
 	slot slotDef,
 	slotNames map[string][]string,
-	layouts map[string]templateDef,
-) {
+	contractsByID map[string]routeContractDef,
+) error {
 	funcName := slotResolveFuncName(ownerRouteID, slot.Name)
+	ownerContract, ok := contractsByID[ownerRouteID]
+	if !ok {
+		return fmt.Errorf("missing route contract for slot owner route %q", ownerRouteID)
+	}
 	writef(
 		buffer,
 		"func %s(ctx context.Context, runtime framework.RuntimeContext[*view.Context], "+
-			"r *http.Request, model view.RootLayoutView, resolvers RouteResolvers) "+
+			"r *http.Request, params route_resolvers.%s, resolvers RouteResolvers) "+
 			"(templ.Component, error) {\n",
 		funcName,
+		ownerContract.ParamsTypeName,
 	)
 
 	pages := slices.Clone(slot.Pages)
@@ -3151,8 +3515,29 @@ func writeSlotResolveFunc(
 		buffer.WriteString("\t\t}\n")
 		writef(buffer, "\t\tcomponent := %s.Page(slotView)\n", page.Page.ModuleName)
 		chain := layoutChain(page.RouteID, slot.Layouts)
+		layoutModelVars, err := writeResolveLayoutModels(
+			buffer,
+			"\t\t",
+			chain,
+			contractsByID,
+			"ctx",
+			"params",
+			page.Params,
+			"runtime.AppContext()",
+		)
+		if err != nil {
+			return err
+		}
 		for idx := len(chain) - 1; idx >= 0; idx-- {
-			expr := layoutInvocationExpr(chain[idx], slotNames[chain[idx].RouteID], "meta", "slotView", "component", nil)
+			layout := chain[idx]
+			expr := layoutInvocationExpr(
+				layout,
+				slotNames[layout.RouteID],
+				"meta",
+				layoutModelVars[layout.RouteID],
+				"component",
+				nil,
+			)
 			writef(buffer, "\t\tcomponent = %s\n", expr)
 		}
 		buffer.WriteString("\t\treturn component, nil\n")
@@ -3160,10 +3545,58 @@ func writeSlotResolveFunc(
 	}
 
 	if slot.Default != nil {
-		writef(buffer, "\tcomponent := %s.Default(model)\n", slot.Default.ModuleName)
+		defaultContract, ok := contractsByID[slot.Default.RouteID]
+		if !ok {
+			return fmt.Errorf("missing route contract for slot default route %q", slot.Default.RouteID)
+		}
+		defaultParamsVar := defaultParamsVarName(*slot.Default)
+		if err := writeParamsAssignment(
+			buffer,
+			"\t",
+			defaultParamsVar,
+			defaultContract.ParamsTypeName,
+			"params",
+			ownerContract.Params,
+			defaultContract.Params,
+		); err != nil {
+			return fmt.Errorf("default %q params: %w", slot.Default.RouteID, err)
+		}
+		defaultModelVar := defaultModelVarName(*slot.Default)
+		writef(
+			buffer,
+			"\t%s, err := resolvers.%s(ctx, runtime.AppContext(), r, %s)\n",
+			defaultModelVar,
+			resolveDefaultMethod(*slot.Default),
+			defaultParamsVar,
+		)
+		buffer.WriteString("\tif err != nil {\n")
+		buffer.WriteString("\t\treturn nil, err\n")
+		buffer.WriteString("\t}\n")
+		writef(buffer, "\tcomponent := %s.Default(%s)\n", slot.Default.ModuleName, defaultModelVar)
 		chain := layoutChain(slot.RootInternal, slot.Layouts)
+		layoutModelVars, err := writeResolveLayoutModels(
+			buffer,
+			"\t",
+			chain,
+			contractsByID,
+			"ctx",
+			defaultParamsVar,
+			defaultContract.Params,
+			"runtime.AppContext()",
+		)
+		if err != nil {
+			return err
+		}
 		for idx := len(chain) - 1; idx >= 0; idx-- {
-			expr := layoutInvocationExpr(chain[idx], slotNames[chain[idx].RouteID], "meta", "model", "component", nil)
+			layout := chain[idx]
+			expr := layoutInvocationExpr(
+				layout,
+				slotNames[layout.RouteID],
+				"meta",
+				layoutModelVars[layout.RouteID],
+				"component",
+				nil,
+			)
 			writef(buffer, "\tcomponent = %s\n", expr)
 		}
 		buffer.WriteString("\treturn component, nil\n")
@@ -3171,6 +3604,7 @@ func writeSlotResolveFunc(
 		buffer.WriteString("\treturn nil, nil\n")
 	}
 	buffer.WriteString("}\n\n")
+	return nil
 }
 
 func writeComposeFunc(
@@ -3179,6 +3613,7 @@ func writeComposeFunc(
 	slotOwners map[string][]slotDef,
 	slotNames map[string][]string,
 	layouts map[string]templateDef,
+	contractsByID map[string]routeContractDef,
 ) error {
 	chain := layoutChain(meta.RouteID, layouts)
 	writef(
@@ -3195,6 +3630,19 @@ func writeComposeFunc(
 	buffer.WriteString("\tif partial {\n")
 	buffer.WriteString("\t\treturn component, nil\n")
 	buffer.WriteString("\t}\n")
+	layoutModelVars, err := writeResolveLayoutModels(
+		buffer,
+		"\t",
+		chain,
+		contractsByID,
+		"ctx",
+		"params",
+		meta.Params,
+		"runtime.AppContext()",
+	)
+	if err != nil {
+		return err
+	}
 
 	hasSlots := false
 	for _, layout := range chain {
@@ -3234,8 +3682,9 @@ func writeComposeFunc(
 				buffer.WriteString("\t\tdefer slotWG.Done()\n")
 				writef(
 					buffer,
-					"\t\tcomponent, err := %s(slotCtx, runtime, r, view, resolvers)\n",
+					"\t\tcomponent, err := %s(slotCtx, runtime, r, %s, resolvers)\n",
 					slotResolveFuncName(layout.RouteID, slot.Name),
+					layoutParamsVarName(layout),
 				)
 				buffer.WriteString("\t\tif err != nil {\n")
 				buffer.WriteString("\t\t\tsetSlotErr(err)\n")
@@ -3246,9 +3695,10 @@ func writeComposeFunc(
 			} else {
 				writef(
 					buffer,
-					"\t%s, err := %s(ctx, runtime, r, view, resolvers)\n",
+					"\t%s, err := %s(ctx, runtime, r, %s, resolvers)\n",
 					varName,
 					slotResolveFuncName(layout.RouteID, slot.Name),
+					layoutParamsVarName(layout),
 				)
 				buffer.WriteString("\tif err != nil {\n")
 				buffer.WriteString("\t\treturn nil, err\n")
@@ -3269,7 +3719,14 @@ func writeComposeFunc(
 		for _, slot := range slotOwners[layout.RouteID] {
 			slotExprs[slot.Name] = slotComponentVarName(layout.RouteID, slot.Name)
 		}
-		expr := layoutInvocationExpr(layout, slotNames[layout.RouteID], "meta", "view", "component", slotExprs)
+		expr := layoutInvocationExpr(
+			layout,
+			slotNames[layout.RouteID],
+			"meta",
+			layoutModelVars[layout.RouteID],
+			"component",
+			slotExprs,
+		)
 		writef(buffer, "\tcomponent = %s\n", expr)
 	}
 	buffer.WriteString("\treturn component, nil\n")

@@ -82,7 +82,7 @@ type Config[C any] struct {
 
 	CachePolicies CachePolicies
 
-	NotFoundPage        func(appCtx C, r *http.Request, notFoundContext framework.NotFoundContext) templ.Component
+	NotFoundPage        func(appCtx C, r *http.Request, notFoundContext framework.NotFoundContext) (templ.Component, error)
 	ServerErrorPage     func(err error) templ.Component
 	LogServerError      func(err error)
 	LogServerErrorEvent func(event ServerErrorEvent)
@@ -96,7 +96,7 @@ type Config[C any] struct {
 
 type server[C any] struct {
 	cachePolicies       CachePolicies
-	notFoundPage        func(appCtx C, r *http.Request, notFoundContext framework.NotFoundContext) templ.Component
+	notFoundPage        func(appCtx C, r *http.Request, notFoundContext framework.NotFoundContext) (templ.Component, error)
 	serverErrorPage     func(err error) templ.Component
 	appContext          C
 	logServerErr        func(err error)
@@ -464,7 +464,11 @@ func (s *server[C]) handleNotFound(
 		return
 	}
 
-	component := s.notFoundPage(s.appContext, r, notFoundContext)
+	component, err := s.notFoundPage(s.appContext, r, notFoundContext)
+	if err != nil {
+		s.handleServerError(w, r, fmt.Errorf("resolve not found page: %w", err))
+		return
+	}
 	if component == nil {
 		setCachePolicy(w, s.cachePolicies.Error)
 		http.NotFound(w, r)

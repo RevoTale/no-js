@@ -529,7 +529,7 @@ func TestParsePageViewTypeRejectsNonViewType(t *testing.T) {
 	require.Contains(t, err.Error(), "view-qualified")
 }
 
-func TestValidateLayoutTemplateSignature(t *testing.T) {
+func TestParseLayoutTemplateModelType(t *testing.T) {
 	root := t.TempDir()
 	rootValidPath := filepath.Join(root, "root_layout_valid.templ")
 	rootInvalidPath := filepath.Join(root, "root_layout_invalid.templ")
@@ -559,7 +559,7 @@ import (
   "example.com/app/web/view"
 )
 
-templ Layout(meta metagen.Metadata, model view.NotesPageView, child templ.Component) { @child }
+templ Layout(meta metagen.Metadata, model runtime.RootLayoutView, child templ.Component) { @child }
 `,
 	)
 	writeTestFile(
@@ -596,17 +596,25 @@ templ Layout(meta metagen.Metadata, model view.RootLayoutView, child templ.Compo
 `,
 	)
 
-	require.NoError(t, validateLayoutTemplateSignature(templateDef{RouteID: "", SourcePath: rootValidPath}, nil))
-	require.Error(t, validateLayoutTemplateSignature(templateDef{RouteID: "", SourcePath: rootInvalidPath}, nil))
+	rootModelType, err := parseLayoutTemplateModelType(templateDef{RouteID: "", SourcePath: rootValidPath}, nil)
+	require.NoError(t, err)
+	require.Equal(t, "view.RootLayoutView", rootModelType)
+	_, err = parseLayoutTemplateModelType(templateDef{RouteID: "", SourcePath: rootInvalidPath}, nil)
+	require.Error(t, err)
 	childValidTemplate := templateDef{RouteID: "author/_param__slug", SourcePath: childValidPath}
-	require.NoError(t, validateLayoutTemplateSignature(childValidTemplate, nil))
+	childModelType, err := parseLayoutTemplateModelType(childValidTemplate, nil)
+	require.NoError(t, err)
+	require.Equal(t, "view.RootLayoutView", childModelType)
 	childValidNamedTemplate := templateDef{RouteID: "author/_param__slug", SourcePath: childValidNamedPath}
-	require.NoError(t, validateLayoutTemplateSignature(childValidNamedTemplate, nil))
+	childNamedModelType, err := parseLayoutTemplateModelType(childValidNamedTemplate, nil)
+	require.NoError(t, err)
+	require.Equal(t, "view.RootLayoutView", childNamedModelType)
 	childInvalidTemplate := templateDef{RouteID: "author/_param__slug", SourcePath: childInvalidPath}
-	require.Error(t, validateLayoutTemplateSignature(childInvalidTemplate, nil))
+	_, err = parseLayoutTemplateModelType(childInvalidTemplate, nil)
+	require.Error(t, err)
 }
 
-func TestValidateNotFoundTemplateSignature(t *testing.T) {
+func TestParseNotFoundTemplateModelType(t *testing.T) {
 	root := t.TempDir()
 	validPath := filepath.Join(root, "404_valid.templ")
 	invalidPath := filepath.Join(root, "404_invalid.templ")
@@ -631,8 +639,11 @@ templ Page(model view.NotesPageView, path string) { <div>{ path }</div> }
 `,
 	)
 
-	require.NoError(t, validateNotFoundTemplateSignature(validPath))
-	require.Error(t, validateNotFoundTemplateSignature(invalidPath))
+	modelType, err := parseNotFoundTemplateModelType(validPath)
+	require.NoError(t, err)
+	require.Equal(t, "view.RootLayoutView", modelType)
+	_, err = parseNotFoundTemplateModelType(invalidPath)
+	require.Error(t, err)
 }
 
 func TestValidateRootTemplateSignature(t *testing.T) {
@@ -775,12 +786,18 @@ func TestResolverNamespaceGenerationDeterministic(t *testing.T) {
 		metas,
 		nil,
 		map[string]templateDef{},
+		map[string]templateDef{},
+		map[string]templateDef{},
+		map[string]templateDef{},
 	)
 	require.NoError(t, err)
 	second, err := generateResolverNamespaceSource(
 		projectlayout.ProjectLayout{AppModulePath: testAppModulePath},
 		metas,
 		nil,
+		map[string]templateDef{},
+		map[string]templateDef{},
+		map[string]templateDef{},
 		map[string]templateDef{},
 	)
 	require.NoError(t, err)
@@ -825,6 +842,7 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 				Kind:       notFoundTemplate,
 				RouteID:    "",
 				ModuleName: "r_not_found_root",
+				ModelType:  "view.RootNotFoundView",
 			},
 		},
 	)
@@ -835,18 +853,19 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 	require.NotContains(t, text, "rr_")
 	require.Contains(t, text, "func NewRouteResolvers() RouteResolvers")
 	require.Contains(t, text, "return &route_resolvers.Resolver{}")
-	require.Contains(t, text, "type NotFoundViewResolver interface")
+	require.NotContains(t, text, "type NotFoundViewResolver interface")
 	require.Contains(
 		t,
 		text,
 		"func NotFoundPage(resolvers RouteResolvers) func(appCtx *view.Context, "+
-			"r *http.Request, notFound framework.NotFoundContext) templ.Component",
+			"r *http.Request, notFound framework.NotFoundContext) (templ.Component, error)",
 	)
 	require.Contains(t, text, "framework.PageOnlyRouteHandler")
 	require.NotContains(t, text, "PageAndLiveRouteHandler")
 	require.NotContains(t, text, "/.live/")
 	require.NotContains(t, text, "ParseRootLiveState")
 	require.Contains(t, text, "return renderNotFoundPage(resolvers, appCtx, r, notFound)")
+	require.Contains(t, text, "view, err := resolvers.ResolveRootNotFound")
 	require.Contains(t, text, "RootLayout: r_root_root.RootLayout")
 	require.Contains(t, text, "MetaGenContextChain: []framework.PageMetaGenContext")
 	require.NotContains(t, text, "ErrorPage:")
@@ -913,11 +932,13 @@ func TestRegistryGenerationCombinesRootAndDynamicNotFoundCases(t *testing.T) {
 				Kind:       notFoundTemplate,
 				RouteID:    "",
 				ModuleName: "r_not_found_root",
+				ModelType:  "view.RootNotFoundView",
 			},
 			"author/_param__slug": {
 				Kind:       notFoundTemplate,
 				RouteID:    "author/_param__slug",
 				ModuleName: "r_not_found_author_param_slug",
+				ModelType:  "view.AuthorNotFoundView",
 			},
 		},
 	)
@@ -954,6 +975,7 @@ func TestRegistryGenerationDoesNotRequireRootErrorTemplate(t *testing.T) {
 				Kind:       notFoundTemplate,
 				RouteID:    "",
 				ModuleName: "r_not_found_root",
+				ModelType:  "view.RootNotFoundView",
 			},
 		},
 	)
@@ -994,6 +1016,7 @@ func TestRegistryGenerationDoesNotWireErrorTemplateModules(t *testing.T) {
 				Kind:       notFoundTemplate,
 				RouteID:    "",
 				ModuleName: "r_not_found_root",
+				ModelType:  "view.RootNotFoundView",
 			},
 		},
 	)
@@ -1169,8 +1192,13 @@ templ Page(model view.NotesPageView) { <div>analytics</div> }
 	require.Contains(t, registryText, "go func() {")
 	require.Contains(t, registryText, "component, err := resolveDashboardAnalyticsSlot")
 	require.Contains(t, registryText, "dashboardAnalyticsSlot = component")
-	require.Contains(t, registryText, "r_layout_dashboard.Layout(view, component, dashboardAnalyticsSlot)")
-	require.Contains(t, registryText, "component := r_default_dashboard_slot_analytics.Default(model)")
+	require.Contains(t, registryText, "resolvers.ResolveDashboardLayout")
+	require.Contains(t, registryText, "r_layout_dashboard.Layout(dashboardLayoutView, component, dashboardAnalyticsSlot)")
+	require.Contains(
+		t,
+		registryText,
+		"component := r_default_dashboard_slot_analytics.Default(dashboardslotanalyticsDefaultView)",
+	)
 
 	resolverSource, err := os.ReadFile(filepath.Join(resolverDir, generatedResolverFileName))
 	require.NoError(t, err)
@@ -1295,7 +1323,8 @@ func GET(
 	require.Contains(
 		t,
 		registryText,
-		"r_layout_group_marketing_dashboard.Layout(view, component, groupmarketingdashboardAnalyticsSlot)",
+		"r_layout_group_marketing_dashboard.Layout("+
+			"groupmarketingdashboardLayoutView, component, groupmarketingdashboardAnalyticsSlot)",
 	)
 	require.Contains(t, registryText, "framework.MethodOnlyRouteHandler")
 	require.Contains(t, registryText, `"_group__marketing/dashboard/export"`)
@@ -1348,14 +1377,13 @@ func TestGenerateBundleSourceWiresStaticAssetHookWhenPresent(t *testing.T) {
 		GeneratedImport: "web/generated",
 		ViewImport:      "web/view",
 	}, viewcontract.Inspection{
-		SystemPages:                zeroArgViewInspection().SystemPages,
 		HasStaticAssetBasePathHook: true,
 	})
 	require.NoError(t, err)
 	require.Contains(t, string(source), "OnStaticAssetBasePathResolved: view.SetStaticAssetBasePath,")
 }
 
-func TestRegistryGenerationUsesZeroArgSystemPageConstructors(t *testing.T) {
+func TestRegistryGenerationUsesNotFoundResolverModels(t *testing.T) {
 	t.Parallel()
 
 	registry, err := generateRegistrySource(
@@ -1374,14 +1402,16 @@ func TestRegistryGenerationUsesZeroArgSystemPageConstructors(t *testing.T) {
 		templateDef{Kind: rootTemplate, RouteID: "", ModuleName: "r_root_root"},
 		map[string]templateDef{},
 		map[string]templateDef{
-			"": {Kind: notFoundTemplate, RouteID: "", ModuleName: "r_not_found_root"},
+			"": {Kind: notFoundTemplate, RouteID: "", ModuleName: "r_not_found_root", ModelType: "view.RootNotFoundView"},
 		},
 	)
 	require.NoError(t, err)
 
 	text := string(registry)
-	require.Contains(t, text, "view := resolveNotFoundView(resolvers, appCtx, r, notFound)")
-	require.Contains(t, text, "return view.NewNotFoundView()")
+	require.Contains(t, text, "view, err := resolvers.ResolveRootNotFound")
+	require.Contains(t, text, "component := r_not_found_root.NotFound(view, pathValue)")
+	require.NotContains(t, text, "resolveNotFoundView")
+	require.NotContains(t, text, "view.NewNotFoundView")
 	require.NotContains(t, text, "appCtx.I18n(r)")
 	require.NotContains(t, text, "NewErrorView")
 }
@@ -1470,7 +1500,7 @@ templ Page(model view.NotesPageView) { <div>notes</div> }
 	require.NotContains(t, string(registrySource), "ErrorPage:")
 }
 
-func TestRunRejectsIncompatibleSystemPageConstructors(t *testing.T) {
+func TestRunDoesNotRequireSystemPageConstructors(t *testing.T) {
 	rootDir := t.TempDir()
 	appDir := filepath.Join(rootDir, "web", "routes")
 	genDir := filepath.Join(rootDir, "web", "generated")
@@ -1492,8 +1522,11 @@ func TestRunRejectsIncompatibleSystemPageConstructors(t *testing.T) {
 			AppModulePath:   testAppModulePath,
 		},
 	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "web/view must define func NewNotFoundView() RootLayoutView")
+	require.NoError(t, err)
+
+	registrySource, err := os.ReadFile(filepath.Join(genDir, "registry_gen.go"))
+	require.NoError(t, err)
+	require.NotContains(t, string(registrySource), "NewNotFoundView")
 }
 
 func writeTestFile(t *testing.T, filePath string, content string) {
@@ -1504,11 +1537,7 @@ func writeTestFile(t *testing.T, filePath string, content string) {
 }
 
 func zeroArgViewInspection() viewcontract.Inspection {
-	return viewcontract.Inspection{
-		SystemPages: viewcontract.SystemPageHooks{
-			HasZeroArgNotFoundView: true,
-		},
-	}
+	return viewcontract.Inspection{}
 }
 
 func writeMinimalZeroArgViewPackage(t *testing.T, viewDir string) {

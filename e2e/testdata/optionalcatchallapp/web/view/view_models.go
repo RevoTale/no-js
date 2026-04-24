@@ -13,7 +13,3 @@ type OptionalCatchAllPageView struct {
 	Joined string
 	Depth  string
 }
-
-func NewNotFoundView() RootLayoutView {
-	return RootLayoutView{PageTitle: "Not Found"}
-}

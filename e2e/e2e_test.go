@@ -733,6 +733,32 @@ func TestCustomRuntimeFixtureApp(t *testing.T) {
 	require.Contains(t, report.TemplCSS.Body, "border:1px solid #224")
 }
 
+func TestTypedModelsFixtureApp(t *testing.T) {
+	report := loadTypedModelsFixture(t)
+
+	require.Equal(t, 200, report.Home.Status)
+	require.Contains(t, report.Home.Body, `id="typed-root-page"`)
+	require.Contains(t, report.Home.Body, `data-heading="Typed root model"`)
+
+	require.Equal(t, 200, report.Marketing.Status)
+	require.Contains(t, report.Marketing.Body, `id="marketing-layout"`)
+	require.Contains(t, report.Marketing.Body, `data-shell="marketing-shell"`)
+	require.Contains(t, report.Marketing.Body, `id="marketing-page"`)
+	require.Contains(t, report.Marketing.Body, `data-heading="Typed marketing model"`)
+	require.Contains(t, report.Marketing.Body, `id="promo-default"`)
+	require.Contains(t, report.Marketing.Body, `data-message="promo-default-model"`)
+
+	require.Equal(t, 404, report.NotFound.Status)
+	require.Contains(t, report.NotFound.Body, `id="typed-not-found"`)
+	require.Contains(t, report.NotFound.Body, `data-message="typed-not-found-model"`)
+	require.Contains(t, report.NotFound.Body, `data-path="/missing"`)
+
+	viewModelsPath := filepath.Join(repoRootPath(t), "e2e", "testdata", "typedmodelsapp", "web", "view", "view_models.go")
+	viewModels, err := os.ReadFile(viewModelsPath)
+	require.NoError(t, err)
+	require.NotContains(t, string(viewModels), "RootLayoutView")
+}
+
 func TestTemplRulesFixtureApp(t *testing.T) {
 	report := loadTemplRulesFixture(t)
 	require.Regexp(

@@ -34,17 +34,3 @@ type GreetPageView struct {
 type FailPageView struct {
 	RootLayoutView
 }
-
-func NewNotFoundView() RootLayoutView {
-	return RootLayoutView{
-		PageTitle:       "Not Found",
-		NotFoundHeading: "Not Found",
-	}
-}
-
-func NewErrorView() RootLayoutView {
-	return RootLayoutView{
-		PageTitle:    "Error",
-		ErrorHeading: "Error",
-	}
-}
