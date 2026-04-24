@@ -62,7 +62,7 @@ If a task affects the consuming-app contract, also inspect:
 - MUST keep the migration guide related only to the `docs/app/migrations` directory and `docs/app/migrations.md`. Only `docs/app/migrations.md` file can point to the cocrete migrations.
 - MUST make migration guide titles include both the version range and migration topic.
 - MUST make migration guides list concrete refactors: affected symbols/files, old code shape, new code shape, and
-  verification commands.
+  verification commands. Prefer examples over plain text.
 - MUST learn the `https://templ.guide/llms.md` before dicussing the new features related to the Go Templ, or if eny knowledge is missing regarding Go Templ.
 
 ## Working Agreements
