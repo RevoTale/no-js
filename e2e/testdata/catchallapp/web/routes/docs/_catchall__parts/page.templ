@@ -7,9 +7,9 @@ css docsPage() {
 	padding: 12px;
 }
 
-templ Page(view runtime.CatchAllPageView) {
+templ Page(model view.CatchAllPageView) {
 	<main id="docs-catchall" class={ docsPage() }>
-		<p data-joined>{ view.Joined }</p>
-		<p data-depth>{ view.Depth }</p>
+		<p data-joined>{ model.Joined }</p>
+		<p data-depth>{ model.Depth }</p>
 	</main>
 }

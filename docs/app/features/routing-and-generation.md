@@ -21,7 +21,6 @@ owns the handler wiring.
 web/routes/
   root.templ
   404.templ
-  error.templ
   page.templ
   author/
     _param__slug/
@@ -32,6 +31,7 @@ web/routes/
   _group__marketing/
     dashboard/
       layout.templ
+      404.templ
       page.templ
       _slot__analytics/
         default.templ
@@ -58,7 +58,7 @@ signatures you need to satisfy.
 Then wire the bundle into the runtime:
 
 ```go
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
+handler, err := httpserver.NewApp(httpserver.Config[*view.Context]{
 	App: generated.Bundle(appContext),
 })
 ```
@@ -76,11 +76,11 @@ generates a route-specific params type and resolver contract:
 ```go
 func (Resolver) ResolveAuthorParamSlugPage(
 	ctx context.Context,
-	appCtx *runtime.Context,
+	appCtx *view.Context,
 	r *http.Request,
 	params AuthorParamSlugParams,
-) (runtime.AuthorPageView, error) {
-	return runtime.AuthorPageView{
+) (view.AuthorPageView, error) {
+	return view.AuthorPageView{
 		Heading: params.Slug,
 	}, nil
 }
@@ -89,13 +89,40 @@ func (Resolver) ResolveAuthorParamSlugPage(
 The generated param shape follows the route path. Change the route tree, then
 regenerate.
 
+## Route-Local 404 Pages
+
+`web/routes/404.templ` is the root fallback. Add another `404.templ` deeper in
+the route tree when a section needs its own not-found UI:
+
+```text
+web/routes/
+  404.templ
+  _group__support/
+    help/
+      layout.templ
+      page.templ
+      404.templ
+```
+
+When a page resolver returns `framework.ErrNotFound`, or when an unmatched URL
+maps to a section with a local `404.templ`, generated routing uses the nearest
+matching not-found template and wraps it with that route's layout chain.
+
+Route groups such as `_group__support` do not appear in the URL, but they still
+participate in route ownership. In the example above, `/help/missing` can render
+the `help/404.templ` page inside `help/layout.templ`.
+
+If the app uses built-in i18n, generated not-found rendering resolves the locale
+before the optional `ResolveNotFoundView(...)` hook runs. Use that hook when the
+404 view model needs translations, localized URLs, or request-scoped data.
+
 ## Method Routes
 
 Use `route.go` for method-only endpoints:
 
 ```go
 func GET(
-	runtime framework.RuntimeContext[*runtime.Context],
+	runtimeCtx framework.RuntimeContext[*view.Context],
 	w http.ResponseWriter,
 	r *http.Request,
 	params ApiPingParams,

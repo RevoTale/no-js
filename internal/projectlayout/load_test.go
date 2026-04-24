@@ -69,7 +69,7 @@ func TestResolveProjectLayoutFromRootUsesConfigOverrides(t *testing.T) {
 	rootDir := t.TempDir()
 	writeBundlerTestFile(t, filepath.Join(rootDir, "go.mod"), "module example.com/app\n\ngo 1.25.0\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "src", "web", "routes", "page.templ"), "package appsrc\n")
-	writeBundlerTestFile(t, filepath.Join(rootDir, "src", "web", "view", "context.go"), "package runtime\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "src", "web", "view", "context.go"), "package view\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "src", "web", "i18n", "doc.go"), "package i18n\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web-static", "app.js"), "console.log('x')\n")
 	writeBundlerTestFile(

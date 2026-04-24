@@ -3,7 +3,7 @@ package dashboard
 import "example.com/no-js-e2e/templrulesapp/web/components"
 import "example.com/no-js-e2e/templrulesapp/web/view"
 
-templ Page(view runtime.RootLayoutView) {
+templ Page(model view.RootLayoutView) {
 	<main id="dashboard-page">
 		<h1>Dashboard Variant</h1>
 		@components.ProgressMeter(72)

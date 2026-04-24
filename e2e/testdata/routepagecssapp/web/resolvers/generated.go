@@ -13,9 +13,9 @@ type RootParams struct {
 }
 
 type RouteResolver interface {
-	MetaGenRootLayout(meta framework.MetaContext[*runtime.Context]) (metagen.Metadata, error)
-	MetaGenRootPage(meta framework.MetaContext[*runtime.Context], params RootParams) (metagen.Metadata, error)
-	ResolveRootPage(ctx context.Context, appCtx *runtime.Context, r *http.Request, params RootParams) (runtime.RootPageView, error)
+	MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (metagen.Metadata, error)
+	MetaGenRootPage(meta framework.MetaContext[*view.Context], params RootParams) (metagen.Metadata, error)
+	ResolveRootPage(ctx context.Context, appCtx *view.Context, r *http.Request, params RootParams) (view.RootPageView, error)
 }
 
 type Resolver struct{}

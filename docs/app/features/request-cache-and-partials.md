@@ -22,20 +22,20 @@ loaders run. Use `framework.CachedCall(...)` inside a loader to share work:
 ```go
 func (Resolver) ResolveAuthorParamSlugPage(
 	ctx context.Context,
-	appCtx *runtime.Context,
+	appCtx *view.Context,
 	r *http.Request,
 	params AuthorParamSlugParams,
-) (runtime.AuthorPageView, error) {
+) (view.AuthorPageView, error) {
 	cacheKey := "author:" + params.Slug
 
 	shared, err := framework.CachedCall(ctx, cacheKey, func(runCtx context.Context) (string, error) {
 		return loadAuthor(runCtx, appCtx, params.Slug)
 	})
 	if err != nil {
-		return runtime.AuthorPageView{}, err
+		return view.AuthorPageView{}, err
 	}
 
-	return runtime.AuthorPageView{
+	return view.AuthorPageView{
 		Heading: shared,
 	}, nil
 }

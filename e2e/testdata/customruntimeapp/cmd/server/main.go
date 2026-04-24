@@ -13,7 +13,7 @@ import (
 	"time"
 
 	gen "example.com/no-js-e2e/customruntimeapp/web/generated"
-	runtime "example.com/no-js-e2e/customruntimeapp/web/view"
+	"example.com/no-js-e2e/customruntimeapp/web/view"
 	"github.com/RevoTale/no-js/framework/httpserver"
 )
 
@@ -24,7 +24,7 @@ func main() {
 	addr := flag.String("addr", "127.0.0.1:8080", "listen address")
 	flag.Parse()
 
-	appContext := &runtime.Context{}
+	appContext := &view.Context{}
 	bundle := gen.Bundle(appContext)
 
 	mainMiddleware := func(next http.Handler) http.Handler {
@@ -34,7 +34,7 @@ func main() {
 		})
 	}
 
-	handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
+	handler, err := httpserver.NewApp(httpserver.Config[*view.Context]{
 		App: bundle,
 		Custom: httpserver.CustomConfig{
 			MainMiddlewares: []func(http.Handler) http.Handler{

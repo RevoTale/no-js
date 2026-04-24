@@ -1,9 +1,7 @@
-package runtime
+package view
 
 import (
 	"example.com/no-js-e2e/docsfeatureapp/web/components"
-	i18n "example.com/no-js-e2e/docsfeatureapp/web/generated/i18n"
-	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
 	"github.com/a-h/templ"
 )
 
@@ -26,11 +24,11 @@ type AuthorPageView struct {
 	Progress        int
 }
 
-func NewNotFoundView(messages frameworki18n.Context[i18n.Key]) RootLayoutView {
+func NewNotFoundView() RootLayoutView {
 	return RootLayoutView{PageTitle: "Not Found"}
 }
 
-func NewErrorView(messages frameworki18n.Context[i18n.Key]) RootLayoutView {
+func NewErrorView() RootLayoutView {
 	return RootLayoutView{PageTitle: "Error"}
 }
 

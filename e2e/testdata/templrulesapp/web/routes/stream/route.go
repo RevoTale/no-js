@@ -3,12 +3,12 @@ package stream
 import (
 	"net/http"
 
-	runtime "example.com/no-js-e2e/templrulesapp/web/view"
+	"example.com/no-js-e2e/templrulesapp/web/view"
 	"github.com/RevoTale/no-js/framework"
 )
 
 func GET(
-	runtimeCtx framework.RuntimeContext[*runtime.Context],
+	runtimeCtx framework.RuntimeContext[*view.Context],
 	w http.ResponseWriter,
 	r *http.Request,
 	params StreamParams,

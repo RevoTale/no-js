@@ -5,7 +5,7 @@ These docs are for developers or agents building an app with `no-js`.
 The default mental model is:
 
 ```go
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
+handler, err := httpserver.NewApp(httpserver.Config[*view.Context]{
 	App: generated.Bundle(appContext),
 })
 ```
@@ -31,7 +31,7 @@ policy.
 
 - `web/routes/*` templates and route-local behavior
 - `web/resolvers/*` resolver implementations
-- `web/view/*` view models and runtime context
+- `web/view/*` view models and app context
 - optional `web/components/*`, `web/i18n/*`, `web/assets/*`, and `web/public/*`
 - app services, middleware, domain policy, and extra routes
 
@@ -57,6 +57,10 @@ policy.
    resolution, and HTMX behavior.
 6. [Troubleshooting](troubleshooting.md)
    Fix the common generation and startup failures quickly.
+
+## Migration Guides
+
+- [App Migrations](migrations.md)
 
 ## Feature Guides
 

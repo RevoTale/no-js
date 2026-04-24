@@ -49,6 +49,18 @@ func DefaultCachePolicies() CachePolicies {
 	}
 }
 
+type ServerErrorEvent struct {
+	Err        error
+	Request    *http.Request
+	Method     string
+	Path       string
+	RawQuery   string
+	Host       string
+	RemoteAddr string
+	UserAgent  string
+	RequestID  string
+}
+
 type Config[C any] struct {
 	App    AppBundle[C]
 	Custom CustomConfig
@@ -71,7 +83,9 @@ type Config[C any] struct {
 	CachePolicies CachePolicies
 
 	NotFoundPage        func(appCtx C, r *http.Request, notFoundContext framework.NotFoundContext) templ.Component
+	ServerErrorPage     func(err error) templ.Component
 	LogServerError      func(err error)
+	LogServerErrorEvent func(event ServerErrorEvent)
 	LogResolverTiming   func(event framework.ResolverTiming)
 	EnableResolverDebug bool
 
@@ -83,8 +97,10 @@ type Config[C any] struct {
 type server[C any] struct {
 	cachePolicies       CachePolicies
 	notFoundPage        func(appCtx C, r *http.Request, notFoundContext framework.NotFoundContext) templ.Component
+	serverErrorPage     func(err error) templ.Component
 	appContext          C
 	logServerErr        func(err error)
+	logServerErrEvent   func(event ServerErrorEvent)
 	logResolverTimingFn func(event framework.ResolverTiming)
 	enableResolverDebug bool
 	healthPath          string
@@ -109,7 +125,9 @@ func New[C any](cfg Config[C]) (http.Handler, error) {
 		cachePolicies:       cachePolicies,
 		appContext:          cfg.AppContext,
 		notFoundPage:        cfg.NotFoundPage,
+		serverErrorPage:     cfg.ServerErrorPage,
 		logServerErr:        cfg.LogServerError,
+		logServerErrEvent:   cfg.LogServerErrorEvent,
 		logResolverTimingFn: cfg.LogResolverTiming,
 		enableResolverDebug: cfg.EnableResolverDebug,
 		healthPath:          healthPath,
@@ -453,23 +471,87 @@ func (s *server[C]) handleNotFound(
 		return
 	}
 	if err := s.renderPageWithStatus(r, w, component, http.StatusNotFound, s.cachePolicies.Error); err != nil {
-		s.handleServerError(w, fmt.Errorf("render not found page: %w", err))
+		s.handleServerError(w, r, fmt.Errorf("render not found page: %w", err))
 	}
 }
 
-func (s *server[C]) handleServerError(w http.ResponseWriter, err error) {
+func (s *server[C]) handleServerError(w http.ResponseWriter, r *http.Request, err error) {
+	if s.serverErrorPage != nil {
+		component := s.serverErrorPage(err)
+		if component != nil {
+			renderErr := s.renderPageWithStatus(
+				requestOrBackground(r),
+				w,
+				component,
+				http.StatusInternalServerError,
+				s.cachePolicies.Error,
+			)
+			if renderErr != nil {
+				s.logServerErrorForRequest(r, fmt.Errorf("render server error page: %w", renderErr))
+			}
+			s.logServerErrorForRequest(r, err)
+			return
+		}
+	}
+
 	setCachePolicy(w, s.cachePolicies.Error)
 	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-	s.logServerError(err)
+	s.logServerErrorForRequest(r, err)
 }
 
 func (s *server[C]) logServerError(err error) {
+	s.logServerErrorForRequest(nil, err)
+}
+
+func (s *server[C]) logServerErrorForRequest(r *http.Request, err error) {
+	if s.logServerErrEvent != nil {
+		s.logServerErrEvent(newServerErrorEvent(r, err))
+		return
+	}
 	if s.logServerErr != nil {
 		s.logServerErr(err)
 		return
 	}
+	event := newServerErrorEvent(r, err)
+	if strings.TrimSpace(event.Path) != "" {
+		log.Printf("framework server error: method=%s path=%q error=%v", event.Method, event.Path, err)
+		return
+	}
 
 	log.Printf("framework server error: %v", err)
+}
+
+func newServerErrorEvent(r *http.Request, err error) ServerErrorEvent {
+	event := ServerErrorEvent{Err: err, Request: r}
+	if r == nil {
+		return event
+	}
+	event.Method = strings.TrimSpace(r.Method)
+	if r.URL != nil {
+		event.Path = strings.TrimSpace(r.URL.Path)
+		event.RawQuery = strings.TrimSpace(r.URL.RawQuery)
+	}
+	event.Host = strings.TrimSpace(r.Host)
+	event.RemoteAddr = strings.TrimSpace(r.RemoteAddr)
+	event.UserAgent = strings.TrimSpace(r.UserAgent())
+	event.RequestID = firstNonEmptyHeader(r.Header, "X-Request-ID", "X-Correlation-ID", "Request-ID")
+	return event
+}
+
+func firstNonEmptyHeader(header http.Header, names ...string) string {
+	for _, name := range names {
+		if value := strings.TrimSpace(header.Get(name)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func requestOrBackground(r *http.Request) *http.Request {
+	if r != nil {
+		return r
+	}
+	return &http.Request{}
 }
 
 func (s *server[C]) logResolverTiming(event framework.ResolverTiming) {

@@ -20,7 +20,7 @@ func TestRunGeneratesWorkspaceAndRegistryWithoutSourcePollution(t *testing.T) {
 	require.NoError(t, os.MkdirAll(layout.GeneratedDir, 0o755))
 
 	require.NoError(t, os.WriteFile(filepath.Join(layout.RootDir, "go.mod"), []byte("module example.com/app\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(layout.ViewDir, "variants.go"), []byte("package runtime\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(layout.ViewDir, "variants.go"), []byte("package view\n"), 0o644))
 
 	require.NoError(t, os.WriteFile(filepath.Join(layout.RoutesDir, "notes", "page.templ"), []byte(`
 package notes
@@ -77,10 +77,44 @@ css panel() {
 
 	registry, err := os.ReadFile(filepath.Join(layout.GeneratedDir, registryFileName))
 	require.NoError(t, err)
-	require.Contains(t, string(registry), `runtime "example.com/app/web/view"`)
-	require.Contains(t, string(registry), `runtime.TemplCSSVariants()`)
+	require.NotContains(t, string(registry), `"example.com/app/web/view"`)
+	require.NotContains(t, string(registry), `view.TemplCSSVariants()`)
 	require.Contains(t, string(registry), `example.com/app/web/generated/templcss/components/card`)
 	require.Contains(t, string(registry), `example.com/app/web/generated/templcss/routes/notes`)
+}
+
+func TestRunIncludesTemplCSSVariantsHookWhenPresent(t *testing.T) {
+	t.Parallel()
+
+	layout := newTemplCSSLayout(t)
+
+	require.NoError(t, os.MkdirAll(filepath.Join(layout.RoutesDir, "notes"), 0o755))
+	require.NoError(t, os.MkdirAll(layout.ViewDir, 0o755))
+	require.NoError(t, os.MkdirAll(layout.GeneratedDir, 0o755))
+
+	require.NoError(t, os.WriteFile(filepath.Join(layout.RootDir, "go.mod"), []byte("module example.com/app\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(layout.ViewDir, "variants.go"), []byte(`
+package view
+
+import "github.com/a-h/templ"
+
+func TemplCSSVariants() []templ.CSSClass { return nil }
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(layout.RoutesDir, "notes", "page.templ"), []byte(`
+package notes
+
+css button() {
+	color: white;
+}
+`), 0o644))
+
+	require.NoError(t, Run(Config{Layout: layout}))
+
+	registry, err := os.ReadFile(filepath.Join(layout.GeneratedDir, registryFileName))
+	require.NoError(t, err)
+	require.Contains(t, string(registry), `"example.com/app/web/view"`)
+	require.NotContains(t, string(registry), `view "example.com/app/web/view"`)
+	require.Contains(t, string(registry), `view.TemplCSSVariants()`)
 }
 
 func TestRunRemovesStalePackageExport(t *testing.T) {
@@ -88,6 +122,7 @@ func TestRunRemovesStalePackageExport(t *testing.T) {
 
 	layout := newTemplCSSLayout(t)
 	require.NoError(t, os.MkdirAll(filepath.Join(layout.RoutesDir, "notes"), 0o755))
+	require.NoError(t, os.MkdirAll(layout.ViewDir, 0o755))
 	staleFile := filepath.Join(layout.RoutesDir, "notes", packageExportFileName)
 	require.NoError(t, os.WriteFile(staleFile, []byte("stale"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(layout.RootDir, "go.mod"), []byte("module example.com/app\n"), 0o644))

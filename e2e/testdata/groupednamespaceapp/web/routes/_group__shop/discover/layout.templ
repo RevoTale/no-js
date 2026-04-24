@@ -8,7 +8,7 @@ css shopShell() {
 	background: #fff7ed;
 }
 
-templ Layout(view runtime.RootLayoutView, child templ.Component) {
+templ Layout(model view.RootLayoutView, child templ.Component) {
 	<section data-layout="shop-discover" class={ shopShell() }>
 		<header>Shop Discover</header>
 		@child

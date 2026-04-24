@@ -5,13 +5,13 @@ import (
 	"example.com/no-js-e2e/docsfeatureapp/web/view"
 )
 
-templ Page(view runtime.AuthorPageView) {
+templ Page(model view.AuthorPageView) {
 	<main id="author-page">
-		<h1>{ view.Heading }</h1>
-		<p id="author-description">{ view.Description }</p>
-		<div id="author-shared">{ view.SharedA }|{ view.SharedB }</div>
-		<div id="expensive-count">{ view.LoadCount }</div>
-		<a id="switch-en" href={ view.SwitchToEnglish }>English</a>
-		@components.ProfileCard(view.Heading, view.Progress)
+		<h1>{ model.Heading }</h1>
+		<p id="author-description">{ model.Description }</p>
+		<div id="author-shared">{ model.SharedA }|{ model.SharedB }</div>
+		<div id="expensive-count">{ model.LoadCount }</div>
+		<a id="switch-en" href={ model.SwitchToEnglish }>English</a>
+		@components.ProfileCard(model.Heading, model.Progress)
 	</main>
 }

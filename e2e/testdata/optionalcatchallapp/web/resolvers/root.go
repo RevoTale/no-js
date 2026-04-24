@@ -6,17 +6,17 @@ import (
 	"strconv"
 	"strings"
 
-	runtime "example.com/no-js-e2e/optionalcatchallapp/web/view"
+	"example.com/no-js-e2e/optionalcatchallapp/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/metagen"
 )
 
-func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*runtime.Context]) (metagen.Metadata, error) {
+func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (metagen.Metadata, error) {
 	return metagen.Metadata{Description: "optional catchall fixture"}, nil
 }
 
 func (Resolver) MetaGenLibraryOptionalCatchAllPartsPage(
-	meta framework.MetaContext[*runtime.Context],
+	meta framework.MetaContext[*view.Context],
 	params LibraryOptionalCatchAllPartsParams,
 ) (metagen.Metadata, error) {
 	return metagen.Metadata{Title: "Library Optional Catch-All"}, nil
@@ -24,17 +24,17 @@ func (Resolver) MetaGenLibraryOptionalCatchAllPartsPage(
 
 func (Resolver) ResolveLibraryOptionalCatchAllPartsPage(
 	ctx context.Context,
-	appCtx *runtime.Context,
+	appCtx *view.Context,
 	r *http.Request,
 	params LibraryOptionalCatchAllPartsParams,
-) (runtime.OptionalCatchAllPageView, error) {
+) (view.OptionalCatchAllPageView, error) {
 	joined := strings.Join(params.Parts, "/")
 	if joined == "" {
 		joined = "root"
 	}
 
-	return runtime.OptionalCatchAllPageView{
-		RootLayoutView: runtime.RootLayoutView{PageTitle: "Library Optional Catch-All"},
+	return view.OptionalCatchAllPageView{
+		RootLayoutView: view.RootLayoutView{PageTitle: "Library Optional Catch-All"},
 		Joined:         joined,
 		Depth:          strconv.Itoa(len(params.Parts)),
 	}, nil

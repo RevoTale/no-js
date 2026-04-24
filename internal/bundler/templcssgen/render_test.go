@@ -56,7 +56,7 @@ css button() {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(layout.ViewDir, "variants.templ"), []byte(`
-package runtime
+package view
 
 import "fmt"
 
@@ -65,7 +65,7 @@ css loading(percent int) {
 }
 `), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(layout.ViewDir, "variants.go"), []byte(`
-package runtime
+package view
 
 import "github.com/a-h/templ"
 
@@ -119,13 +119,6 @@ func TestWriteStylesheetFromRouteCSSWithoutSourceTemplgen(t *testing.T) {
 
 	require.NoError(t, os.WriteFile(filepath.Join(appRoot, "go.mod"), []byte(tempAppGoMod(repoRoot)), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(appRoot, "go.sum"), []byte(templModuleSum), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(layout.ViewDir, "variants.go"), []byte(`
-package runtime
-
-import "github.com/a-h/templ"
-
-func TemplCSSVariants() []templ.CSSClass { return nil }
-`), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(layout.RoutesDir, "page.templ"), []byte(`
 package routes
 
@@ -190,15 +183,6 @@ css button() {
 	color: white;
 }
 `), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(layout.ViewDir, "variants.go"), []byte(`
-package runtime
-
-import "github.com/a-h/templ"
-
-func TemplCSSVariants() []templ.CSSClass {
-	return nil
-}
-`), 0o644))
 
 	stageDir, cleanup, err := PrepareStaticSource(PrepareStaticSourceConfig{
 		Layout:    layout,
@@ -250,15 +234,6 @@ package routes
 
 css button() {
 	color: white;
-}
-`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(layout.ViewDir, "variants.go"), []byte(`
-package runtime
-
-import "github.com/a-h/templ"
-
-func TemplCSSVariants() []templ.CSSClass {
-	return nil
 }
 `), 0o644))
 

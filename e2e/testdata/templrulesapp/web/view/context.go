@@ -1,14 +1,11 @@
-package runtime
+package view
 
 import (
 	"net/http"
 	"net/url"
-	"path"
 	"strings"
 	"sync"
 )
-
-type Messages struct{}
 
 type Context struct {
 	stream *StreamState
@@ -18,8 +15,6 @@ type StreamState struct {
 	continueRender chan struct{}
 	releaseOnce    sync.Once
 }
-
-var staticAssetBasePath string
 
 func NewContext() *Context {
 	return &Context{stream: NewStreamState()}
@@ -46,10 +41,6 @@ func (c *Context) ResolveRoot(r *http.Request) *url.URL {
 		Host:   strings.TrimSpace(r.Host),
 		Path:   "/",
 	}
-}
-
-func (c *Context) I18n(r *http.Request) *Messages {
-	return nil
 }
 
 func (c *Context) StreamState() *StreamState {
@@ -83,16 +74,4 @@ func (s *StreamState) Release() {
 			close(s.continueRender)
 		}
 	})
-}
-
-func SetStaticAssetBasePath(prefix string) {
-	staticAssetBasePath = strings.TrimRight(strings.TrimSpace(prefix), "/")
-}
-
-func StaticAssetURL(assetPath string) string {
-	trimmed := strings.TrimPrefix(strings.TrimSpace(assetPath), "/")
-	if trimmed == "" {
-		return staticAssetBasePath
-	}
-	return path.Join(staticAssetBasePath, trimmed)
 }

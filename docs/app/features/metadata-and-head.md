@@ -45,7 +45,7 @@ Prefer `MetaContext` helpers instead of hand-building URLs:
 
 ```go
 func (Resolver) MetaGenAuthorParamSlugPage(
-	meta framework.MetaContext[*runtime.Context],
+	meta framework.MetaContext[*view.Context],
 	params AuthorParamSlugParams,
 ) (metagen.Metadata, error) {
 	canonical := meta.LocalizedURL(meta.Locale(), "/author/"+params.Slug)

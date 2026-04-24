@@ -43,7 +43,7 @@ no-js/
 The framework should preserve this app-facing integration shape:
 
 ```go
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
+handler, err := httpserver.NewApp(httpserver.Config[*view.Context]{
 	App: generated.Bundle(appContext),
 })
 ```

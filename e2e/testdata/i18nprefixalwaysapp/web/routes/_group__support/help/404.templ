@@ -1,0 +1,14 @@
+package help
+
+import "example.com/no-js-e2e/i18nprefixalwaysapp/web/view"
+
+templ NotFound(model view.RootLayoutView, path string) {
+	<main
+		id="help-not-found"
+		data-locale={ model.SystemLocale }
+		data-request-path={ model.SystemRequestPath }
+		data-not-found-source={ model.NotFoundSource }
+	>
+		Support help: { model.NotFoundHeading } { path }
+	</main>
+}

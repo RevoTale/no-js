@@ -29,7 +29,7 @@ non-slot route directories.
 
 ```go
 func Feed(
-	runtime framework.RuntimeContext[*runtime.Context],
+	runtimeCtx framework.RuntimeContext[*view.Context],
 	r *http.Request,
 ) (discovery.FeedDocument, error) {
 	return discovery.FeedDocument{
@@ -48,7 +48,7 @@ Static sitemaps return `[]discovery.SitemapEntry`:
 
 ```go
 func Sitemap(
-	runtime framework.RuntimeContext[*runtime.Context],
+	runtimeCtx framework.RuntimeContext[*view.Context],
 	r *http.Request,
 ) ([]discovery.SitemapEntry, error) {
 	return []discovery.SitemapEntry{
@@ -61,8 +61,8 @@ func Sitemap(
 Large sitemaps can opt into chunk generation:
 
 ```go
-func GenerateSitemaps(runtime framework.RuntimeContext[*runtime.Context], r *http.Request) ([]discovery.SitemapID, error)
-func SitemapChunk(runtime framework.RuntimeContext[*runtime.Context], r *http.Request, id string) ([]discovery.SitemapEntry, error)
+func GenerateSitemaps(runtimeCtx framework.RuntimeContext[*view.Context], r *http.Request) ([]discovery.SitemapID, error)
+func SitemapChunk(runtimeCtx framework.RuntimeContext[*view.Context], r *http.Request, id string) ([]discovery.SitemapEntry, error)
 ```
 
 The framework serves chunk requests at `/sitemap/[id].xml` under the matched

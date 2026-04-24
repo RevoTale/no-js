@@ -103,7 +103,7 @@ type RuntimeContext[C any] interface {
 	IsPartialRequest(r *http.Request) bool
 	RenderPage(r *http.Request, w http.ResponseWriter, component templ.Component, meta metagen.Metadata) error
 	RespondNotFound(w http.ResponseWriter, r *http.Request, notFoundContext NotFoundContext)
-	RespondServerError(w http.ResponseWriter, err error)
+	RespondServerError(w http.ResponseWriter, r *http.Request, err error)
 	LogServerError(err error)
 	LogResolverTiming(event ResolverTiming)
 }
@@ -270,7 +270,7 @@ func servePageModule[C any, P any, VM any](
 			return true
 		}
 		if err := runtime.RenderPage(r, w, component, meta); err != nil {
-			runtime.RespondServerError(w, fmt.Errorf("render route %q: %w", module.Pattern, err))
+			runtime.RespondServerError(w, r, fmt.Errorf("render route %q: %w", module.Pattern, err))
 		}
 		return true
 	}
@@ -291,7 +291,7 @@ func servePageModule[C any, P any, VM any](
 		component = module.RootLayout(meta, locale, component)
 	}
 	if err := runtime.RenderPage(r, w, component, meta); err != nil {
-		runtime.RespondServerError(w, fmt.Errorf("render route %q: %w", module.Pattern, err))
+		runtime.RespondServerError(w, r, fmt.Errorf("render route %q: %w", module.Pattern, err))
 	}
 	return true
 }
@@ -583,7 +583,7 @@ func handleModuleError[C any](
 		return
 	}
 
-	runtime.RespondServerError(w, fmt.Errorf("%s route %q: %w", stage, routePattern, err))
+	runtime.RespondServerError(w, r, fmt.Errorf("%s route %q: %w", stage, routePattern, err))
 }
 
 func loadMethodName[C any, P any, VM any](module PageModule[C, P, VM]) string {

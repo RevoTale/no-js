@@ -149,7 +149,7 @@ func TestNotFoundAndServerErrorClassification(t *testing.T) {
 				notFoundCalled = true
 				notFoundContext = ctx
 			},
-			HandleServerError: func(http.ResponseWriter, error) {
+			HandleServerError: func(http.ResponseWriter, *http.Request, error) {
 				serverErrorCalled = true
 			},
 		})
@@ -186,7 +186,7 @@ func TestNotFoundAndServerErrorClassification(t *testing.T) {
 			HandleNotFound: func(http.ResponseWriter, *http.Request, framework.NotFoundContext) {
 				notFoundCalled = true
 			},
-			HandleServerError: func(http.ResponseWriter, error) {
+			HandleServerError: func(http.ResponseWriter, *http.Request, error) {
 				serverErrorCalled = true
 			},
 		})
@@ -289,7 +289,7 @@ func TestMetaGenRunsConcurrentlyWithLoad(t *testing.T) {
 			}
 			return nil
 		},
-		HandleServerError: func(_ http.ResponseWriter, err error) {
+		HandleServerError: func(_ http.ResponseWriter, _ *http.Request, err error) {
 			if errors.Is(err, errConcurrent) {
 				serverErrCalled = true
 			}
@@ -490,7 +490,7 @@ func TestLoadFailureBeforeRootRenderUsesServerError(t *testing.T) {
 		RenderPage: func(_ *http.Request, _ http.ResponseWriter, _ templ.Component, _ metagen.Metadata) error {
 			return nil
 		},
-		HandleServerError: func(_ http.ResponseWriter, err error) {
+		HandleServerError: func(_ http.ResponseWriter, _ *http.Request, err error) {
 			handledErr = err
 		},
 	})

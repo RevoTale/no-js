@@ -10,7 +10,7 @@ css analyticsShell() {
 	text-transform: uppercase;
 }
 
-templ Default(view runtime.RootLayoutView) {
+templ Default(model view.RootLayoutView) {
 	<aside class={ analyticsShell() } data-slot="analytics">
 		<p>Quarterly analytics</p>
 		@components.ProfileCard("Conversions", 72)

@@ -17,7 +17,7 @@ Fix:
   `no-js.bundle.yaml`
 - make sure the configured paths stay inside the app root
 
-## `root template is required`, `root 404 template is required`, Or `root error template is required`
+## `root template is required` Or `root 404 template is required`
 
 Cause:
 
@@ -27,9 +27,10 @@ Fix:
 
 - add `web/routes/root.templ`
 - add `web/routes/404.templ`
-- add `web/routes/error.templ`
 
-These three files are required on the happy path.
+These files are required on the happy path. `web/routes/error.templ` is not a
+required framework file; use `httpserver.CustomConfig.ServerErrorPage` when you
+need custom 500 UI.
 
 ## `unsupported route template`, `default.templ is only allowed...`, Or `route.go is not allowed inside slot directories`
 
@@ -40,7 +41,7 @@ Cause:
 Fix:
 
 - keep route templates limited to `root.templ`, `page.templ`, `layout.templ`,
-  `default.templ`, `404.templ`, and `error.templ`
+  `default.templ`, and `404.templ`
 - keep `default.templ` only at a slot root
 - keep `route.go`, `robots.go`, `feed.go`, and `sitemap.go` out of slot
   directories
@@ -143,7 +144,7 @@ Fix:
 
 - construct `appContext` first
 - pass `generated.Bundle(appContext)` into `httpserver.NewApp(...)`
-- avoid calling `NewApp(...)` with a nil `*runtime.Context`
+- avoid calling `NewApp(...)` with a nil `*view.Context`
 
 ## `no templ files found`
 

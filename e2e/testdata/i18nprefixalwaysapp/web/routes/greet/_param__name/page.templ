@@ -3,13 +3,13 @@ package name
 import "example.com/no-js-e2e/i18nprefixalwaysapp/web/components"
 import "example.com/no-js-e2e/i18nprefixalwaysapp/web/view"
 
-templ Page(view runtime.GreetPageView) {
+templ Page(model view.GreetPageView) {
 	<main id="greet-page">
-		@components.Hero(view.Heading, view.Locale)
-		<p id="greet-description">{ view.Description }</p>
+		@components.Hero(model.Heading, model.Locale)
+		<p id="greet-description">{ model.Description }</p>
 		<nav>
-			<a id="switch-en" href={ view.SwitchToEnglish }>English</a>
-			<a id="switch-de" href={ view.SwitchToGerman }>Deutsch</a>
+			<a id="switch-en" href={ model.SwitchToEnglish }>English</a>
+			<a id="switch-de" href={ model.SwitchToGerman }>Deutsch</a>
 		</nav>
 	</main>
 }

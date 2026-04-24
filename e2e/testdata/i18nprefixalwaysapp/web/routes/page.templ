@@ -3,13 +3,13 @@ package routes
 import "example.com/no-js-e2e/i18nprefixalwaysapp/web/components"
 import "example.com/no-js-e2e/i18nprefixalwaysapp/web/view"
 
-templ Page(view runtime.HomePageView) {
+templ Page(model view.HomePageView) {
 	<main id="home-page">
-		@components.Hero(view.Heading, view.Locale)
-		<p id="home-kicker">{ view.Kicker }</p>
+		@components.Hero(model.Heading, model.Locale)
+		<p id="home-kicker">{ model.Kicker }</p>
 		<nav>
-			<a id="switch-en" href={ view.SwitchToEnglish }>English</a>
-			<a id="switch-de" href={ view.SwitchToGerman }>Deutsch</a>
+			<a id="switch-en" href={ model.SwitchToEnglish }>English</a>
+			<a id="switch-de" href={ model.SwitchToGerman }>Deutsch</a>
 		</nav>
 	</main>
 }

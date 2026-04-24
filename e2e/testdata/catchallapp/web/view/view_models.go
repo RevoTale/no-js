@@ -1,6 +1,4 @@
-package runtime
-
-import "github.com/a-h/templ"
+package view
 
 type RootLayoutView struct {
 	PageTitle string
@@ -16,14 +14,10 @@ type CatchAllPageView struct {
 	Depth  string
 }
 
-func NewNotFoundView(messages *Messages) RootLayoutView {
+func NewNotFoundView() RootLayoutView {
 	return RootLayoutView{PageTitle: "Not Found"}
 }
 
-func NewErrorView(messages *Messages) RootLayoutView {
+func NewErrorView() RootLayoutView {
 	return RootLayoutView{PageTitle: "Error"}
-}
-
-func TemplCSSVariants() []templ.CSSClass {
-	return nil
 }

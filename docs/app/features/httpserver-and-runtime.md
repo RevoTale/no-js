@@ -13,7 +13,7 @@ routes discovery endpoints.
 ## Happy Path
 
 ```go
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
+handler, err := httpserver.NewApp(httpserver.Config[*view.Context]{
 	App: generated.Bundle(appContext),
 })
 if err != nil {
@@ -35,13 +35,15 @@ This is the preferred path for normal apps. It keeps the app contract short:
 - health endpoint: `/healthz`
 - health body: `ok`
 - gzip compression: enabled
+- server errors: log through the configured/default logger and return plain
+  `Internal Server Error`
 
 ## Use `Custom Config` For App-Owned Hooks
 
 Add `Custom Config` only when the default path is not enough:
 
 ```go
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
+handler, err := httpserver.NewApp(httpserver.Config[*view.Context]{
 	App: generated.Bundle(appContext),
 	Custom: httpserver.CustomConfig{
 		MainMiddlewares: []func(http.Handler) http.Handler{
@@ -58,6 +60,8 @@ Good fits for `Custom Config`:
 - cache-policy overrides
 - static asset overrides
 - public-file overrides
+- generic custom 500 page through `ServerErrorPage`
+- request-aware server error logging through `LogServerErrorEvent`
 - health endpoint overrides
 - resolver debug logging
 

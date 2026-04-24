@@ -5,7 +5,7 @@
 Use it with the generated `App Bundle`:
 
 ```go
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
+handler, err := httpserver.NewApp(httpserver.Config[*view.Context]{
 	App: generated.Bundle(appContext),
 })
 ```
@@ -42,7 +42,8 @@ The generated bundle supplies:
 - site-root resolution through `appContext.ResolveRoot`
 - generated not-found rendering
 - templ CSS registration
-- static asset base-path callback through `runtime.SetStaticAssetBasePath`
+- static asset base-path callback through `view.SetStaticAssetBasePath`
+  when your `web/view` package defines that hook
 
 Do not hand-build the bundle unless you are intentionally doing advanced
 composition.
@@ -52,7 +53,7 @@ composition.
 `Custom Config` is the main escape hatch around the default runtime.
 
 ```go
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
+handler, err := httpserver.NewApp(httpserver.Config[*view.Context]{
 	App: generated.Bundle(appContext),
 	Custom: httpserver.CustomConfig{
 		MainMiddlewares: []func(http.Handler) http.Handler{
@@ -74,8 +75,16 @@ Supported `Custom Config` fields:
   Override manifest path or base URL prefix.
 - `PublicFiles`
   Override public-file directory, request-path prefix, or cache policy.
+- `ServerErrorPage`
+  Render a generic custom 500 page. The hook receives the error, but not the
+  request, so it should not be used for localized or request-scoped content.
+- `LogServerErrorEvent`
+  Replace the default server-error logger with request-aware event logging.
+  The event includes the error, request pointer, method, path, query, host,
+  remote address, user agent, and common request ID headers.
 - `LogServerError`
-  Replace the default server-error logger.
+  Replace the default server-error logger with the legacy error-only callback.
+  Ignored when `LogServerErrorEvent` is set.
 - `LogResolverTiming`
   Receive resolver timing events when resolver debug is enabled.
 - `EnableResolverDebug`

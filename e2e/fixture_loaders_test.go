@@ -101,15 +101,21 @@ type methodMatrixFixture struct {
 }
 
 type prefixAlwaysFixture struct {
-	RootRedirect  responseSnapshot
-	HomeEN        responseSnapshot
-	HomeDE        responseSnapshot
-	GreetRedirect responseSnapshot
-	GreetEN       responseSnapshot
-	GreetDE       responseSnapshot
-	GreetPartial  responseSnapshot
-	Stylesheet    responseSnapshot
-	StylesheetURL string
+	RootRedirect       responseSnapshot
+	HomeEN             responseSnapshot
+	HomeDE             responseSnapshot
+	NotFoundEN         responseSnapshot
+	NotFoundDE         responseSnapshot
+	PageLoadNotFoundEN responseSnapshot
+	PageLoadNotFoundDE responseSnapshot
+	HelpNotFoundEN     responseSnapshot
+	HelpNotFoundDE     responseSnapshot
+	GreetRedirect      responseSnapshot
+	GreetEN            responseSnapshot
+	GreetDE            responseSnapshot
+	GreetPartial       responseSnapshot
+	Stylesheet         responseSnapshot
+	StylesheetURL      string
 }
 
 type customRuntimeFixture struct {
@@ -369,12 +375,18 @@ func loadPrefixAlwaysFixture(t *testing.T) prefixAlwaysFixture {
 	stylesheetURL := extractStylesheetURL(t, homeEN.Body)
 
 	return prefixAlwaysFixture{
-		RootRedirect:  requestFixture(t, server, http.MethodGet, "/", nil, opts),
-		HomeEN:        homeEN,
-		HomeDE:        requestFixture(t, server, http.MethodGet, "/de", nil, opts),
-		GreetRedirect: requestFixture(t, server, http.MethodGet, "/greet/ada", nil, opts),
-		GreetEN:       requestFixture(t, server, http.MethodGet, "/en/greet/ada", nil, opts),
-		GreetDE:       requestFixture(t, server, http.MethodGet, "/de/greet/ada", nil, opts),
+		RootRedirect:       requestFixture(t, server, http.MethodGet, "/", nil, opts),
+		HomeEN:             homeEN,
+		HomeDE:             requestFixture(t, server, http.MethodGet, "/de", nil, opts),
+		NotFoundEN:         requestFixture(t, server, http.MethodGet, "/en/missing", nil, opts),
+		NotFoundDE:         requestFixture(t, server, http.MethodGet, "/de/missing", nil, opts),
+		PageLoadNotFoundEN: requestFixture(t, server, http.MethodGet, "/en/fail", nil, opts),
+		PageLoadNotFoundDE: requestFixture(t, server, http.MethodGet, "/de/fail", nil, opts),
+		HelpNotFoundEN:     requestFixture(t, server, http.MethodGet, "/en/help/fail", nil, opts),
+		HelpNotFoundDE:     requestFixture(t, server, http.MethodGet, "/de/help/fail", nil, opts),
+		GreetRedirect:      requestFixture(t, server, http.MethodGet, "/greet/ada", nil, opts),
+		GreetEN:            requestFixture(t, server, http.MethodGet, "/en/greet/ada", nil, opts),
+		GreetDE:            requestFixture(t, server, http.MethodGet, "/de/greet/ada", nil, opts),
 		GreetPartial: requestFixture(
 			t,
 			server,

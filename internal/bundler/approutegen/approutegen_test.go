@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/RevoTale/no-js/internal/bundler/viewcontract"
 	"github.com/RevoTale/no-js/internal/projectlayout"
 	"github.com/stretchr/testify/require"
 )
@@ -103,7 +104,7 @@ func TestDiscoverRouteFilesRejectsPageAndRouteGoAtSameRoute(t *testing.T) {
 import (
 	"net/http"
 
-	view "example.com/app/web/view"
+	"example.com/app/web/view"
 	"github.com/RevoTale/no-js/framework"
 )
 
@@ -237,7 +238,7 @@ func TestDiscoverRouteFilesCollectsNotFoundTemplates(t *testing.T) {
 
 import "example.com/app/web/view"
 
-templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ NotFound(model view.RootLayoutView, path string) { <div>{ path }</div> }
 `,
 	)
 	writeTestFile(
@@ -247,7 +248,7 @@ templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 
 import "example.com/app/web/view"
 
-templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ NotFound(model view.RootLayoutView, path string) { <div>{ path }</div> }
 `,
 	)
 	writeTestFile(
@@ -257,7 +258,7 @@ templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.AuthorPageView) { <div id="notes-content"></div> }
+templ Page(model view.AuthorPageView) { <div id="notes-content"></div> }
 `,
 	)
 
@@ -284,7 +285,7 @@ func TestDiscoverRouteFilesCollectsDiscoveryConventions(t *testing.T) {
 import (
 	"net/http"
 
-	view "example.com/app/web/view"
+	"example.com/app/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/discovery"
 )
@@ -302,7 +303,7 @@ func Robots(runtime framework.RuntimeContext[*view.Context], r *http.Request) (d
 import (
 	"net/http"
 
-	view "example.com/app/web/view"
+	"example.com/app/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/discovery"
 )
@@ -333,7 +334,7 @@ func SitemapChunk(
 import (
 	"net/http"
 
-	view "example.com/app/web/view"
+	"example.com/app/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/discovery"
 )
@@ -351,7 +352,7 @@ import (
 import (
 	"net/http"
 
-	view "example.com/app/web/view"
+	"example.com/app/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/discovery"
 )
@@ -369,7 +370,7 @@ func Sitemap(runtime framework.RuntimeContext[*view.Context], r *http.Request) (
 import (
 	"net/http"
 
-	view "example.com/app/web/view"
+	"example.com/app/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/discovery"
 )
@@ -418,7 +419,7 @@ func TestValidateDiscoveryConventionsRejectsIncompleteDynamicSitemap(t *testing.
 import (
 	"net/http"
 
-	view "example.com/app/web/view"
+	"example.com/app/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/discovery"
 )
@@ -458,7 +459,7 @@ func TestValidateDiscoveryConventionsRejectsNestedPatternConflicts(t *testing.T)
 import (
 	"net/http"
 
-	view "example.com/app/web/view"
+	"example.com/app/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/discovery"
 )
@@ -476,7 +477,7 @@ func Feed(runtime framework.RuntimeContext[*view.Context], r *http.Request) (dis
 import (
 	"net/http"
 
-	view "example.com/app/web/view"
+	"example.com/app/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/discovery"
 )
@@ -509,23 +510,23 @@ func TestParsePageViewType(t *testing.T) {
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.NotePageView) { <div/> }
+templ Page(model view.NotePageView) { <div/> }
 `,
 	)
 
 	viewType, err := parsePageViewType(pagePath)
 	require.NoError(t, err)
-	require.Equal(t, "runtime.NotePageView", viewType)
+	require.Equal(t, "view.NotePageView", viewType)
 }
 
-func TestParsePageViewTypeRejectsNonRuntimeType(t *testing.T) {
+func TestParsePageViewTypeRejectsNonViewType(t *testing.T) {
 	root := t.TempDir()
 	pagePath := filepath.Join(root, "page.templ")
 	writeTestFile(t, pagePath, "package appsrc\n\ntempl Page(view note.NotePageView) { <div/> }\n")
 
 	_, err := parsePageViewType(pagePath)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "runtime-qualified")
+	require.Contains(t, err.Error(), "view-qualified")
 }
 
 func TestValidateLayoutTemplateSignature(t *testing.T) {
@@ -533,6 +534,7 @@ func TestValidateLayoutTemplateSignature(t *testing.T) {
 	rootValidPath := filepath.Join(root, "root_layout_valid.templ")
 	rootInvalidPath := filepath.Join(root, "root_layout_invalid.templ")
 	childValidPath := filepath.Join(root, "child_layout_valid.templ")
+	childValidNamedPath := filepath.Join(root, "child_layout_valid_named.templ")
 	childInvalidPath := filepath.Join(root, "child_layout_invalid.templ")
 	writeTestFile(
 		t,
@@ -544,7 +546,7 @@ import (
   "example.com/app/web/view"
 )
 
-templ Layout(meta metagen.Metadata, view runtime.RootLayoutView, child templ.Component) { @child }
+templ Layout(meta metagen.Metadata, model view.RootLayoutView, child templ.Component) { @child }
 `,
 	)
 	writeTestFile(
@@ -557,7 +559,7 @@ import (
   "example.com/app/web/view"
 )
 
-templ Layout(meta metagen.Metadata, view runtime.NotesPageView, child templ.Component) { @child }
+templ Layout(meta metagen.Metadata, model view.NotesPageView, child templ.Component) { @child }
 `,
 	)
 	writeTestFile(
@@ -567,7 +569,17 @@ templ Layout(meta metagen.Metadata, view runtime.NotesPageView, child templ.Comp
 
 import "example.com/app/web/view"
 
-templ Layout(view runtime.RootLayoutView, child templ.Component) { @child }
+templ Layout(model view.RootLayoutView, child templ.Component) { @child }
+`,
+	)
+	writeTestFile(
+		t,
+		childValidNamedPath,
+		`package appsrc
+
+import "example.com/app/web/view"
+
+templ Layout(layoutView view.RootLayoutView, child templ.Component) { @child }
 `,
 	)
 	writeTestFile(
@@ -580,7 +592,7 @@ import (
   "example.com/app/web/view"
 )
 
-templ Layout(meta metagen.Metadata, view runtime.RootLayoutView, child templ.Component) { @child }
+templ Layout(meta metagen.Metadata, model view.RootLayoutView, child templ.Component) { @child }
 `,
 	)
 
@@ -588,6 +600,8 @@ templ Layout(meta metagen.Metadata, view runtime.RootLayoutView, child templ.Com
 	require.Error(t, validateLayoutTemplateSignature(templateDef{RouteID: "", SourcePath: rootInvalidPath}, nil))
 	childValidTemplate := templateDef{RouteID: "author/_param__slug", SourcePath: childValidPath}
 	require.NoError(t, validateLayoutTemplateSignature(childValidTemplate, nil))
+	childValidNamedTemplate := templateDef{RouteID: "author/_param__slug", SourcePath: childValidNamedPath}
+	require.NoError(t, validateLayoutTemplateSignature(childValidNamedTemplate, nil))
 	childInvalidTemplate := templateDef{RouteID: "author/_param__slug", SourcePath: childInvalidPath}
 	require.Error(t, validateLayoutTemplateSignature(childInvalidTemplate, nil))
 }
@@ -603,7 +617,7 @@ func TestValidateNotFoundTemplateSignature(t *testing.T) {
 
 import "example.com/app/web/view"
 
-templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ NotFound(model view.RootLayoutView, path string) { <div>{ path }</div> }
 `,
 	)
 	writeTestFile(
@@ -613,7 +627,7 @@ templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.NotesPageView, path string) { <div>{ path }</div> }
+templ Page(model view.NotesPageView, path string) { <div>{ path }</div> }
 `,
 	)
 
@@ -646,35 +660,6 @@ templ RootLayout(locale string, child templ.Component) { @child }
 
 	require.NoError(t, validateRootTemplateSignature(validPath))
 	require.Error(t, validateRootTemplateSignature(invalidPath))
-}
-
-func TestValidateErrorTemplateSignature(t *testing.T) {
-	root := t.TempDir()
-	validPath := filepath.Join(root, "error_valid.templ")
-	invalidPath := filepath.Join(root, "error_invalid.templ")
-	writeTestFile(
-		t,
-		validPath,
-		`package appsrc
-
-import "example.com/app/web/view"
-
-templ Error(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
-`,
-	)
-	writeTestFile(
-		t,
-		invalidPath,
-		`package appsrc
-
-import "example.com/app/web/view"
-
-templ Error(view runtime.NotePageView, path string) { <div>{ path }</div> }
-`,
-	)
-
-	require.NoError(t, validateErrorTemplateSignature(validPath))
-	require.Error(t, validateErrorTemplateSignature(invalidPath))
 }
 
 func TestValidateNoDocumentTagsAllowsHeader(t *testing.T) {
@@ -715,13 +700,13 @@ func TestBuildRouteMetasPageOnly(t *testing.T) {
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.NotesPageView) { <div id="notes-content"></div> }
+templ Page(model view.NotesPageView) { <div id="notes-content"></div> }
 `
 	authorTemplate := `package appsrc
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.AuthorPageView) { <div id="notes-content"></div> }
+templ Page(model view.AuthorPageView) { <div id="notes-content"></div> }
 `
 	writeTestFile(t, filepath.Join(appRoot, "page.templ"), rootTemplate)
 	writeTestFile(t, filepath.Join(appRoot, "author", "_param__slug", "page.templ"), authorTemplate)
@@ -739,11 +724,11 @@ templ Page(view runtime.AuthorPageView) { <div id="notes-content"></div> }
 
 	rootMeta, ok := byRoute[""]
 	require.True(t, ok)
-	require.Equal(t, "runtime.NotesPageView", rootMeta.PageViewType)
+	require.Equal(t, "view.NotesPageView", rootMeta.PageViewType)
 
 	authorMeta, ok := byRoute["author/_param__slug"]
 	require.True(t, ok)
-	require.Equal(t, "runtime.AuthorPageView", authorMeta.PageViewType)
+	require.Equal(t, "view.AuthorPageView", authorMeta.PageViewType)
 }
 
 func TestBuildRouteMetasAllowsNonPageViewSuffix(t *testing.T) {
@@ -755,7 +740,7 @@ func TestBuildRouteMetasAllowsNonPageViewSuffix(t *testing.T) {
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.NoteView) { <div id="note-content"></div> }
+templ Page(model view.NoteView) { <div id="note-content"></div> }
 `
 	writeTestFile(t, filepath.Join(appRoot, "note", "_param__slug", "page.templ"), pageTemplate)
 
@@ -765,7 +750,7 @@ templ Page(view runtime.NoteView) { <div id="note-content"></div> }
 	metas, err := buildRouteMetas(routes.Pages, projectlayout.ProjectLayout{})
 	require.NoError(t, err)
 	require.Len(t, metas, 1)
-	require.Equal(t, "runtime.NoteView", metas[0].PageViewType)
+	require.Equal(t, "view.NoteView", metas[0].PageViewType)
 }
 
 func TestResolverNamespaceGenerationDeterministic(t *testing.T) {
@@ -774,14 +759,14 @@ func TestResolverNamespaceGenerationDeterministic(t *testing.T) {
 			RouteID:        "",
 			RouteName:      "Root",
 			ParamsTypeName: "RootParams",
-			PageViewType:   "runtime.NotesPageView",
+			PageViewType:   "view.NotesPageView",
 		},
 		{
 			RouteID:        "author/_param__slug",
 			RouteName:      "AuthorParamSlug",
 			ParamsTypeName: "AuthorParamSlugParams",
 			Params:         []routeParamDef{{Name: "slug", FieldName: "Slug"}},
-			PageViewType:   "runtime.AuthorPageView",
+			PageViewType:   "view.AuthorPageView",
 		},
 	}
 
@@ -809,7 +794,7 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 			RouteID:        "",
 			RouteName:      "Root",
 			ParamsTypeName: "RootParams",
-			PageViewType:   "runtime.NotesPageView",
+			PageViewType:   "view.NotesPageView",
 			Page:           templateDef{ModuleName: "r_page_root"},
 		},
 		{
@@ -817,13 +802,14 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 			RouteName:      "AuthorParamSlug",
 			ParamsTypeName: "AuthorParamSlugParams",
 			Params:         []routeParamDef{{Name: "slug", FieldName: "Slug"}},
-			PageViewType:   "runtime.AuthorPageView",
+			PageViewType:   "view.AuthorPageView",
 			Page:           templateDef{ModuleName: "r_page_author_param_slug"},
 		},
 	}
 
 	registry, err := generateRegistrySource(
 		projectlayout.ProjectLayout{GeneratedImport: "web/generated", AppModulePath: testAppModulePath},
+		zeroArgViewInspection(),
 		metas,
 		nil,
 		nil,
@@ -841,13 +827,6 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 				ModuleName: "r_not_found_root",
 			},
 		},
-		map[string]templateDef{
-			"": {
-				Kind:       errorTemplate,
-				RouteID:    "",
-				ModuleName: "r_error_root",
-			},
-		},
 	)
 	require.NoError(t, err)
 
@@ -856,19 +835,22 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 	require.NotContains(t, text, "rr_")
 	require.Contains(t, text, "func NewRouteResolvers() RouteResolvers")
 	require.Contains(t, text, "return &route_resolvers.Resolver{}")
+	require.Contains(t, text, "type NotFoundViewResolver interface")
+	require.Contains(
+		t,
+		text,
+		"func NotFoundPage(resolvers RouteResolvers) func(appCtx *view.Context, "+
+			"r *http.Request, notFound framework.NotFoundContext) templ.Component",
+	)
 	require.Contains(t, text, "framework.PageOnlyRouteHandler")
 	require.NotContains(t, text, "PageAndLiveRouteHandler")
 	require.NotContains(t, text, "/.live/")
 	require.NotContains(t, text, "ParseRootLiveState")
-	require.Contains(
-		t,
-		text,
-		"func NotFoundPage(appCtx *runtime.Context, r *http.Request, "+
-			"notFound framework.NotFoundContext) templ.Component",
-	)
+	require.Contains(t, text, "return renderNotFoundPage(resolvers, appCtx, r, notFound)")
 	require.Contains(t, text, "RootLayout: r_root_root.RootLayout")
 	require.Contains(t, text, "MetaGenContextChain: []framework.PageMetaGenContext")
-	require.Contains(t, text, "ErrorPage: func(appCtx *runtime.Context, r *http.Request) templ.Component")
+	require.NotContains(t, text, "ErrorPage:")
+	require.NotContains(t, text, "r_error_root")
 }
 
 func TestRegistryGenerationRequiresRootNotFoundTemplate(t *testing.T) {
@@ -877,13 +859,14 @@ func TestRegistryGenerationRequiresRootNotFoundTemplate(t *testing.T) {
 			RouteID:        "",
 			RouteName:      "Root",
 			ParamsTypeName: "RootParams",
-			PageViewType:   "runtime.NotesPageView",
+			PageViewType:   "view.NotesPageView",
 			Page:           templateDef{ModuleName: "r_page_root"},
 		},
 	}
 
 	_, err := generateRegistrySource(
 		projectlayout.ProjectLayout{GeneratedImport: "web/generated", AppModulePath: testAppModulePath},
+		zeroArgViewInspection(),
 		metas,
 		nil,
 		nil,
@@ -895,13 +878,6 @@ func TestRegistryGenerationRequiresRootNotFoundTemplate(t *testing.T) {
 		},
 		map[string]templateDef{},
 		map[string]templateDef{},
-		map[string]templateDef{
-			"": {
-				Kind:       errorTemplate,
-				RouteID:    "",
-				ModuleName: "r_error_root",
-			},
-		},
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing root 404")
@@ -914,13 +890,14 @@ func TestRegistryGenerationCombinesRootAndDynamicNotFoundCases(t *testing.T) {
 			RouteName:      "AuthorParamSlug",
 			ParamsTypeName: "AuthorParamSlugParams",
 			Params:         []routeParamDef{{Name: "slug", FieldName: "Slug"}},
-			PageViewType:   "runtime.AuthorPageView",
+			PageViewType:   "view.AuthorPageView",
 			Page:           templateDef{ModuleName: "r_page_author_param_slug"},
 		},
 	}
 
 	registry, err := generateRegistrySource(
 		projectlayout.ProjectLayout{GeneratedImport: "web/generated", AppModulePath: testAppModulePath},
+		zeroArgViewInspection(),
 		metas,
 		nil,
 		nil,
@@ -943,31 +920,25 @@ func TestRegistryGenerationCombinesRootAndDynamicNotFoundCases(t *testing.T) {
 				ModuleName: "r_not_found_author_param_slug",
 			},
 		},
-		map[string]templateDef{
-			"": {
-				Kind:       errorTemplate,
-				RouteID:    "",
-				ModuleName: "r_error_root",
-			},
-		},
 	)
 	require.NoError(t, err)
 	require.Contains(t, string(registry), `case "", "author/_param__slug":`)
 }
 
-func TestRegistryGenerationRequiresRootErrorTemplate(t *testing.T) {
+func TestRegistryGenerationDoesNotRequireRootErrorTemplate(t *testing.T) {
 	metas := []routeMeta{
 		{
 			RouteID:        "",
 			RouteName:      "Root",
 			ParamsTypeName: "RootParams",
-			PageViewType:   "runtime.NotesPageView",
+			PageViewType:   "view.NotesPageView",
 			Page:           templateDef{ModuleName: "r_page_root"},
 		},
 	}
 
-	_, err := generateRegistrySource(
+	registry, err := generateRegistrySource(
 		projectlayout.ProjectLayout{GeneratedImport: "web/generated", AppModulePath: testAppModulePath},
+		zeroArgViewInspection(),
 		metas,
 		nil,
 		nil,
@@ -985,13 +956,12 @@ func TestRegistryGenerationRequiresRootErrorTemplate(t *testing.T) {
 				ModuleName: "r_not_found_root",
 			},
 		},
-		map[string]templateDef{},
 	)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "missing root error")
+	require.NoError(t, err)
+	require.NotContains(t, string(registry), "ErrorPage:")
 }
 
-func TestRegistryGenerationWiresNearestErrorTemplate(t *testing.T) {
+func TestRegistryGenerationDoesNotWireErrorTemplateModules(t *testing.T) {
 	metas := []routeMeta{
 		{
 			RouteID:        "author/_param__slug/note/_param__noteSlug",
@@ -1001,13 +971,14 @@ func TestRegistryGenerationWiresNearestErrorTemplate(t *testing.T) {
 				{Name: "slug", FieldName: "Slug"},
 				{Name: "noteSlug", FieldName: "Noteslug"},
 			},
-			PageViewType: "runtime.NotePageView",
+			PageViewType: "view.NotePageView",
 			Page:         templateDef{ModuleName: "r_page_author_param_slug_note_param_noteslug"},
 		},
 	}
 
 	registry, err := generateRegistrySource(
 		projectlayout.ProjectLayout{GeneratedImport: "web/generated", AppModulePath: testAppModulePath},
+		zeroArgViewInspection(),
 		metas,
 		nil,
 		nil,
@@ -1025,23 +996,12 @@ func TestRegistryGenerationWiresNearestErrorTemplate(t *testing.T) {
 				ModuleName: "r_not_found_root",
 			},
 		},
-		map[string]templateDef{
-			"": {
-				Kind:       errorTemplate,
-				RouteID:    "",
-				ModuleName: "r_error_root",
-			},
-			"author/_param__slug": {
-				Kind:       errorTemplate,
-				RouteID:    "author/_param__slug",
-				ModuleName: "r_error_author_param_slug",
-			},
-		},
 	)
 	require.NoError(t, err)
 
 	text := string(registry)
-	require.Contains(t, text, "component := r_error_author_param_slug.Error(view, pathValue)")
+	require.NotContains(t, text, "ErrorPage:")
+	require.NotContains(t, text, "r_error_")
 }
 
 func TestGenerateSourcePackageParamsFileUsesPublicRouteID(t *testing.T) {
@@ -1063,6 +1023,9 @@ func TestRunGeneratesMethodRoutesFromGroupedRouteGo(t *testing.T) {
 	appDir := filepath.Join(rootDir, "internal", "web", "app")
 	genDir := filepath.Join(rootDir, "internal", "web", "gen")
 	resolverDir := filepath.Join(rootDir, "internal", "web", "resolvers")
+	viewDir := filepath.Join(rootDir, "web", "view")
+
+	writeMinimalZeroArgViewPackage(t, viewDir)
 
 	writeTestFile(t, filepath.Join(appDir, "root.templ"), `package appsrc
 
@@ -1074,20 +1037,20 @@ templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { 
 
 import "example.com/app/web/view"
 
-templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ NotFound(model view.RootLayoutView, path string) { <div>{ path }</div> }
 `)
 	writeTestFile(t, filepath.Join(appDir, "error.templ"), `package appsrc
 
 import "example.com/app/web/view"
 
-templ Error(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ Error(model view.DoesNotExist, path string) { <div>{ path }</div> }
 `)
 	writeTestFile(t, filepath.Join(appDir, "_group__marketing", "posts", "_param__slug", "route.go"), `package routes
 
 import (
 	"net/http"
 
-	view "example.com/app/web/view"
+	"example.com/app/web/view"
 	"github.com/RevoTale/no-js/framework"
 )
 
@@ -1109,6 +1072,8 @@ func GET(
 			GeneratedDir:    genDir,
 			GeneratedImport: "web/generated",
 			ResolversDir:    resolverDir,
+			ViewDir:         viewDir,
+			ViewImport:      "web/view",
 			AppModulePath:   testAppModulePath,
 		},
 	})
@@ -1131,6 +1096,9 @@ func TestRunGeneratesSlotComposeWithoutSlotMetadata(t *testing.T) {
 	appDir := filepath.Join(rootDir, "internal", "web", "app")
 	genDir := filepath.Join(rootDir, "internal", "web", "gen")
 	resolverDir := filepath.Join(rootDir, "internal", "web", "resolvers")
+	viewDir := filepath.Join(rootDir, "web", "view")
+
+	writeMinimalZeroArgViewPackage(t, viewDir)
 
 	writeTestFile(t, filepath.Join(appDir, "root.templ"), `package appsrc
 
@@ -1142,19 +1110,19 @@ templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { 
 
 import "example.com/app/web/view"
 
-templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ NotFound(model view.RootLayoutView, path string) { <div>{ path }</div> }
 `)
 	writeTestFile(t, filepath.Join(appDir, "error.templ"), `package appsrc
 
 import "example.com/app/web/view"
 
-templ Error(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ Error(model view.RootLayoutView, path string) { <div>{ path }</div> }
 `)
 	writeTestFile(t, filepath.Join(appDir, "dashboard", "layout.templ"), `package appsrc
 
 import "example.com/app/web/view"
 
-templ Layout(view runtime.RootLayoutView, child templ.Component, analytics templ.Component) {
+templ Layout(model view.RootLayoutView, child templ.Component, analytics templ.Component) {
 	@child
 	@analytics
 }
@@ -1163,19 +1131,19 @@ templ Layout(view runtime.RootLayoutView, child templ.Component, analytics templ
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.NotesPageView) { <div>dashboard</div> }
+templ Page(model view.NotesPageView) { <div>dashboard</div> }
 `)
 	writeTestFile(t, filepath.Join(appDir, "dashboard", "_slot__analytics", "default.templ"), `package appsrc
 
 import "example.com/app/web/view"
 
-templ Default(view runtime.RootLayoutView) { <div>default analytics</div> }
+templ Default(model view.RootLayoutView) { <div>default analytics</div> }
 `)
 	writeTestFile(t, filepath.Join(appDir, "dashboard", "_slot__analytics", "page.templ"), `package appsrc
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.NotesPageView) { <div>analytics</div> }
+templ Page(model view.NotesPageView) { <div>analytics</div> }
 `)
 
 	err := Run(Config{
@@ -1185,6 +1153,8 @@ templ Page(view runtime.NotesPageView) { <div>analytics</div> }
 			GeneratedDir:    genDir,
 			GeneratedImport: "web/generated",
 			ResolversDir:    resolverDir,
+			ViewDir:         viewDir,
+			ViewImport:      "web/view",
 			AppModulePath:   testAppModulePath,
 		},
 	})
@@ -1200,7 +1170,7 @@ templ Page(view runtime.NotesPageView) { <div>analytics</div> }
 	require.Contains(t, registryText, "component, err := resolveDashboardAnalyticsSlot")
 	require.Contains(t, registryText, "dashboardAnalyticsSlot = component")
 	require.Contains(t, registryText, "r_layout_dashboard.Layout(view, component, dashboardAnalyticsSlot)")
-	require.Contains(t, registryText, "component := r_default_dashboard_slot_analytics.Default(view)")
+	require.Contains(t, registryText, "component := r_default_dashboard_slot_analytics.Default(model)")
 
 	resolverSource, err := os.ReadFile(filepath.Join(resolverDir, generatedResolverFileName))
 	require.NoError(t, err)
@@ -1212,6 +1182,9 @@ func TestRunGeneratesGroupedPageSlotAndMethodRouteTree(t *testing.T) {
 	appDir := filepath.Join(rootDir, "internal", "web", "app")
 	genDir := filepath.Join(rootDir, "internal", "web", "gen")
 	resolverDir := filepath.Join(rootDir, "internal", "web", "resolvers")
+	viewDir := filepath.Join(rootDir, "web", "view")
+
+	writeMinimalZeroArgViewPackage(t, viewDir)
 
 	writeTestFile(t, filepath.Join(appDir, "root.templ"), `package appsrc
 
@@ -1223,19 +1196,19 @@ templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { 
 
 import "example.com/app/web/view"
 
-templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ NotFound(model view.RootLayoutView, path string) { <div>{ path }</div> }
 `)
 	writeTestFile(t, filepath.Join(appDir, "error.templ"), `package appsrc
 
 import "example.com/app/web/view"
 
-templ Error(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ Error(model view.RootLayoutView, path string) { <div>{ path }</div> }
 `)
 	writeTestFile(t, filepath.Join(appDir, "_group__marketing", "dashboard", "layout.templ"), `package appsrc
 
 import "example.com/app/web/view"
 
-templ Layout(view runtime.RootLayoutView, child templ.Component, analytics templ.Component) {
+templ Layout(model view.RootLayoutView, child templ.Component, analytics templ.Component) {
 	@child
 	@analytics
 }
@@ -1244,7 +1217,7 @@ templ Layout(view runtime.RootLayoutView, child templ.Component, analytics templ
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.NotesPageView) { <div>dashboard</div> }
+templ Page(model view.NotesPageView) { <div>dashboard</div> }
 `)
 	writeTestFile(
 		t,
@@ -1253,7 +1226,7 @@ templ Page(view runtime.NotesPageView) { <div>dashboard</div> }
 
 import "example.com/app/web/view"
 
-templ Default(view runtime.RootLayoutView) { <div>default analytics</div> }
+templ Default(model view.RootLayoutView) { <div>default analytics</div> }
 `,
 	)
 	writeTestFile(
@@ -1263,7 +1236,7 @@ templ Default(view runtime.RootLayoutView) { <div>default analytics</div> }
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.NotesPageView) { <div>analytics</div> }
+templ Page(model view.NotesPageView) { <div>analytics</div> }
 `,
 	)
 	writeTestFile(
@@ -1274,7 +1247,7 @@ templ Page(view runtime.NotesPageView) { <div>analytics</div> }
 import (
 	"net/http"
 
-	view "example.com/app/web/view"
+	"example.com/app/web/view"
 	"github.com/RevoTale/no-js/framework"
 )
 
@@ -1297,6 +1270,8 @@ func GET(
 			GeneratedDir:    genDir,
 			GeneratedImport: "web/generated",
 			ResolversDir:    resolverDir,
+			ViewDir:         viewDir,
+			ViewImport:      "web/view",
 			AppModulePath:   testAppModulePath,
 		},
 	})
@@ -1341,8 +1316,8 @@ func TestGenerateDiscoverySourceWithoutDiscoveryRoutesStillDefinesExactHandlers(
 	require.NoError(t, err)
 
 	text := string(source)
-	require.Contains(t, text, "func DiscoveryBundle() *discovery.Bundle[*runtime.Context]")
-	require.Contains(t, text, "func DiscoveryExactHandlers() []framework.RouteHandler[*runtime.Context]")
+	require.Contains(t, text, "func DiscoveryBundle() *discovery.Bundle[*view.Context]")
+	require.Contains(t, text, "func DiscoveryExactHandlers() []framework.RouteHandler[*view.Context]")
 	require.Contains(t, text, "return nil")
 }
 
@@ -1353,12 +1328,62 @@ func TestGenerateBundleSourceWiresTemplCSSRegistry(t *testing.T) {
 		AppModulePath:   testAppModulePath,
 		GeneratedImport: "web/generated",
 		ViewImport:      "web/view",
-	})
+	}, zeroArgViewInspection())
 	require.NoError(t, err)
 
 	text := string(source)
-	require.Contains(t, text, "func Bundle(appContext *runtime.Context) httpserver.AppBundle[*runtime.Context]")
+	require.Contains(t, text, "func Bundle(appContext *view.Context) httpserver.AppBundle[*view.Context]")
+	require.Contains(t, text, "resolvers := NewRouteResolvers()")
+	require.Contains(t, text, "Handlers:                      Handlers(resolvers),")
+	require.Contains(t, text, "NotFoundPage:                  NotFoundPage(resolvers),")
 	require.Contains(t, text, "TemplCSSClasses:               TemplCSSClasses,")
+	require.Contains(t, text, "OnStaticAssetBasePathResolved: nil,")
+}
+
+func TestGenerateBundleSourceWiresStaticAssetHookWhenPresent(t *testing.T) {
+	t.Parallel()
+
+	source, err := generateBundleSource(projectlayout.ProjectLayout{
+		AppModulePath:   testAppModulePath,
+		GeneratedImport: "web/generated",
+		ViewImport:      "web/view",
+	}, viewcontract.Inspection{
+		SystemPages:                zeroArgViewInspection().SystemPages,
+		HasStaticAssetBasePathHook: true,
+	})
+	require.NoError(t, err)
+	require.Contains(t, string(source), "OnStaticAssetBasePathResolved: view.SetStaticAssetBasePath,")
+}
+
+func TestRegistryGenerationUsesZeroArgSystemPageConstructors(t *testing.T) {
+	t.Parallel()
+
+	registry, err := generateRegistrySource(
+		projectlayout.ProjectLayout{GeneratedImport: "web/generated", AppModulePath: testAppModulePath},
+		zeroArgViewInspection(),
+		[]routeMeta{{
+			RouteID:        "",
+			RouteName:      "Root",
+			ParamsTypeName: "RootParams",
+			PageViewType:   "view.RootPageView",
+			Page:           templateDef{ModuleName: "r_page_root"},
+		}},
+		nil,
+		nil,
+		nil,
+		templateDef{Kind: rootTemplate, RouteID: "", ModuleName: "r_root_root"},
+		map[string]templateDef{},
+		map[string]templateDef{
+			"": {Kind: notFoundTemplate, RouteID: "", ModuleName: "r_not_found_root"},
+		},
+	)
+	require.NoError(t, err)
+
+	text := string(registry)
+	require.Contains(t, text, "view := resolveNotFoundView(resolvers, appCtx, r, notFound)")
+	require.Contains(t, text, "return view.NewNotFoundView()")
+	require.NotContains(t, text, "appCtx.I18n(r)")
+	require.NotContains(t, text, "NewErrorView")
 }
 
 func TestRewritePackageDeclarationAddsGeneratedMarker(t *testing.T) {
@@ -1388,6 +1413,9 @@ func TestRunUsesExplicitProjectLayout(t *testing.T) {
 	appDir := filepath.Join(rootDir, "internal", "web", "app")
 	genDir := filepath.Join(rootDir, "internal", "web", "gen")
 	resolverDir := filepath.Join(rootDir, "internal", "web", "resolvers")
+	viewDir := filepath.Join(rootDir, "web", "view")
+
+	writeMinimalZeroArgViewPackage(t, viewDir)
 
 	writeTestFile(t, filepath.Join(appDir, "root.templ"), `package appsrc
 
@@ -1399,19 +1427,19 @@ templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { 
 
 import "example.com/app/web/view"
 
-templ NotFound(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ NotFound(model view.RootLayoutView, path string) { <div>{ path }</div> }
 `)
 	writeTestFile(t, filepath.Join(appDir, "error.templ"), `package appsrc
 
 import "example.com/app/web/view"
 
-templ Error(view runtime.RootLayoutView, path string) { <div>{ path }</div> }
+templ Error(model view.RootLayoutView, path string) { <div>{ path }</div> }
 `)
 	writeTestFile(t, filepath.Join(appDir, "page.templ"), `package appsrc
 
 import "example.com/app/web/view"
 
-templ Page(view runtime.NotesPageView) { <div>notes</div> }
+templ Page(model view.NotesPageView) { <div>notes</div> }
 `)
 
 	err := Run(Config{
@@ -1421,6 +1449,8 @@ templ Page(view runtime.NotesPageView) { <div>notes</div> }
 			GeneratedDir:    genDir,
 			GeneratedImport: "web/generated",
 			ResolversDir:    resolverDir,
+			ViewDir:         viewDir,
+			ViewImport:      "web/view",
 			AppModulePath:   testAppModulePath,
 		},
 	})
@@ -1432,6 +1462,38 @@ templ Page(view runtime.NotesPageView) { <div>notes</div> }
 	require.Error(t, statErr)
 	_, statErr = os.Stat(filepath.Join(resolverDir, generatedResolverFileName))
 	require.NoError(t, statErr)
+	_, statErr = os.Stat(filepath.Join(genDir, "r_error_root"))
+	require.Error(t, statErr)
+
+	registrySource, err := os.ReadFile(filepath.Join(genDir, "registry_gen.go"))
+	require.NoError(t, err)
+	require.NotContains(t, string(registrySource), "ErrorPage:")
+}
+
+func TestRunRejectsIncompatibleSystemPageConstructors(t *testing.T) {
+	rootDir := t.TempDir()
+	appDir := filepath.Join(rootDir, "web", "routes")
+	genDir := filepath.Join(rootDir, "web", "generated")
+	resolverDir := filepath.Join(rootDir, "web", "resolvers")
+	viewDir := filepath.Join(rootDir, "web", "view")
+
+	writeMinimalRouteTree(t, appDir)
+	writeTypedSystemPageViewPackage(t, viewDir)
+
+	err := Run(Config{
+		Layout: projectlayout.ProjectLayout{
+			RootDir:         rootDir,
+			RoutesDir:       appDir,
+			GeneratedDir:    genDir,
+			GeneratedImport: "web/generated",
+			ResolversDir:    resolverDir,
+			ViewDir:         viewDir,
+			ViewImport:      "web/view",
+			AppModulePath:   testAppModulePath,
+		},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "web/view must define func NewNotFoundView() RootLayoutView")
 }
 
 func writeTestFile(t *testing.T, filePath string, content string) {
@@ -1439,4 +1501,111 @@ func writeTestFile(t *testing.T, filePath string, content string) {
 
 	require.NoError(t, os.MkdirAll(filepath.Dir(filePath), 0o755))
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0o644))
+}
+
+func zeroArgViewInspection() viewcontract.Inspection {
+	return viewcontract.Inspection{
+		SystemPages: viewcontract.SystemPageHooks{
+			HasZeroArgNotFoundView: true,
+		},
+	}
+}
+
+func writeMinimalZeroArgViewPackage(t *testing.T, viewDir string) {
+	t.Helper()
+
+	writeTestFile(t, filepath.Join(viewDir, "context.go"), `package view
+
+import (
+	"net/http"
+	"net/url"
+)
+
+type Context struct{}
+
+func (c *Context) ResolveRoot(*http.Request) *url.URL {
+	root, _ := url.Parse("https://example.com")
+	return root
+}
+`)
+	writeTestFile(t, filepath.Join(viewDir, "view_models.go"), `package view
+
+type RootLayoutView struct {
+	PageTitle string
+}
+
+func (view RootLayoutView) LayoutPageTitle() string {
+	return model.PageTitle
+}
+
+func NewNotFoundView() RootLayoutView {
+	return RootLayoutView{PageTitle: "Not Found"}
+}
+`)
+}
+
+func writeTypedSystemPageViewPackage(t *testing.T, viewDir string) {
+	t.Helper()
+
+	writeTestFile(t, filepath.Join(viewDir, "context.go"), `package view
+
+import (
+	"net/http"
+	"net/url"
+)
+
+type Context struct{}
+type Messages struct{}
+
+func (c *Context) ResolveRoot(*http.Request) *url.URL {
+	root, _ := url.Parse("https://example.com")
+	return root
+}
+
+func (c *Context) I18n(*http.Request) *Messages {
+	return nil
+}
+`)
+
+	writeTestFile(t, filepath.Join(viewDir, "view_models.go"), `package view
+
+type RootLayoutView struct {
+	PageTitle string
+}
+
+func (view RootLayoutView) LayoutPageTitle() string {
+	return model.PageTitle
+}
+
+func NewNotFoundView(messages *Messages) RootLayoutView {
+	return RootLayoutView{PageTitle: "Not Found"}
+}
+
+func NewErrorView(messages *Messages) RootLayoutView {
+	return RootLayoutView{PageTitle: "Error"}
+}
+`)
+}
+
+func writeMinimalRouteTree(t *testing.T, routesDir string) {
+	t.Helper()
+
+	writeTestFile(t, filepath.Join(routesDir, "root.templ"), `package appsrc
+
+import "github.com/RevoTale/no-js/framework/metagen"
+
+templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { @child }
+`)
+	writeTestFile(t, filepath.Join(routesDir, "404.templ"), `package appsrc
+
+import "example.com/app/web/view"
+
+templ NotFound(model view.RootLayoutView, path string) { <div>{ path }</div> }
+`)
+	writeTestFile(t, filepath.Join(routesDir, "page.templ"), `package appsrc
+
+import "example.com/app/web/view"
+
+templ Page(model view.RootPageView) { <div>home</div> }
+`)
 }

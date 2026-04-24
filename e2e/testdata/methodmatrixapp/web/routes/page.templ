@@ -3,9 +3,9 @@ package routes
 import "example.com/no-js-e2e/methodmatrixapp/web/components"
 import "example.com/no-js-e2e/methodmatrixapp/web/view"
 
-templ Page(view runtime.RootPageView) {
+templ Page(model view.RootPageView) {
 	<main id="method-home">
 		<h1>Method Matrix</h1>
-		@components.NoteSummary(view.SummarySlug)
+		@components.NoteSummary(model.SummarySlug)
 	</main>
 }

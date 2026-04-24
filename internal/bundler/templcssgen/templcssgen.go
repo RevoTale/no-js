@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	bundlertemplgen "github.com/RevoTale/no-js/internal/bundler/templgen"
+	"github.com/RevoTale/no-js/internal/bundler/viewcontract"
 	"github.com/RevoTale/no-js/internal/projectlayout"
 	templparser "github.com/a-h/templ/parser/v2"
 )
@@ -60,6 +61,10 @@ func Run(cfg Config) error {
 	if err != nil {
 		return err
 	}
+	viewHooks, err := viewcontract.Inspect(layout.ViewDir)
+	if err != nil {
+		return fmt.Errorf("inspect view contract: %w", err)
+	}
 
 	scanRoots := cssScanRoots(layout)
 	if err := cleanupPackageExports(scanRoots); err != nil {
@@ -75,7 +80,7 @@ func Run(cfg Config) error {
 		return err
 	}
 
-	if err := writeRegistry(layout, packages); err != nil {
+	if err := writeRegistry(layout, packages, viewHooks.HasTemplCSSVariantsHook); err != nil {
 		return err
 	}
 
@@ -438,13 +443,15 @@ func writePackageExport(pkg packageSpec) error {
 	return writeFormattedFile(filepath.Join(pkg.GeneratedDir, packageExportFileName), buffer.Bytes())
 }
 
-func writeRegistry(layout projectlayout.ProjectLayout, packages []packageSpec) error {
+func writeRegistry(layout projectlayout.ProjectLayout, packages []packageSpec, hasVariantsHook bool) error {
 	buffer := &bytes.Buffer{}
 	buffer.WriteString(generatedHeader + "\n")
 	buffer.WriteString("package gen\n\n")
 	buffer.WriteString("import (\n")
 	buffer.WriteString("\t" + quote(frameworkModuleTemplImport) + "\n")
-	buffer.WriteString("\truntime " + quote(path.Join(layout.AppModulePath, layout.ViewImport)) + "\n")
+	if hasVariantsHook {
+		buffer.WriteString("\t" + quote(path.Join(layout.AppModulePath, layout.ViewImport)) + "\n")
+	}
 	for idx, pkg := range packages {
 		buffer.WriteString("\tcsspkg" + fmt.Sprint(idx) + " " + quote(pkg.ImportPath) + "\n")
 	}
@@ -458,7 +465,9 @@ func writeRegistry(layout projectlayout.ProjectLayout, packages []packageSpec) e
 	for idx := range packages {
 		buffer.WriteString("\tclasses = append(classes, csspkg" + fmt.Sprint(idx) + "." + packageExportFuncName + "()...)\n")
 	}
-	buffer.WriteString("\tclasses = append(classes, runtime.TemplCSSVariants()...)\n")
+	if hasVariantsHook {
+		buffer.WriteString("\tclasses = append(classes, view.TemplCSSVariants()...)\n")
+	}
 	buffer.WriteString("\treturn classes\n")
 	buffer.WriteString("}\n")
 

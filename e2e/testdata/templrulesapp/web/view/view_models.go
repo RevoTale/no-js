@@ -1,4 +1,4 @@
-package runtime
+package view
 
 import (
 	"context"
@@ -52,11 +52,11 @@ type StreamPageView struct {
 	Stream *StreamState
 }
 
-func NewNotFoundView(messages *Messages) RootLayoutView {
+func NewNotFoundView() RootLayoutView {
 	return RootLayoutView{PageTitle: "Not Found"}
 }
 
-func NewErrorView(messages *Messages) RootLayoutView {
+func NewErrorView() RootLayoutView {
 	return RootLayoutView{PageTitle: "Error"}
 }
 

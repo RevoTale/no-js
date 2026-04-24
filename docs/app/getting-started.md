@@ -33,9 +33,9 @@ go get github.com/RevoTale/no-js@latest
 go get -tool github.com/RevoTale/no-js/cmd/no-js@latest
 ```
 
-The quickstart view-model snippet imports `github.com/a-h/templ`, so your app
-module needs that dependency too. You can add it explicitly or let
-`go mod tidy` resolve it after you add the files below.
+The route templates and generated code use `github.com/a-h/templ`, so your app
+module needs that dependency too. You can add it explicitly or let `go mod tidy`
+resolve it after you add the files below.
 
 ## 2. Create The Minimal App Tree
 
@@ -50,7 +50,6 @@ your-app/
       root.templ
       page.templ
       404.templ
-      error.templ
     resolvers/
     view/
       context.go
@@ -62,20 +61,14 @@ your-app/
 `web/view/context.go`
 
 ```go
-package runtime
+package view
 
 import (
 	"net/http"
 	"net/url"
-	"path"
-	"strings"
 )
 
-type Messages struct{}
-
 type Context struct{}
-
-var staticAssetBasePath string
 
 func NewContext() *Context {
 	return &Context{}
@@ -85,36 +78,12 @@ func (c *Context) ResolveRoot(*http.Request) *url.URL {
 	root, _ := url.Parse("https://example.com")
 	return root
 }
-
-func (c *Context) I18n(*http.Request) *Messages {
-	return nil
-}
-
-func SetStaticAssetBasePath(prefix string) {
-	staticAssetBasePath = strings.TrimRight(strings.TrimSpace(prefix), "/")
-}
-
-func StaticAssetURL(assetPath string) string {
-	trimmed := strings.TrimPrefix(strings.TrimSpace(assetPath), "/")
-	if trimmed == "" {
-		if staticAssetBasePath == "" {
-			return "/"
-		}
-		return staticAssetBasePath
-	}
-	if staticAssetBasePath == "" {
-		return "/" + trimmed
-	}
-	return path.Join(staticAssetBasePath, trimmed)
-}
 ```
 
 `web/view/view_models.go`
 
 ```go
-package runtime
-
-import "github.com/a-h/templ"
+package view
 
 type RootLayoutView struct {
 	PageTitle string
@@ -129,16 +98,8 @@ type RootPageView struct {
 	Heading string
 }
 
-func NewNotFoundView(*Messages) RootLayoutView {
+func NewNotFoundView() RootLayoutView {
 	return RootLayoutView{PageTitle: "Not Found"}
-}
-
-func NewErrorView(*Messages) RootLayoutView {
-	return RootLayoutView{PageTitle: "Error"}
-}
-
-func TemplCSSVariants() []templ.CSSClass {
-	return nil
 }
 ```
 
@@ -147,10 +108,7 @@ func TemplCSSVariants() []templ.CSSClass {
 ```templ
 package routes
 
-import (
-	"example.com/your-app/web/view"
-	"github.com/RevoTale/no-js/framework/metagen"
-)
+import "github.com/RevoTale/no-js/framework/metagen"
 
 templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) {
 	<html lang={ locale }>
@@ -171,9 +129,9 @@ package routes
 
 import "example.com/your-app/web/view"
 
-templ Page(view runtime.RootPageView) {
+templ Page(model view.RootPageView) {
 	<main>
-		<h1>{ view.Heading }</h1>
+		<h1>{ model.Heading }</h1>
 	</main>
 }
 ```
@@ -185,20 +143,8 @@ package routes
 
 import "example.com/your-app/web/view"
 
-templ NotFound(view runtime.RootLayoutView, path string) {
+templ NotFound(model view.RootLayoutView, path string) {
 	<main>Missing { path }</main>
-}
-```
-
-`web/routes/error.templ`
-
-```templ
-package routes
-
-import "example.com/your-app/web/view"
-
-templ Error(view runtime.RootLayoutView, path string) {
-	<main>Error { path }</main>
 }
 ```
 
@@ -207,6 +153,11 @@ Run `go mod tidy` once after you add the files:
 ```bash
 go mod tidy
 ```
+
+This minimal app does not define i18n, static-asset, templ-CSS, or custom 500
+UI hooks. Server errors use the default plain `Internal Server Error` response
+unless you configure `httpserver.CustomConfig.ServerErrorPage`.
+Add those only when you adopt the related feature guides.
 
 ## 4. Generate The App Bundle First
 
@@ -227,15 +178,18 @@ Generation also creates `web/resolvers/generated.go`. That file defines the
 `Resolver` type and the exact method signatures your handwritten resolver code
 must implement.
 
+Commit generated output with your app. Do not edit it by hand; change templates,
+resolvers, view models, or config, then run generation again.
+
 A minimal generated contract for the root route looks like:
 
 ```go
 type RootParams struct{}
 
 type RouteResolver interface {
-	MetaGenRootLayout(meta framework.MetaContext[*runtime.Context]) (metagen.Metadata, error)
-	MetaGenRootPage(meta framework.MetaContext[*runtime.Context], params RootParams) (metagen.Metadata, error)
-	ResolveRootPage(ctx context.Context, appCtx *runtime.Context, r *http.Request, params RootParams) (runtime.RootPageView, error)
+	MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (metagen.Metadata, error)
+	MetaGenRootPage(meta framework.MetaContext[*view.Context], params RootParams) (metagen.Metadata, error)
+	ResolveRootPage(ctx context.Context, appCtx *view.Context, r *http.Request, params RootParams) (view.RootPageView, error)
 }
 
 type Resolver struct{}
@@ -252,17 +206,17 @@ import (
 	"context"
 	"net/http"
 
-	runtime "example.com/your-app/web/view"
+	"example.com/your-app/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/metagen"
 )
 
-func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*runtime.Context]) (metagen.Metadata, error) {
+func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (metagen.Metadata, error) {
 	return metagen.Metadata{}, nil
 }
 
 func (Resolver) MetaGenRootPage(
-	meta framework.MetaContext[*runtime.Context],
+	meta framework.MetaContext[*view.Context],
 	params RootParams,
 ) (metagen.Metadata, error) {
 	return metagen.Metadata{Title: "Home"}, nil
@@ -270,12 +224,12 @@ func (Resolver) MetaGenRootPage(
 
 func (Resolver) ResolveRootPage(
 	ctx context.Context,
-	appCtx *runtime.Context,
+	appCtx *view.Context,
 	r *http.Request,
 	params RootParams,
-) (runtime.RootPageView, error) {
-	return runtime.RootPageView{
-		RootLayoutView: runtime.RootLayoutView{PageTitle: "Home"},
+) (view.RootPageView, error) {
+	return view.RootPageView{
+		RootLayoutView: view.RootLayoutView{PageTitle: "Home"},
 		Heading:        "Hello from no-js",
 	}, nil
 }
@@ -293,14 +247,14 @@ import (
 	"net/http"
 
 	generated "example.com/your-app/web/generated"
-	runtime "example.com/your-app/web/view"
+	"example.com/your-app/web/view"
 	"github.com/RevoTale/no-js/framework/httpserver"
 )
 
 func main() {
-	appContext := runtime.NewContext()
+	appContext := view.NewContext()
 
-	handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
+	handler, err := httpserver.NewApp(httpserver.Config[*view.Context]{
 		App: generated.Bundle(appContext),
 	})
 	if err != nil {

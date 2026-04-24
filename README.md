@@ -47,25 +47,26 @@ Minimum required route files:
 - `web/routes/root.templ`
   Defines `templ RootLayout(meta metagen.Metadata, locale string, child templ.Component)`.
 - one page route such as `web/routes/page.templ`
-  Defines `templ Page(view runtime.YourPageView)`.
+  Defines `templ Page(model view.YourPageView)`.
 - `web/routes/404.templ`
-  Defines `templ NotFound(view runtime.RootLayoutView, path string)`.
-- `web/routes/error.templ`
-  Defines `templ Error(view runtime.RootLayoutView, path string)`.
+  Defines `templ NotFound(model view.RootLayoutView, path string)`.
 
-Minimum required app-owned runtime/view definitions:
+Minimum required app-owned view definitions:
 
-- `web/view` must currently use the Go package name `runtime`
+- `web/view` must use the Go package name `view`
 - `type Context`
 - `func (c *Context) ResolveRoot(*http.Request) *url.URL`
-- `func (c *Context) I18n(*http.Request) ...`
-- `func SetStaticAssetBasePath(string)`
 - `type RootLayoutView`
 - `func (view RootLayoutView) LayoutPageTitle() string`
-- `func NewNotFoundView(...) RootLayoutView`
-- `func NewErrorView(...) RootLayoutView`
-- `func TemplCSSVariants() []templ.CSSClass`
-  This may return `nil` if you do not use templ CSS variants.
+- `func NewNotFoundView() RootLayoutView`
+
+Optional feature hooks:
+
+- built-in i18n apps may expose `func (c *Context) I18n(*http.Request) ...`
+- apps may pass `httpserver.CustomConfig.ServerErrorPage` for a generic custom
+  500 page
+- static-asset helpers may expose `func SetStaticAssetBasePath(string)`
+- templ CSS variants may expose `func TemplCSSVariants() []templ.CSSClass`
 
 For each page route, run generation first, then implement the generated
 resolver methods in `web/resolvers`, such as `MetaGenRootPage(...)` and
@@ -76,9 +77,9 @@ go tool no-js gen -root .
 ```
 
 ```go
-appContext := runtime.NewContext(...)
+appContext := view.NewContext(...)
 
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
+handler, err := httpserver.NewApp(httpserver.Config[*view.Context]{
 	App: generated.Bundle(appContext),
 })
 ```

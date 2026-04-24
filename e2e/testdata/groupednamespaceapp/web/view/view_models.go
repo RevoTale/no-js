@@ -1,4 +1,4 @@
-package runtime
+package view
 
 import (
 	"example.com/no-js-e2e/groupednamespaceapp/web/components"
@@ -20,11 +20,11 @@ type DiscoverPageView struct {
 	Progress int
 }
 
-func NewNotFoundView(messages *Messages) RootLayoutView {
+func NewNotFoundView() RootLayoutView {
 	return RootLayoutView{PageTitle: "Not Found"}
 }
 
-func NewErrorView(messages *Messages) RootLayoutView {
+func NewErrorView() RootLayoutView {
 	return RootLayoutView{PageTitle: "Error"}
 }
 

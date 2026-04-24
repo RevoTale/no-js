@@ -35,6 +35,19 @@ under:
 Most apps expose a small helper in `web/view`:
 
 ```go
+package view
+
+import (
+	"path"
+	"strings"
+)
+
+var staticAssetBasePath string
+
+func SetStaticAssetBasePath(prefix string) {
+	staticAssetBasePath = strings.TrimRight(strings.TrimSpace(prefix), "/")
+}
+
 func StaticAssetURL(assetPath string) string {
 	trimmed := strings.TrimPrefix(strings.TrimSpace(assetPath), "/")
 	if trimmed == "" {
@@ -47,8 +60,12 @@ func StaticAssetURL(assetPath string) string {
 Then templates use that helper:
 
 ```templ
-<link rel="stylesheet" href={ runtime.StaticAssetURL("site.css") }>
+<link rel="stylesheet" href={ view.StaticAssetURL("site.css") }>
 ```
+
+`generated.Bundle(appContext)` wires `SetStaticAssetBasePath(...)` only when
+your `web/view` package defines it. If you use a different asset URL helper,
+you can skip that hook entirely.
 
 ## `-templ-css`
 
@@ -73,13 +90,26 @@ components from:
 - `web/routes`
 - `web/components`
 
-If you need parameterized variants, return them from:
+If you need parameterized variants, return them from `TemplCSSVariants()` in
+`web/view`. For example, if `web/components` exposes
+`ProgressBar(percent int)`:
 
 ```go
-func TemplCSSVariants() []templ.CSSClass
+package view
+
+import (
+	"example.com/your-app/web/components"
+	"github.com/a-h/templ"
+)
+
+func TemplCSSVariants() []templ.CSSClass {
+	return []templ.CSSClass{
+		components.ProgressBar(72),
+	}
+}
 ```
 
-in `web/view`.
+If you only use zero-argument `css` components, omit the hook.
 
 ## `web/assets` Versus `web/public`
 

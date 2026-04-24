@@ -1,4 +1,4 @@
-package runtime
+package view
 
 import (
 	"example.com/no-js-e2e/namespacedtemplcssapp/web/components"
@@ -13,11 +13,11 @@ func (view RootLayoutView) LayoutPageTitle() string {
 	return view.PageTitle
 }
 
-func NewNotFoundView(messages *Messages) RootLayoutView {
+func NewNotFoundView() RootLayoutView {
 	return RootLayoutView{PageTitle: "Not Found"}
 }
 
-func NewErrorView(messages *Messages) RootLayoutView {
+func NewErrorView() RootLayoutView {
 	return RootLayoutView{PageTitle: "Error"}
 }
 

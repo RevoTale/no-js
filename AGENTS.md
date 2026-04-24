@@ -51,6 +51,14 @@ If a task affects the consuming-app contract, also inspect:
   `Site Resolver`, and `Advanced composition`.
 - MUST keep public framework config generic; app-specific dependencies and product concepts must stay out.
 - MUST not reserve `web/bootstrap` as a contract term or required path.
+- MUST keep stable app package directories aligned with their Go package name in source, generated code, fixtures,
+  and docs. For example, `web/view` must be `package view`, and `web/components/card` should be `package card`.
+  Do not use import aliases to hide package/directory mismatches.
+- MUST treat route-control directories under `web/routes` as routing syntax, not mandatory Go package names.
+  `_group__*`, `_slot__*`, `_param__*`, `_catchall__*`, and `_optional_catchall__*` files must still use one clear,
+  valid package name per directory.
+- MUST document deliberate package/import-path mismatches when introduced. Versioned import paths such as `v2` or
+  `v3` may intentionally differ from the declared package name.
 - MUST surface invalid app-bundle wiring at startup; framework happy-path APIs must not rely on request-time soft
   failures for missing required context or dependencies.
 - MUST keep `README.md` high-level and task-oriented; field-level contract truth belongs in exported Go types and

@@ -3,8 +3,8 @@ package vars
 import "example.com/no-js-e2e/templrulesapp/web/components"
 import "example.com/no-js-e2e/templrulesapp/web/view"
 
-templ Page(view runtime.MeterPageView) {
+templ Page(model view.MeterPageView) {
 	<main id="vars-page">
-		@components.Meter(view.Progress, view.Accent)
+		@components.Meter(model.Progress, model.Accent)
 	</main>
 }

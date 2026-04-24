@@ -26,7 +26,7 @@ func (testMethodRuntime) RenderPage(*http.Request, http.ResponseWriter, templ.Co
 	return nil
 }
 func (testMethodRuntime) RespondNotFound(http.ResponseWriter, *http.Request, NotFoundContext) {}
-func (testMethodRuntime) RespondServerError(http.ResponseWriter, error)                       {}
+func (testMethodRuntime) RespondServerError(http.ResponseWriter, *http.Request, error)        {}
 func (testMethodRuntime) LogServerError(error)                                                {}
 func (testMethodRuntime) LogResolverTiming(ResolverTiming)                                    {}
 
@@ -180,6 +180,6 @@ type testMethodRuntimeWithError struct {
 	respondServerError func(http.ResponseWriter, error)
 }
 
-func (runtime testMethodRuntimeWithError) RespondServerError(w http.ResponseWriter, err error) {
+func (runtime testMethodRuntimeWithError) RespondServerError(w http.ResponseWriter, _ *http.Request, err error) {
 	runtime.respondServerError(w, err)
 }

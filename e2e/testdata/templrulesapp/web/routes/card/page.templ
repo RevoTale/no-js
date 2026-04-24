@@ -3,8 +3,8 @@ package card
 import "example.com/no-js-e2e/templrulesapp/web/components"
 import "example.com/no-js-e2e/templrulesapp/web/view"
 
-templ Page(view runtime.CardPageView) {
+templ Page(model view.CardPageView) {
 	<main id="card-page">
-		@components.Card(view.Title, view.Urgent)
+		@components.Card(model.Title, model.Urgent)
 	</main>
 }

@@ -5,9 +5,9 @@ import (
 	"example.com/no-js-e2e/templcssapp/web/view"
 )
 
-templ Page(view runtime.RootPageView) {
+templ Page(model view.RootPageView) {
 	<main id="home-page">
-		<h1>{ view.Heading }</h1>
-		@components.Hero(view.Body, view.Progress)
+		<h1>{ model.Heading }</h1>
+		@components.Hero(model.Body, model.Progress)
 	</main>
 }

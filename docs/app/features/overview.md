@@ -37,3 +37,7 @@ before showing escape hatches.
 - [CLI Reference](../reference/cli.md)
 - [Bundle Config Reference](../reference/bundle-config.md)
 - [HTTP Server Reference](../reference/httpserver.md)
+
+## Migration Guides
+
+- [App Migrations](../migrations.md)

@@ -8,7 +8,7 @@ css guidesPage() {
 	padding: 10px;
 }
 
-templ Page(view runtime.RootLayoutView) {
+templ Page(model view.RootLayoutView) {
 	<main id="discover-guides" class={ guidesPage() }>
 		@components.DiscoverCard("Editorial", "Guides", 64)
 	</main>

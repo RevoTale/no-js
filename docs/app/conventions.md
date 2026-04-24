@@ -14,7 +14,6 @@ your-app/
     routes/
       root.templ
       404.templ
-      error.templ
     generated/
     resolvers/
     view/
@@ -41,9 +40,8 @@ Reserved route template names:
 - `default.templ`
   A slot fallback. Only valid at a slot root.
 - `404.templ`
-  Required at the app root. Optional deeper in normal route trees.
-- `error.templ`
-  Required at the app root. Optional deeper in normal route trees.
+  Required at the app root. Optional deeper in normal route trees when a section
+  needs its own not-found UI.
 
 Reserved route Go files:
 
@@ -85,21 +83,29 @@ web/generated/
 web/resolvers/generated.go
 ```
 
-Do not edit generated files manually. Change source templates, resolvers, or
-configuration, then regenerate.
+Commit generated output with your app, but do not edit generated files manually.
+Change source templates, resolvers, view models, or configuration, then
+regenerate.
 
 ## View Contract Rules
 
 Current generated contracts expect the `web/view` package to expose a few
 specific names.
 
-- the Go package identifier must currently be `runtime`
-- generated code expects `*runtime.Context` as the app context type
-- page templates should accept view types from `runtime.*`
-- generated bundle wiring references `runtime.SetStaticAssetBasePath`
-- generated not-found and error helpers call `runtime.NewNotFoundView(appCtx.I18n(r))`
-  and `runtime.NewErrorView(appCtx.I18n(r))`
-- generated templ CSS registration appends `runtime.TemplCSSVariants()`
+- the Go package identifier must be `view`
+- generated code expects `*view.Context` as the app context type
+- page templates should accept view types from `view.*`
+- system-page rendering requires:
+  `func NewNotFoundView() RootLayoutView`
+- an optional resolver hook can override the 404 default when not-found pages
+  need request-scoped view data:
+  `func (Resolver) ResolveNotFoundView(ctx context.Context, appCtx *view.Context, r *http.Request, notFound framework.NotFoundContext) view.RootLayoutView`
+- server errors use the default plain `Internal Server Error` response unless
+  you configure `httpserver.CustomConfig.ServerErrorPage`
+- generated bundle wiring calls `view.SetStaticAssetBasePath` only when that
+  function exists
+- generated templ CSS registration appends `view.TemplCSSVariants()` only
+  when that function exists
 
 That is the framework contract today. Keep those names stable unless you are
 also changing the generator.
@@ -115,7 +121,7 @@ Recommended pattern:
 The preferred runtime integration is:
 
 ```go
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
+handler, err := httpserver.NewApp(httpserver.Config[*view.Context]{
 	App: generated.Bundle(appContext),
 })
 ```
