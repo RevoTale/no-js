@@ -45,9 +45,10 @@ static_assets:
 - `project.i18n_dir`
   App i18n package root. Default: `web/i18n`
 - `project.assets_dir`
-  Source directory for bundled static assets. Default: `web/assets`
+  Source directory for explicit global hashed assets. Default: `web/assets`
 - `project.assets_build_dir`
-  Output directory for bundled static assets. Default: `web/assets-build`
+  Output directory for generated Client Asset bundles, explicit global assets,
+  and the static manifest. Default: `web/assets-build`
 
 All configured paths must stay relative to the app root.
 
@@ -58,7 +59,11 @@ Supported values: `auto`, `enabled`, `disabled`
 - `server.features.i18n_routing`
   Locale-prefixed routing support. `auto` enables it when `web/i18n` exists.
 - `server.features.static_assets`
-  Static asset support. `auto` enables it when `web/assets` exists.
+  Build explicit global hashed assets from `web/assets`. `auto` enables it
+  when `web/assets` exists. You do not need this flag for colocated route or
+  component CSS/JS/TS, or for templ CSS; those pipelines build their own assets
+  when their source files exist. At startup, no-js serves whatever the build
+  wrote to `web/assets-build`.
 - `server.features.health_endpoint`
   Health endpoint support. `auto` enables it by default.
 
@@ -133,6 +138,7 @@ static_assets:
 ## Related Docs
 
 - [CLI Reference](cli.md)
+- [Asset Pipeline Reference](asset-pipeline.md)
 - [App Conventions](../conventions.md)
 - [i18n](../features/i18n.md)
 - [Static Assets](../features/static-assets.md)

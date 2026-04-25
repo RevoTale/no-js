@@ -4,72 +4,39 @@
 It is built around a strict `web/*` app tree, a generated `App Bundle`, and a
 convention-first runtime.
 
+You write templ routes, resolver methods, view models, and app services. `no-js`
+generates the routing/runtime glue and lets `httpserver.NewApp(...)` assemble
+the default server.
+
 ## What You Get
 
 - file-system routing with generated resolver contracts and an `App Bundle`
 - `httpserver.NewApp(...)` as the default runtime entrypoint
-- metadata, i18n, discovery, static asset, public file, and HTMX partial
-  support
+- metadata and `<head>` composition
+- focused guides for optional app capabilities
 - build-time configuration through `no-js.bundle.yaml`
 
-## Start Here
+## Shortest Path
 
-For app developers:
+Start with the standard app tree:
 
-- [App Docs Overview](docs/app/overview.md)
-- [Getting Started](docs/app/getting-started.md)
-- [App Conventions](docs/app/conventions.md)
-- [CLI Reference](docs/app/reference/cli.md)
-- [Bundle Config Reference](docs/app/reference/bundle-config.md)
-- [HTTP Server Reference](docs/app/reference/httpserver.md)
-- [Feature Guides](docs/app/features/overview.md)
-- [Troubleshooting](docs/app/troubleshooting.md)
+```text
+your-app/
+  go.mod
+  cmd/
+    server/
+      main.go
+  web/
+    routes/
+      root.templ
+      page.templ
+      404.templ
+    resolvers/
+    view/
+```
 
-For contributors:
-
-- [Developing `no-js`](docs/framework/developing-no-js.md)
-- [AI Agents](docs/framework/ai-agents.md)
-
-## Happy Path
-
-In `no-js`, the "happy path" means the default way to build an app without
-custom runtime wiring:
-
-1. Keep the standard `web/*` app layout.
-2. Run generation from the app root to produce `web/generated` and
-   `web/resolvers/generated.go`.
-3. Implement the generated resolver methods in `web/resolvers`.
-4. Build your app context and pass the generated `App Bundle` into
-   `httpserver.NewApp(...)`.
-
-Minimum required route files:
-
-- `web/routes/root.templ`
-  Defines `templ RootLayout(meta metagen.Metadata, locale string, child templ.Component)`.
-- one page route such as `web/routes/page.templ`
-  Defines `templ Page(model view.YourPageView)`.
-- `web/routes/404.templ`
-  Defines `templ NotFound(model view.YourNotFoundView, path string)`.
-
-Minimum required app-owned view definitions:
-
-- `web/view` must use the Go package name `view`
-- `type Context`
-- `func (c *Context) ResolveRoot(*http.Request) *url.URL`
-- view model types used by your `Page`, `Layout`, `Default`, and `NotFound`
-  template signatures
-
-Optional feature hooks:
-
-- built-in i18n apps may expose `func (c *Context) I18n(*http.Request) ...`
-- apps may pass `httpserver.CustomConfig.ServerErrorPage` for a generic custom
-  500 page
-- static-asset helpers may expose `func SetStaticAssetBasePath(string)`
-- templ CSS variants may expose `func TemplCSSVariants() []templ.CSSClass`
-
-For each page route, run generation first, then implement the generated
-resolver methods in `web/resolvers`, such as `MetaGenRootPage(...)` and
-`ResolveRootPage(...)`.
+Run generation, implement the generated resolver methods, then pass the
+generated `App Bundle` to the runtime:
 
 ```bash
 go tool no-js gen -root .
@@ -83,18 +50,60 @@ handler, err := httpserver.NewApp(httpserver.Config[*view.Context]{
 })
 ```
 
-Most apps should start there. Reach for `Custom Config` only when the default
-runtime wiring is not enough.
+That is the happy path. Reach for `Custom Config` only when the default runtime
+wiring is not enough.
 
-See [Getting Started](docs/app/getting-started.md) for the smallest runnable
-example and [App Conventions](docs/app/conventions.md) for the stricter
-contract details.
+For the exact files, use [Getting Started](docs/app/getting-started.md). For
+the strict app contract, use [App Conventions](docs/app/conventions.md).
 
-Terminology used across the docs:
+## Client Assets
 
-- `App Bundle`: generated route and runtime contract returned by
-  `generated.Bundle(appContext)`
-- `Custom Config`: app-owned hooks passed to `httpserver.NewApp(...)`
-- `Site Resolver`: app-owned canonical root policy
-- `Advanced composition`: app-owned runtime packages used only when the
-  default path is not enough
+CSS, JavaScript, and TypeScript can live beside the route or component that uses
+them:
+
+```text
+web/
+  routes/
+    page.templ
+    page.css
+    page.ts
+  components/
+    meter/
+      meter.templ
+      meter.css
+      meter.ts
+```
+
+Generation creates Go helpers beside those files. CSS class names are hashed in
+the rendered HTML and bundled CSS. Matched routes automatically receive the CSS
+and module scripts for their page, layouts, 404 page, and imported components.
+
+`go tool no-js gen routes -root .` writes the generated Go helpers.
+`go tool no-js gen assets -root .` writes the bundled, fingerprinted browser
+files. Most apps run both with:
+
+```bash
+go tool no-js gen -root .
+```
+
+See [Static Assets And Client Assets](docs/app/features/static-assets.md) for
+usage and [Asset Pipeline Reference](docs/app/reference/asset-pipeline.md) for
+the compile/bundle split.
+
+## Docs
+
+For app developers:
+
+- [App Docs Overview](docs/app/overview.md)
+- [Getting Started](docs/app/getting-started.md)
+- [App Conventions](docs/app/conventions.md)
+- [Feature Guides](docs/app/features/overview.md)
+- [CLI Reference](docs/app/reference/cli.md)
+- [Bundle Config Reference](docs/app/reference/bundle-config.md)
+- [HTTP Server Reference](docs/app/reference/httpserver.md)
+- [Troubleshooting](docs/app/troubleshooting.md)
+
+For contributors:
+
+- [Developing `no-js`](docs/framework/developing-no-js.md)
+- [AI Agents](docs/framework/ai-agents.md)

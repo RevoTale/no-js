@@ -25,9 +25,13 @@ At least one `page.templ` or `route.go` must exist under `web/routes`.
 Optional app-owned directories:
 
 - `web/components`
+  Reusable templ packages and component-owned Client Assets.
 - `web/i18n`
 - `web/assets`
+  Explicit global hashed files. Do not use this for normal route/component
+  CSS or JavaScript.
 - `web/public`
+  Fixed-path public files.
 
 ## Route Files And Directories
 

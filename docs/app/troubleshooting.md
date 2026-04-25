@@ -93,6 +93,41 @@ Fix:
 
 See [i18n](features/i18n.md) for the working layout.
 
+## `bundle client script ... Could not resolve`
+
+Cause:
+
+- a colocated `.js` or `.ts` Client Asset imports a package that is not
+  installed in the app workspace
+- the import path is only valid for browser runtime, not for esbuild bundling
+
+Fix:
+
+- install the package in the app workspace
+- use a relative import for app-owned script modules
+- keep external browser-only modules under `web/assets` and include them
+  intentionally instead of importing them from a Client Asset script
+
+See [Static Assets And Client Assets](features/static-assets.md) for the import
+rules.
+
+## CSS From `node_modules` Is Missing
+
+Cause:
+
+- Client Asset CSS does not use CSS `@import` as a dependency graph
+- `web/assets` CSS imports are not bundled or rewritten
+
+Fix:
+
+- put route/component CSS beside the route or component that owns it
+- put explicit third-party CSS files under `web/assets`
+- include global CSS intentionally from metadata or app-owned head code
+- do not expect `@import "package/styles.css"` to resolve from `node_modules`
+
+See [Asset Pipeline Reference](reference/asset-pipeline.md) for the compile and
+bundle split.
+
 ## `generated outputs differ from git state`
 
 Cause:

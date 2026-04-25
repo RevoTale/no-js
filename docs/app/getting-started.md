@@ -163,7 +163,8 @@ This generates:
 - `web/generated/*`
 - `web/resolvers/generated.go`
 - built-in i18n output if `web/i18n/messages` exists
-- static assets if `web/assets` exists
+- Client Asset output if colocated `.css`, `.js`, or `.ts` files exist
+- explicit global assets if `web/assets` exists
 
 Generation also creates `web/resolvers/generated.go`. That file defines the
 `Resolver` type and the exact method signatures your handwritten resolver code

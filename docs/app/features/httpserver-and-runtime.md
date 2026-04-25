@@ -77,4 +77,5 @@ runtime from lower-level pieces.
 
 - [HTTP Server Reference](../reference/httpserver.md)
 - [Static Assets](static-assets.md)
+- [Asset Pipeline Reference](../reference/asset-pipeline.md)
 - [Request Cache and Partials](request-cache-and-partials.md)

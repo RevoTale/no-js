@@ -148,4 +148,5 @@ cannot express the shape you need.
 
 - [HTTP Server and Runtime](../features/httpserver-and-runtime.md)
 - [Static Assets](../features/static-assets.md)
+- [Asset Pipeline Reference](asset-pipeline.md)
 - [Site Resolution](../features/site-resolution.md)

@@ -23,8 +23,8 @@ policy.
 - metadata and `<head>` composition through `metagen`
 - built-in i18n with typed message helpers
 - discovery conventions for `robots.txt`, RSS, and XML sitemaps
-- hashed static asset serving, fixed-path public files, and optional templ CSS
-  bundling
+- route-level Client Assets, explicit hashed global assets, fixed-path public
+  files, and optional templ CSS bundling
 - request-scoped caching and HTMX partial support
 
 ## What Your App Owns
@@ -77,4 +77,5 @@ policy.
 
 - [CLI Reference](reference/cli.md)
 - [Bundle Config Reference](reference/bundle-config.md)
+- [Asset Pipeline Reference](reference/asset-pipeline.md)
 - [HTTP Server Reference](reference/httpserver.md)

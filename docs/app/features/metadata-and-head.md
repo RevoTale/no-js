@@ -78,11 +78,26 @@ That includes:
 - route-level CSS generated from colocated `.css` files
 - route-level module scripts generated from colocated `.js` and `.ts` files
 - hashed asset stylesheets that you add to `metagen.Metadata.Stylesheets`
-- build-time templ CSS output when you use `-templ-css`
+- the global `styles/templ.css` stylesheet when you use `-templ-css`
 
 Managed stylesheets render before managed module scripts. Route generation
 resolves their hashed URLs at runtime, so app templates do not need global asset
 base-path state for generated Client Assets.
+
+`-templ-css` is not route-level CSS. It collects registered templ `css {}`
+classes into one global stylesheet and injects that stylesheet on every page
+through the same managed head path.
+
+Files under `web/assets` are not auto-injected. Add those URLs to metadata
+yourself when you intentionally want a global hashed asset on a page:
+
+```go
+return metagen.Metadata{
+	Stylesheets: []string{
+		metagen.AssetURL(meta.Context(), "site.css"),
+	},
+}, nil
+```
 
 ## HTMX Partial Requests
 

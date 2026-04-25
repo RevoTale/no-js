@@ -9,17 +9,20 @@ go tool no-js gen [routes|assets|check] [-root .] [-config path] [-templ-css]
 ```
 
 If you omit the mode, `gen` runs both route generation and asset generation.
+Think of `routes` as the generation step that writes Go code, and `assets` as
+the asset step that writes bundled, fingerprinted runtime files.
 
 ## Modes
 
 - `go tool no-js gen -root .`
   Run the normal generation loop.
 - `go tool no-js gen routes -root .`
-  Generate route handlers, resolver contracts, built-in i18n output,
-  source-adjacent Client Asset helpers, and the templ CSS registry.
+  Generate Go route handlers, resolver contracts, built-in i18n output,
+  source-adjacent Client Asset helpers, and the templ CSS registry. This does
+  not write final browser CSS or JavaScript bundles.
 - `go tool no-js gen assets -root .`
-  Build global assets plus route-level Client Asset bundles and write the
-  manifest.
+  Build route-level Client Asset bundles, include explicit global files from
+  `web/assets`, fingerprint the output, and write the manifest.
 - `go tool no-js gen check -root .`
   Run route generation, asset generation, then fail if `git diff --exit-code`
   is not clean.
@@ -32,9 +35,9 @@ If you omit the mode, `gen` runs both route generation and asset generation.
   Explicit bundle-config path. If omitted, `no-js` loads
   `no-js.bundle.yaml` from the app root when the file exists.
 - `-templ-css`
-  Generate legacy `styles/templ.css` from templ `css` components before asset
-  bundling. Colocated `.css`, `.js`, and `.ts` Client Assets do not need this
-  flag.
+  Generate one global `styles/templ.css` from templ `css` components before
+  asset bundling. Colocated `.css`, `.js`, and `.ts` Client Assets do not need
+  this flag.
 
 ## What Each Run Produces
 
@@ -49,8 +52,15 @@ If you omit the mode, `gen` runs both route generation and asset generation.
 `go tool no-js gen assets -root .` writes:
 
 - route-level CSS and module script bundles for discovered Client Assets
-- processed files under the configured assets-build directory
+- explicit global `web/assets` files under the configured assets-build directory
 - the static asset manifest, by default `web/assets-build/manifest.json`
+
+Client Asset scripts are bundled with esbuild and can use JavaScript or
+TypeScript imports. `web/assets` files are path-managed: they may be minified
+and fingerprinted, but imports are not resolved or bundled.
+
+See [Asset Pipeline Reference](asset-pipeline.md) for the compile, bundle, and
+fingerprint split.
 
 ## Common Examples
 
@@ -72,7 +82,7 @@ Use an explicit config file:
 go tool no-js gen -root . -config ./config/no-js.bundle.yaml
 ```
 
-Bundle legacy templ CSS into the hashed asset pipeline:
+Bundle templ `css` components into the hashed asset pipeline:
 
 ```bash
 go tool no-js gen assets -root . -templ-css
@@ -114,5 +124,6 @@ templ packages outside `web/routes`.
 ## Related Docs
 
 - [Getting Started](../getting-started.md)
+- [Asset Pipeline Reference](asset-pipeline.md)
 - [Bundle Config Reference](bundle-config.md)
 - [Static Assets](../features/static-assets.md)

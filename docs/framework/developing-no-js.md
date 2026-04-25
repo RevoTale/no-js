@@ -64,6 +64,9 @@ That implies:
   Build-time layout defaults and `no-js.bundle.yaml` resolution.
 - `internal/bundler/approutegen`
   Route discovery and generated contracts.
+- `internal/bundler/clientassets`
+  Client Asset discovery, source-adjacent helpers, route bundle planning, and
+  script staging.
 - `internal/bundler/staticassets`
   Asset processing, hashing, and manifest generation.
 
@@ -85,5 +88,8 @@ task test
 - Keep app reference pages under `docs/app/reference/`.
 - Keep symptom-first fixes under `docs/app/troubleshooting.md`.
 - Keep framework-contributor docs under `docs/framework/`.
+- Keep app-facing asset usage in `docs/app/features/static-assets.md`, public
+  asset behavior in `docs/app/reference/asset-pipeline.md`, and implementation
+  notes in `docs/framework/client-assets-pipeline.md`.
 - Put field-level contract truth on exported Go types and focused reference
   docs, not in long README inventories.

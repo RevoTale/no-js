@@ -19,7 +19,8 @@ before showing escape hatches.
 - [Discovery](discovery.md)
   Serve `robots.txt`, RSS, and XML sitemaps from route conventions.
 - [Static Assets](static-assets.md)
-  Bundle fingerprinted assets, public files, and optional templ CSS.
+  Add route/component CSS and scripts, explicit hashed files, public files, and
+  optional templ CSS.
 - [Site Resolution](site-resolution.md)
   Provide canonical site roots for metadata, feeds, and localized URLs.
 - [Request Cache and Partials](request-cache-and-partials.md)
@@ -36,6 +37,7 @@ before showing escape hatches.
 
 - [CLI Reference](../reference/cli.md)
 - [Bundle Config Reference](../reference/bundle-config.md)
+- [Asset Pipeline Reference](../reference/asset-pipeline.md)
 - [HTTP Server Reference](../reference/httpserver.md)
 
 ## Migration Guides
