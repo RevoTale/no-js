@@ -11,6 +11,25 @@ addressed as its own hashed URL.
 Your root template must render `@metagen.Head(meta)`. That is where `no-js`
 adds managed route stylesheets and module scripts.
 
+## Default Asset Shape
+
+Most apps use all three asset lanes, but each lane has a different job:
+
+- templ `css {}`
+  Use for simple component-scoped class styles. `no-js` extracts these into one
+  global `styles/templ.css` by default when declarations exist.
+- Client Assets
+  Use for route, layout, 404, or component CSS/JS/TS. `no-js` bundles these
+  per matched route and injects them through `@metagen.Head(meta)`.
+- `web/assets`
+  Use for images, fonts, downloads, vendor files, or files consumed outside the
+  route graph. `no-js` fingerprints them under `/_assets/<hash>/`, but app
+  code must reference them intentionally.
+
+You do not need `no-js.bundle.yaml` for the default templ CSS behavior. Add the
+file only when you need to change a default, such as disabling global templ CSS
+extraction.
+
 ## Choose Templ CSS Or CSS Files
 
 Prefer templ `css {}` components for simple component-scoped class styles:
@@ -276,6 +295,16 @@ for every page and suppresses the registered inline templ CSS.
 Use colocated `.css` files instead when the style needs route-level delivery,
 selectors, pseudo classes, pseudo elements, combinators, or other
 stylesheet-level composition.
+
+To keep templ CSS on the templ inline registration path, opt out in bundle
+config:
+
+```yaml
+version: 1
+
+assets:
+  templ_css: false
+```
 
 If you need parameterized templ CSS variants, return them from
 `TemplCSSVariants()` in `web/view`. If you only use zero-argument templ `css`

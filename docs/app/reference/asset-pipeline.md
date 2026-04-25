@@ -22,7 +22,7 @@ and fingerprints them through the manifest.
 
 | Source | Purpose | Auto-injected |
 | --- | --- | --- |
-| templ `css {}` in `.templ` files | simple component-scoped CSS | global `styles/templ.css` unless `assets.templ_css` is false |
+| templ `css {}` in `.templ` files | simple component-scoped CSS | global `styles/templ.css` when declarations exist unless `assets.templ_css` is false |
 | `web/routes/**/<name>.css` | route, layout, or 404 CSS with the same stem as `<name>.templ` | yes, for matched routes |
 | `web/components/**/*.css` | component CSS | yes, when a matched route imports the component package |
 | `web/routes/**/<name>.{js,ts,mjs,mts}` | route, layout, or 404 scripts with the same stem as `<name>.templ` | yes, for matched routes |

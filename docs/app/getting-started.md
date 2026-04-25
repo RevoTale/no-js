@@ -145,10 +145,13 @@ Run `go mod tidy` once after you add the files:
 go mod tidy
 ```
 
-This minimal app does not define i18n, static-asset, templ-CSS, or custom 500
-UI hooks. Server errors use the default plain `Internal Server Error` response
-unless you configure `httpserver.CustomConfig.ServerErrorPage`.
-Add those only when you adopt the related feature guides.
+This minimal app does not define i18n, static-asset, templ-CSS variant, or
+custom 500 UI hooks. templ CSS extraction is enabled by default, but generation
+does not emit `styles/templ.css` unless zero-argument templ `css {}`
+declarations or `web/view.TemplCSSVariants()` exist. Server errors use the
+default plain `Internal Server Error` response unless you configure
+`httpserver.CustomConfig.ServerErrorPage`. Add those only when you adopt the
+related feature guides.
 
 ## 4. Generate The App Bundle First
 

@@ -174,6 +174,7 @@ Use it for:
 - path overrides
 - feature auto-detection overrides
 - static asset manifest settings
+- templ CSS extraction opt-out with `assets.templ_css: false`
 
 Do not use it for:
 

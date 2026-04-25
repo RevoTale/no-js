@@ -1,6 +1,8 @@
 # Bundle Config Reference
 
-`no-js.bundle.yaml` is optional. It controls build-time inputs only.
+`no-js.bundle.yaml` is optional. It controls build-time inputs only. Most apps
+should omit it until they need to change a default; when you add it, include
+only the keys you want to override.
 
 If the file is missing, `no-js` uses defaults. If the file exists, it must
 declare `version: 1` and unknown fields are rejected.

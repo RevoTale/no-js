@@ -24,7 +24,7 @@ policy.
 - built-in i18n with typed message helpers
 - discovery conventions for `robots.txt`, RSS, and XML sitemaps
 - route-level Client Assets, explicit hashed global assets, fixed-path public
-  files, and optional templ CSS bundling
+  files, and default-on templ CSS extraction when templ CSS declarations exist
 - request-scoped caching and HTMX partial support
 
 ## What Your App Owns

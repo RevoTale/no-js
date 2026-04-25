@@ -2,6 +2,18 @@
 
 `no-js` is the public build-time entrypoint for consuming apps.
 
+The supported app-facing tools are:
+
+- `go tool no-js`
+  Main generation entrypoint for routes, assets, checks, and bundle-config
+  loading.
+- `go tool templgen`
+  Companion tool only for extra `.templ` packages outside `web/routes`.
+
+Do not add lower-level repository generators such as `approutegen`,
+`staticassetsgen`, `templcssgen`, or `i18nkeygen` to consuming app toolchains.
+They are implementation helpers for this repository, not the app CLI contract.
+
 ## Synopsis
 
 ```bash

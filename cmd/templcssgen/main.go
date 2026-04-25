@@ -13,6 +13,15 @@ func main() {
 	var rootDir string
 	var configPath string
 
+	flag.Usage = func() {
+		_, _ = fmt.Fprintf(flag.CommandLine.Output(), "usage: templcssgen [-root .] [-config path]\n\n")
+		_, _ = fmt.Fprintln(
+			flag.CommandLine.Output(),
+			"internal helper; app projects should use `go tool no-js gen routes -root .`",
+		)
+		_, _ = fmt.Fprintln(flag.CommandLine.Output())
+		flag.PrintDefaults()
+	}
 	flag.StringVar(&rootDir, "root", ".", "application root directory")
 	flag.StringVar(&configPath, "config", "", "bundle config path")
 	flag.Parse()

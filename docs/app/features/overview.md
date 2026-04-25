@@ -20,7 +20,7 @@ before showing escape hatches.
   Serve `robots.txt`, RSS, and XML sitemaps from route conventions.
 - [Static Assets](static-assets.md)
   Add route/component CSS and scripts, explicit hashed files, public files, and
-  optional templ CSS.
+  default-on templ CSS extraction.
 - [Site Resolution](site-resolution.md)
   Provide canonical site roots for metadata, feeds, and localized URLs.
 - [Request Cache and Partials](request-cache-and-partials.md)
