@@ -34,6 +34,10 @@ type Config struct {
 	Layout projectlayout.ProjectLayout
 }
 
+type Inspection struct {
+	HasRegistrations bool
+}
+
 type packageKind string
 
 const (
@@ -56,35 +60,98 @@ type packageSpec struct {
 	Functions    []string
 }
 
+type generationPlan struct {
+	Roots                   []cssScanRoot
+	Packages                []packageSpec
+	HasTemplCSSVariantsHook bool
+}
+
 func Run(cfg Config) error {
 	layout, err := validateLayout(cfg.Layout)
 	if err != nil {
 		return err
 	}
-	viewHooks, err := viewcontract.Inspect(layout.ViewDir)
-	if err != nil {
-		return fmt.Errorf("inspect view contract: %w", err)
-	}
-
-	scanRoots := cssScanRoots(layout)
-	if err := cleanupPackageExports(scanRoots); err != nil {
-		return err
-	}
-
-	packages, err := collectPackages(layout, scanRoots)
+	plan, err := inspectLayout(layout)
 	if err != nil {
 		return err
 	}
 
-	if err := prepareGeneratedWorkspace(layout, packages); err != nil {
+	if err := cleanupPackageExports(plan.Roots); err != nil {
 		return err
 	}
 
-	if err := writeRegistry(layout, packages, viewHooks.HasTemplCSSVariantsHook); err != nil {
+	if err := prepareGeneratedWorkspace(layout, plan.Packages); err != nil {
+		return err
+	}
+
+	if err := writeRegistry(layout, plan.Packages, plan.HasTemplCSSVariantsHook); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func Inspect(cfg Config) (Inspection, error) {
+	layout, err := validateLayout(cfg.Layout)
+	if err != nil {
+		return Inspection{}, err
+	}
+	plan, err := inspectLayout(layout)
+	if err != nil {
+		return Inspection{}, err
+	}
+	return Inspection{HasRegistrations: plan.HasRegistrations()}, nil
+}
+
+func HasRegistrations(cfg Config) (bool, error) {
+	inspection, err := Inspect(cfg)
+	if err != nil {
+		return false, err
+	}
+	return inspection.HasRegistrations, nil
+}
+
+func Cleanup(cfg Config) error {
+	layout, err := validateLayout(cfg.Layout)
+	if err != nil {
+		return err
+	}
+	if err := cleanupPackageExports(cssScanRoots(layout)); err != nil {
+		return err
+	}
+	registryPath := filepath.Join(layout.GeneratedDir, registryFileName)
+	if err := os.Remove(registryPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove templ css registry %q: %w", filepath.ToSlash(registryPath), err)
+	}
+
+	workspaceDir := filepath.Join(layout.GeneratedDir, generatedWorkspaceDirName)
+	if err := os.RemoveAll(workspaceDir); err != nil {
+		return fmt.Errorf("clean templ css workspace %q: %w", filepath.ToSlash(workspaceDir), err)
+	}
+	return nil
+}
+
+func inspectLayout(layout projectlayout.ProjectLayout) (generationPlan, error) {
+	viewHooks, err := viewcontract.Inspect(layout.ViewDir)
+	if err != nil {
+		return generationPlan{}, fmt.Errorf("inspect view contract: %w", err)
+	}
+
+	scanRoots := cssScanRoots(layout)
+	packages, err := collectPackages(layout, scanRoots)
+	if err != nil {
+		return generationPlan{}, err
+	}
+
+	return generationPlan{
+		Roots:                   scanRoots,
+		Packages:                packages,
+		HasTemplCSSVariantsHook: viewHooks.HasTemplCSSVariantsHook,
+	}, nil
+}
+
+func (plan generationPlan) HasRegistrations() bool {
+	return len(plan.Packages) > 0 || plan.HasTemplCSSVariantsHook
 }
 
 func validateLayout(layout projectlayout.ProjectLayout) (projectlayout.ProjectLayout, error) {

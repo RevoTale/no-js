@@ -261,10 +261,11 @@ Do not put files in `web/public` when they should be fingerprinted.
 ## Bundle Templ CSS
 
 templ `css {}` components are a good default for simple component-scoped
-classes. If you want `no-js` to extract them into the hashed asset path, run:
+classes. By default, `no-js` extracts them into the hashed asset path when
+zero-argument templ CSS declarations or `TemplCSSVariants()` exist.
 
 ```bash
-go tool no-js gen assets -root . -templ-css
+go tool no-js gen assets -root .
 ```
 
 That collects registered templ CSS classes into one global stylesheet,

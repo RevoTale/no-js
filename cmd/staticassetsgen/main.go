@@ -20,7 +20,7 @@ func main() {
 	var urlPrefix string
 	var rootDir string
 	var configPath string
-	var templCSS bool
+	var templCSSFlag bool
 
 	flag.StringVar(&sourceDir, "source", "web/assets", "source static directory")
 	flag.StringVar(&outDir, "out", "web/assets-build", "output static directory")
@@ -28,16 +28,18 @@ func main() {
 	flag.StringVar(&urlPrefix, "url-prefix", "/_assets/", "base static URL prefix")
 	flag.StringVar(&rootDir, "root", ".", "application root directory")
 	flag.StringVar(&configPath, "config", "", "bundle config path")
-	flag.BoolVar(&templCSS, "templ-css", false, "generate styles/templ.css before bundling")
+	flag.BoolVar(&templCSSFlag, "templ-css", false, "deprecated: use assets.templ_css in no-js.bundle.yaml")
 	flag.Parse()
 
 	var layout projectlayout.ProjectLayout
-	if templCSS {
+	layoutResolved := false
+	if shouldResolveLayout(rootDir, configPath, templCSSFlag) {
 		var err error
 		layout, err = resolveLayout(rootDir, configPath)
 		if err != nil {
 			exitf("%v", err)
 		}
+		layoutResolved = true
 		if sourceDir == "web/assets" {
 			sourceDir = layout.StaticAssets.SourceDir
 		}
@@ -48,13 +50,31 @@ func main() {
 			manifestPath = layout.StaticAssets.ManifestPath
 		}
 	}
+
+	templCSS := templCSSFlag || (layoutResolved && layout.Assets.TemplCSS)
+	templCSSHasRegistrations := false
+	if templCSS {
+		if !layoutResolved {
+			var err error
+			layout, err = resolveLayout(rootDir, configPath)
+			if err != nil {
+				exitf("%v", err)
+			}
+		}
+		var err error
+		templCSSHasRegistrations, err = templcssgen.HasRegistrations(templcssgen.Config{Layout: layout})
+		if err != nil {
+			exitf("inspect templ css registrations: %v", err)
+		}
+	}
+
 	sourceDir = resolvePath(rootDir, sourceDir)
 	outDir = resolvePath(rootDir, outDir)
 	manifestPath = resolvePath(rootDir, manifestPath)
 
 	buildSourceDir := sourceDir
 	cleanupSource := func() error { return nil }
-	if templCSS {
+	if templCSSHasRegistrations {
 		stageDir, cleanup, err := templcssgen.PrepareStaticSource(templcssgen.PrepareStaticSourceConfig{
 			Layout:    layout,
 			SourceDir: sourceDir,
@@ -97,6 +117,13 @@ func main() {
 	if err := staticassets.WriteManifest(manifestPath, bundle.Manifest()); err != nil {
 		exitf("write manifest %q: %v", manifestPath, err)
 	}
+}
+
+func shouldResolveLayout(rootDir string, configPath string, templCSS bool) bool {
+	if templCSS || strings.TrimSpace(configPath) != "" {
+		return true
+	}
+	return filesystem.PathExists(projectlayout.DefaultConfigPath(rootDir))
 }
 
 func resolveLayout(rootDir string, configPath string) (projectlayout.ProjectLayout, error) {

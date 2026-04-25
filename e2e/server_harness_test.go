@@ -83,12 +83,18 @@ func prepareFixtureApp(t *testing.T, fixtureName string) string {
 		templgenArgs = append(templgenArgs, "-path", path)
 	}
 	runGo(t, appDir, templgenArgs...)
-	runGo(t, appDir, "tool", "no-js", "gen", "assets", "-root", ".", "-templ-css")
+	runGo(t, appDir, "tool", "no-js", "gen", "assets", "-root", ".")
 
 	return appDir
 }
 
 func prepareFixtureAppWithNoJSGen(t *testing.T, fixtureName string) string {
+	t.Helper()
+
+	return prepareFixtureAppWithNoJSGenConfig(t, fixtureName, "")
+}
+
+func prepareFixtureAppWithNoJSGenConfig(t *testing.T, fixtureName string, bundleConfig string) string {
 	t.Helper()
 
 	repoRoot := repoRootPath(t)
@@ -98,8 +104,11 @@ func prepareFixtureAppWithNoJSGen(t *testing.T, fixtureName string) string {
 		t,
 		filesystem.CopyTree(filepath.Join(repoRoot, "e2e", "testdata", fixtureName), appDir),
 	)
+	if strings.TrimSpace(bundleConfig) != "" {
+		require.NoError(t, os.WriteFile(filepath.Join(appDir, "no-js.bundle.yaml"), []byte(bundleConfig), 0o644))
+	}
 	writeFixtureModuleFiles(t, repoRoot, appDir)
-	runGo(t, appDir, "tool", "no-js", "gen", "-root", ".", "-templ-css")
+	runGo(t, appDir, "tool", "no-js", "gen", "-root", ".")
 
 	return appDir
 }
@@ -115,6 +124,17 @@ func startPreparedFixtureWithNoJSGen(t *testing.T, fixtureName string) (string, 
 	t.Helper()
 
 	appDir := prepareFixtureAppWithNoJSGen(t, fixtureName)
+	return appDir, startBuiltFixtureServer(t, appDir)
+}
+
+func startPreparedFixtureWithNoJSGenConfig(
+	t *testing.T,
+	fixtureName string,
+	bundleConfig string,
+) (string, *fixtureServer) {
+	t.Helper()
+
+	appDir := prepareFixtureAppWithNoJSGenConfig(t, fixtureName, bundleConfig)
 	return appDir, startBuiltFixtureServer(t, appDir)
 }
 

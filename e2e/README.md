@@ -25,7 +25,7 @@ Every fixture app should:
 Manual verification looks like this from a fixture root:
 
 ```bash
-go tool no-js gen -root . -templ-css
+go tool no-js gen -root .
 go run ./cmd/server -addr 127.0.0.1:8080
 ```
 
@@ -34,14 +34,14 @@ Some fixtures still use the split generation flow in the test harness where the 
 ```bash
 go tool no-js gen routes -root .
 go tool templgen -base . -path web/generated -path web/components -path web/view
-go tool no-js gen assets -root . -templ-css
+go tool no-js gen assets -root .
 ```
 
 ## Current Fixtures
 
 - `routepagecssapp`
   - Route-local templ `css` declared directly in `web/routes/page.templ`
-  - `no-js gen -templ-css` as the only generation command for the fixture setup
+  - `no-js gen` as the only generation command for the fixture setup, relying on the default templ CSS extraction
   - No `web/assets` source directory; the hashed global templ stylesheet must still be built and loaded
   - Route source directories must stay free of `*_templ.go` and `templ_css_exports_gen.go`
 

@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -55,6 +56,30 @@ func TestRoutePageCSSWorksViaNoJSGenWithoutSourcePollution(t *testing.T) {
 	require.NoError(t, err)
 	_, err = os.Stat(filepath.Join(appDir, "web/generated", "templcss", "routes", "templ_css_exports_gen.go"))
 	require.NoError(t, err)
+}
+
+func TestRoutePageCSSConfigFalseDisablesGlobalStylesheet(t *testing.T) {
+	bundleConfig := strings.Join([]string{
+		"version: 1",
+		"assets:",
+		"  templ_css: false",
+		"",
+	}, "\n")
+	appDir, server := startPreparedFixtureWithNoJSGenConfig(t, "routepagecssapp", bundleConfig)
+
+	home := requestFixture(t, server, http.MethodGet, "/", nil, requestOptions{})
+	partial := requestFixture(t, server, http.MethodGet, "/", nil, hxRequestOptions())
+
+	require.Equal(t, 200, home.Status)
+	require.Contains(t, home.Body, `<style type="text/css"`)
+	require.NotContains(t, home.Body, `styles/templ.css`)
+	require.Contains(t, partial.Body, `<style type="text/css"`)
+	require.NotContains(t, partial.HXTriggerAfterSettle, `styles/templ.css`)
+
+	_, err := os.Stat(filepath.Join(appDir, "web/generated", "templ_css_gen.go"))
+	require.ErrorIs(t, err, os.ErrNotExist)
+	_, err = os.Stat(filepath.Join(appDir, "web/generated", "templcss"))
+	require.ErrorIs(t, err, os.ErrNotExist)
 }
 
 func TestFixtureAppsDeclareToolsAndLocalReplaceInGoMod(t *testing.T) {
@@ -118,6 +143,7 @@ func TestClientAssetsFixtureApp(t *testing.T) {
 	require.NotContains(t, report.Home.Body, report.SectionCSSURL)
 	require.NotContains(t, report.Home.Body, report.SectionScriptURL)
 	require.NotContains(t, report.Home.Body, report.ComplexCSSURL)
+	require.NotContains(t, report.Home.Body, "styles/templ.css")
 	require.NotContains(t, report.Home.Body, "PageShellClass")
 	require.NotContains(t, report.Home.Body, "MeterRootClass")
 	require.Contains(t, report.Home.Body, `class="n_`)

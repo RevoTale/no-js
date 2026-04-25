@@ -111,6 +111,9 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 		I18nDir:         i18nDir,
 		I18nImport:      i18nImport,
 		BuiltInI18n:     builtInI18n,
+		Assets: AssetsLayout{
+			TemplCSS: resolveTemplCSS(cfg.Assets.TemplCSS),
+		},
 		StaticAssets: StaticAssetsLayout{
 			SourceDir:    staticSourceDir,
 			OutDir:       staticOutDir,
@@ -138,6 +141,13 @@ func resolveRelativePath(rootDir string, value string, defaultValue string) (str
 	}
 
 	return filepath.ToSlash(filepath.Join(rootDir, relativePath)), nil
+}
+
+func resolveTemplCSS(value *bool) bool {
+	if value == nil {
+		return defaultTemplCSS
+	}
+	return *value
 }
 
 func normalizeRelativePath(value string, defaultValue string) (string, error) {

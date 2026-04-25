@@ -22,7 +22,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		exitf("usage: no-js gen [routes|assets|check] [-root .] [-config path] [-templ-css]")
+		exitf("usage: no-js gen [routes|assets|check] [-root .] [-config path]")
 	}
 
 	switch os.Args[1] {
@@ -55,10 +55,8 @@ func runGen(args []string) error {
 
 	var rootDir string
 	var configPath string
-	var templCSS bool
 	flags.StringVar(&rootDir, "root", ".", "application root directory")
 	flags.StringVar(&configPath, "config", "", "bundle config path")
-	flags.BoolVar(&templCSS, "templ-css", false, "generate styles/templ.css before bundling")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -72,12 +70,12 @@ func runGen(args []string) error {
 	case "routes":
 		return generateRoutes(layout)
 	case "assets":
-		return generateAssets(layout, templCSS)
+		return generateAssets(layout)
 	case "check":
 		if err := generateRoutes(layout); err != nil {
 			return err
 		}
-		if err := generateAssets(layout, templCSS); err != nil {
+		if err := generateAssets(layout); err != nil {
 			return err
 		}
 		return checkGitDiff(layout.RootDir)
@@ -85,7 +83,7 @@ func runGen(args []string) error {
 		if err := generateRoutes(layout); err != nil {
 			return err
 		}
-		return generateAssets(layout, templCSS)
+		return generateAssets(layout)
 	}
 }
 
@@ -117,8 +115,12 @@ func generateRoutes(layout projectlayout.ProjectLayout) error {
 	if err := i18ngen.Run(i18ngen.Config{Layout: layout}); err != nil {
 		return fmt.Errorf("generate i18n: %w", err)
 	}
-	if err := templcssgen.Run(templcssgen.Config{Layout: layout}); err != nil {
-		return fmt.Errorf("generate templ css registry: %w", err)
+	if layout.Assets.TemplCSS {
+		if err := templcssgen.Run(templcssgen.Config{Layout: layout}); err != nil {
+			return fmt.Errorf("generate templ css registry: %w", err)
+		}
+	} else if err := templcssgen.Cleanup(templcssgen.Config{Layout: layout}); err != nil {
+		return fmt.Errorf("clean templ css registry: %w", err)
 	}
 	if err := generateTemplInDir(layout.RootDir, layout.GeneratedDir); err != nil {
 		return fmt.Errorf("generate templ for generated routes: %w", err)
@@ -126,13 +128,22 @@ func generateRoutes(layout projectlayout.ProjectLayout) error {
 	return nil
 }
 
-func generateAssets(layout projectlayout.ProjectLayout, templCSS bool) error {
+func generateAssets(layout projectlayout.ProjectLayout) error {
+	templCSSHasRegistrations := false
+	if layout.Assets.TemplCSS {
+		var err error
+		templCSSHasRegistrations, err = templcssgen.HasRegistrations(templcssgen.Config{Layout: layout})
+		if err != nil {
+			return fmt.Errorf("inspect templ css registrations: %w", err)
+		}
+	}
+
 	hasClientAssets, err := clientassets.HasClientAssets(layout)
 	if err != nil {
 		return fmt.Errorf("discover client assets: %w", err)
 	}
-	if !layout.ServerFeatures.StaticAssets && !templCSS && !hasClientAssets {
-		return nil
+	if !layout.ServerFeatures.StaticAssets && !templCSSHasRegistrations && !hasClientAssets {
+		return cleanStaticAssetOutput(layout)
 	}
 
 	sourceDir := strings.TrimSpace(layout.StaticAssets.SourceDir)
@@ -150,7 +161,12 @@ func generateAssets(layout projectlayout.ProjectLayout, templCSS bool) error {
 
 	buildSourceDir := sourceDir
 	cleanupSource := func() error { return nil }
-	if templCSS {
+	defer func() {
+		_ = cleanupSource()
+	}()
+
+	templCSSStylesheetBuilt := false
+	if templCSSHasRegistrations {
 		stageDir, cleanup, err := templcssgen.PrepareStaticSource(templcssgen.PrepareStaticSourceConfig{
 			Layout:    layout,
 			SourceDir: sourceDir,
@@ -160,6 +176,12 @@ func generateAssets(layout projectlayout.ProjectLayout, templCSS bool) error {
 		}
 		buildSourceDir = stageDir
 		cleanupSource = cleanup
+		templCSSStylesheetBuilt = filesystem.PathExists(
+			filepath.Join(stageDir, filepath.FromSlash("styles/templ.css")),
+		)
+	}
+	if !layout.ServerFeatures.StaticAssets && !hasClientAssets && !templCSSStylesheetBuilt {
+		return cleanStaticAssetOutput(layout)
 	}
 	if hasClientAssets {
 		stageDir, cleanup, err := clientassets.PrepareStaticSource(clientassets.PrepareStaticSourceConfig{
@@ -178,9 +200,6 @@ func generateAssets(layout projectlayout.ProjectLayout, templCSS bool) error {
 			return previousCleanup()
 		}
 	}
-	defer func() {
-		_ = cleanupSource()
-	}()
 
 	bundle, err := bundlerstaticassets.Build(bundlerstaticassets.BuildConfig{
 		SourceDir: buildSourceDir,
@@ -201,6 +220,24 @@ func generateAssets(layout projectlayout.ProjectLayout, templCSS bool) error {
 	if err := bundlerstaticassets.WriteManifest(manifestPath, bundle.Manifest()); err != nil {
 		return fmt.Errorf("write manifest %q: %w", manifestPath, err)
 	}
+	return nil
+}
+
+func cleanStaticAssetOutput(layout projectlayout.ProjectLayout) error {
+	outDir := strings.TrimSpace(layout.StaticAssets.OutDir)
+	if outDir != "" {
+		if err := os.RemoveAll(outDir); err != nil {
+			return fmt.Errorf("clean output dir %q: %w", outDir, err)
+		}
+	}
+
+	manifestPath := strings.TrimSpace(layout.StaticAssets.ManifestPath)
+	if manifestPath != "" {
+		if err := os.Remove(manifestPath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove manifest %q: %w", manifestPath, err)
+		}
+	}
+
 	return nil
 }
 

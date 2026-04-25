@@ -63,6 +63,30 @@ func TestLoadConfigFileAcceptsBuiltInI18nMode(t *testing.T) {
 	require.Equal(t, FeatureDisabled, cfg.I18n.Mode)
 }
 
+func TestLoadConfigFileAcceptsTemplCSSAssetToggle(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "no-js.bundle.yaml")
+	writeBundlerTestFile(t, configPath, "version: 1\nassets:\n  templ_css: true\n")
+
+	cfg, err := LoadConfigFile(configPath)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Assets.TemplCSS)
+	require.True(t, *cfg.Assets.TemplCSS)
+}
+
+func TestLoadConfigFileAcceptsDisabledTemplCSSAssetToggle(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "no-js.bundle.yaml")
+	writeBundlerTestFile(t, configPath, "version: 1\nassets:\n  templ_css: false\n")
+
+	cfg, err := LoadConfigFile(configPath)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Assets.TemplCSS)
+	require.False(t, *cfg.Assets.TemplCSS)
+}
+
 func TestResolveProjectLayoutFromRootUsesConfigOverrides(t *testing.T) {
 	t.Parallel()
 
@@ -85,6 +109,8 @@ func TestResolveProjectLayoutFromRootUsesConfigOverrides(t *testing.T) {
 			"  i18n_dir: src/web/i18n",
 			"  assets_dir: web-static",
 			"  assets_build_dir: web-static-build",
+			"assets:",
+			"  templ_css: true",
 			"static_assets:",
 			"  manifest_path: web-static-build/manifest.json",
 			"",
@@ -101,4 +127,5 @@ func TestResolveProjectLayoutFromRootUsesConfigOverrides(t *testing.T) {
 	require.Equal(t, expectedStaticSourceDir, filepath.ToSlash(layout.StaticAssets.SourceDir))
 	expectedStaticOutDir := filepath.ToSlash(filepath.Join(rootDir, "web-static-build"))
 	require.Equal(t, expectedStaticOutDir, filepath.ToSlash(layout.StaticAssets.OutDir))
+	require.True(t, layout.Assets.TemplCSS)
 }

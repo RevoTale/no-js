@@ -22,7 +22,7 @@ and fingerprints them through the manifest.
 
 | Source | Purpose | Auto-injected |
 | --- | --- | --- |
-| templ `css {}` in `.templ` files | simple component-scoped CSS | global `styles/templ.css` when `-templ-css` is enabled |
+| templ `css {}` in `.templ` files | simple component-scoped CSS | global `styles/templ.css` unless `assets.templ_css` is false |
 | `web/routes/**/<name>.css` | route, layout, or 404 CSS with the same stem as `<name>.templ` | yes, for matched routes |
 | `web/components/**/*.css` | component CSS | yes, when a matched route imports the component package |
 | `web/routes/**/<name>.{js,ts,mjs,mts}` | route, layout, or 404 scripts with the same stem as `<name>.templ` | yes, for matched routes |
@@ -61,11 +61,13 @@ Use the constants from templ. Do not hard-code generated class names.
 Generated CSS is scoped by class-name anonymization. The original class names
 stay in source files; rendered HTML and built CSS use the generated names.
 
-templ `css {}` components are extracted only when you run asset generation with
-`-templ-css`. That writes one global `styles/templ.css` into the hashed asset
-output. At runtime, `httpserver.NewApp(...)` injects that stylesheet into
-managed head output for every page and suppresses the registered inline templ
-CSS.
+templ `css {}` components are extracted by default. That writes one global
+`styles/templ.css` into the hashed asset output when zero-argument templ CSS
+declarations or `TemplCSSVariants()` are present. Set `assets.templ_css` to
+`false` in `no-js.bundle.yaml` to keep templ CSS inline.
+
+At runtime, `httpserver.NewApp(...)` injects that stylesheet into managed head
+output for every page and suppresses the registered inline templ CSS.
 
 ## Generated Scripts
 

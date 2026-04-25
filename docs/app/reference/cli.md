@@ -5,7 +5,7 @@
 ## Synopsis
 
 ```bash
-go tool no-js gen [routes|assets|check] [-root .] [-config path] [-templ-css]
+go tool no-js gen [routes|assets|check] [-root .] [-config path]
 ```
 
 If you omit the mode, `gen` runs both route generation and asset generation.
@@ -34,10 +34,6 @@ the asset step that writes bundled, fingerprinted runtime files.
 - `-config`
   Explicit bundle-config path. If omitted, `no-js` loads
   `no-js.bundle.yaml` from the app root when the file exists.
-- `-templ-css`
-  Generate one global `styles/templ.css` from templ `css` components before
-  asset bundling. Colocated `.css`, `.js`, and `.ts` Client Assets do not need
-  this flag.
 
 ## What Each Run Produces
 
@@ -47,7 +43,7 @@ the asset step that writes bundled, fingerprinted runtime files.
 - `web/resolvers/generated.go`
 - built-in i18n output when `web/i18n/messages` exists
 - `*.css_gen.go`, `*.js_gen.go`, and `*.ts_gen.go` beside discovered Client Asset sources
-- templ CSS registry output used by the runtime and optional asset bundling
+- templ CSS registry output unless `assets.templ_css` is false
 
 `go tool no-js gen assets -root .` writes:
 
@@ -82,10 +78,17 @@ Use an explicit config file:
 go tool no-js gen -root . -config ./config/no-js.bundle.yaml
 ```
 
-Bundle templ `css` components into the hashed asset pipeline:
+Disable templ `css` extraction when you want templ to keep inline CSS registration:
+
+```yaml
+version: 1
+
+assets:
+  templ_css: false
+```
 
 ```bash
-go tool no-js gen assets -root . -templ-css
+go tool no-js gen assets -root .
 ```
 
 ## When You Also Use `templgen`

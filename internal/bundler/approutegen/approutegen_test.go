@@ -1404,13 +1404,14 @@ func TestGenerateDiscoverySourceWithoutDiscoveryRoutesStillDefinesExactHandlers(
 	require.Contains(t, text, "return nil")
 }
 
-func TestGenerateBundleSourceWiresTemplCSSRegistry(t *testing.T) {
+func TestGenerateBundleSourceWiresTemplCSSRegistryWhenEnabled(t *testing.T) {
 	t.Parallel()
 
 	source, err := generateBundleSource(projectlayout.ProjectLayout{
 		AppModulePath:   testAppModulePath,
 		GeneratedImport: "web/generated",
 		ViewImport:      "web/view",
+		Assets:          projectlayout.AssetsLayout{TemplCSS: true},
 	}, zeroArgViewInspection())
 	require.NoError(t, err)
 
@@ -1421,6 +1422,21 @@ func TestGenerateBundleSourceWiresTemplCSSRegistry(t *testing.T) {
 	require.Contains(t, text, "NotFoundPage:                  NotFoundPage(resolvers),")
 	require.Contains(t, text, "TemplCSSClasses:               TemplCSSClasses,")
 	require.Contains(t, text, "OnStaticAssetBasePathResolved: nil,")
+}
+
+func TestGenerateBundleSourceDisablesTemplCSSRegistryWhenDisabled(t *testing.T) {
+	t.Parallel()
+
+	source, err := generateBundleSource(projectlayout.ProjectLayout{
+		AppModulePath:   testAppModulePath,
+		GeneratedImport: "web/generated",
+		ViewImport:      "web/view",
+	}, zeroArgViewInspection())
+	require.NoError(t, err)
+
+	text := string(source)
+	require.Contains(t, text, "TemplCSSClasses:               nil,")
+	require.NotContains(t, text, "TemplCSSClasses:               TemplCSSClasses,")
 }
 
 func TestGenerateBundleSourceWiresStaticAssetHookWhenPresent(t *testing.T) {

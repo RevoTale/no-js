@@ -40,6 +40,7 @@ func TestResolveProjectLayoutDefaults(t *testing.T) {
 		filepath.Join(rootDir, defaultAssetsBuildDir, defaultStaticManifestFileName),
 	)
 	require.Equal(t, expectedManifestPath, filepath.ToSlash(layout.StaticAssets.ManifestPath))
+	require.True(t, layout.Assets.TemplCSS)
 	require.True(t, layout.ServerFeatures.I18nRouting)
 	require.True(t, layout.ServerFeatures.StaticAssets)
 	require.True(t, layout.ServerFeatures.HealthEndpoint)

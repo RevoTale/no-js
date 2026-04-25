@@ -8,8 +8,8 @@ temporary and must be renamed to the concrete release version after release.
 
 ## Next
 
-- [v1.3.0 to Next: View Package, Typed System Pages, And Server Error UI](migrations/v1.3.0-to-next.md)
+- [v1.3.0 to Next: View Package, Typed System Pages, Server Error UI, And Templ CSS Config](migrations/v1.3.0-to-next.md)
   Rename app `web/view` packages to `package view`, move 404 model construction
-  into generated `Resolve...NotFound(...)` resolver methods, and move custom
-  500 UI from generated `error.templ` wiring to
-  `httpserver.CustomConfig.ServerErrorPage`.
+  into generated `Resolve...NotFound(...)` resolver methods, move custom 500 UI
+  to `httpserver.CustomConfig.ServerErrorPage`, and remove `-templ-css` now that global templ CSS extraction is enabled by
+  default and disabled with `assets.templ_css: false`.

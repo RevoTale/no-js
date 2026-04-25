@@ -28,6 +28,9 @@ server:
 i18n:
   mode: auto
 
+assets:
+  templ_css: true
+
 static_assets:
   manifest_path: web/assets-build/manifest.json
 ```
@@ -85,6 +88,23 @@ i18n:
   mode: disabled
 ```
 
+## `assets`
+
+- `assets.templ_css`
+  Global templ CSS extraction. Default: `true`.
+
+  By default, `no-js` scans templ `css {}` declarations and
+  `web/view.TemplCSSVariants()`. When no zero-argument templ CSS declarations
+  or variants hook exist, no `styles/templ.css` asset is emitted. Set this to
+  `false` to keep templ CSS on templ's inline registration path.
+
+```yaml
+version: 1
+
+assets:
+  templ_css: false
+```
+
 ## `static_assets`
 
 - `static_assets.manifest_path`
@@ -99,6 +119,7 @@ This path controls where the asset pipeline writes the manifest that
 - `version: 1` is required
 - unknown YAML fields are rejected
 - configured paths must be relative and stay inside the app root
+- `assets.templ_css` must be `true` or `false`
 - `go.mod`, the configured route root, and the configured view root must exist
 - if i18n routing is enabled, the configured i18n root must exist
 - if built-in i18n is enabled, the configured messages directory must exist

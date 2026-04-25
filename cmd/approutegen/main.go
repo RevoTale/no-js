@@ -27,8 +27,13 @@ func main() {
 		_, _ = fmt.Fprintf(os.Stderr, "approutegen: %v\n", err)
 		os.Exit(1)
 	}
-	if err := templcssgen.Run(templcssgen.Config{Layout: layout}); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "approutegen: generate templ css registry: %v\n", err)
+	if layout.Assets.TemplCSS {
+		if err := templcssgen.Run(templcssgen.Config{Layout: layout}); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "approutegen: generate templ css registry: %v\n", err)
+			os.Exit(1)
+		}
+	} else if err := templcssgen.Cleanup(templcssgen.Config{Layout: layout}); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "approutegen: clean templ css registry: %v\n", err)
 		os.Exit(1)
 	}
 	if err := bundlertemplgen.Run(bundlertemplgen.Config{
