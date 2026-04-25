@@ -11,6 +11,7 @@ func Normalize(meta Metadata) Metadata {
 		Description:   strings.TrimSpace(meta.Description),
 		Alternates:    normalizeAlternates(meta.Alternates),
 		Stylesheets:   normalizeStylesheets(meta.Stylesheets),
+		ModuleScripts: normalizeModuleScripts(meta.ModuleScripts),
 		Authors:       normalizeAuthors(meta.Authors),
 		Publisher:     strings.TrimSpace(meta.Publisher),
 		DangerRawHead: normalizeRawHead(meta.DangerRawHead),
@@ -200,6 +201,28 @@ func normalizeStylesheets(stylesheets []string) []string {
 	seen := make(map[string]struct{}, len(stylesheets))
 	for _, href := range stylesheets {
 		trimmed := strings.TrimSpace(href)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+
+	return normalized
+}
+
+func normalizeModuleScripts(scripts []string) []string {
+	if len(scripts) == 0 {
+		return nil
+	}
+
+	normalized := make([]string, 0, len(scripts))
+	seen := make(map[string]struct{}, len(scripts))
+	for _, src := range scripts {
+		trimmed := strings.TrimSpace(src)
 		if trimmed == "" {
 			continue
 		}

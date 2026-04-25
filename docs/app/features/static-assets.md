@@ -1,115 +1,111 @@
-# Static Assets
+# Static Assets And Client Assets
 
-Use this guide when your app needs hashed asset URLs, fixed-path public files,
-or templ CSS bundled into the asset pipeline.
+Use this guide when your app needs hashed asset URLs, colocated CSS/JS, or
+fixed-path public files.
 
 ## What This Feature Does
 
 `no-js` fingerprints bundled assets, writes a manifest, and serves the built
-output under a versioned runtime prefix.
-
-This is separate from fixed-path public files under `web/public`.
-
-## Happy Path
-
-Put source assets in `web/assets`, then run:
-
-```bash
-go tool no-js gen assets -root .
-```
-
-By default this writes:
-
-- processed assets to `web/assets-build`
-- the manifest to `web/assets-build/manifest.json`
-
-At runtime, `httpserver.NewApp(...)` reads that manifest and serves assets
-under:
+output under a versioned runtime prefix:
 
 ```text
 /_assets/<hash>/
 ```
 
-## Template Usage
+There are three asset paths:
 
-Most apps expose a small helper in `web/view`:
+- `web/routes` and `web/components` for colocated Client Assets.
+- `web/assets` for explicit global files that should be fingerprinted.
+- `web/public` for fixed request paths such as `/favicon.ico`.
+
+## Client Assets
+
+Colocated `.css`, `.js`, `.ts`, `.mjs`, and `.mts` files under route or
+component packages are discovered automatically.
+
+`no-js gen routes` writes source-adjacent Go helpers:
+
+```text
+web/routes/page.css       -> web/routes/page.css_gen.go
+web/components/meter.ts   -> web/components/meter.ts_gen.go
+```
+
+CSS class constants are exported by default:
 
 ```go
-package view
-
-import (
-	"path"
-	"strings"
+const (
+	PageShellClass = "n_a1b2c3d4"
 )
-
-var staticAssetBasePath string
-
-func SetStaticAssetBasePath(prefix string) {
-	staticAssetBasePath = strings.TrimRight(strings.TrimSpace(prefix), "/")
-}
-
-func StaticAssetURL(assetPath string) string {
-	trimmed := strings.TrimPrefix(strings.TrimSpace(assetPath), "/")
-	if trimmed == "" {
-		return staticAssetBasePath
-	}
-	return path.Join(staticAssetBasePath, trimmed)
-}
 ```
 
-Then templates use that helper:
+Use those constants from templ:
 
 ```templ
-<link rel="stylesheet" href={ view.StaticAssetURL("site.css") }>
+<main class={ PageShellClass }>
 ```
 
-`generated.Bundle(appContext)` wires `SetStaticAssetBasePath(...)` only when
-your `web/view` package defines it. If you use a different asset URL helper,
-you can skip that hook entirely.
+The original class names stay in source CSS. The rendered HTML and built CSS use
+anonymized class names.
 
-## `-templ-css`
+## Route Bundles
 
-If you want templ `css` components to become a hashed static stylesheet, add
-`-templ-css`:
+`no-js gen assets` bundles matched route dependencies into route-level assets:
+
+```html
+<link rel="stylesheet" href="/_assets/<hash>/routes/index.css">
+<script type="module" src="/_assets/<hash>/routes/index.js"></script>
+```
+
+Route assets are static per route. If a page imports a component package, that
+component package's colocated CSS and scripts are included in that page's route
+bundle. Pages that do not import the component do not receive its script.
+
+## Script Helpers
+
+For manual use, script source files also get exported helpers:
+
+```go
+func MeterScript() templ.Component
+```
+
+Normal pages should not call these helpers; route generation auto-injects route
+scripts once per matched page. The helpers exist for Advanced composition cases
+where you intentionally render a script outside the generated route flow.
+
+TypeScript is bundled, not typechecked. If your app uses TypeScript, keep
+`tsc --noEmit` in your app validation flow.
+
+## Global Assets
+
+Put explicit global files in `web/assets`, then run:
+
+```bash
+go tool no-js gen assets -root .
+```
+
+By default this writes processed assets and the manifest to `web/assets-build`.
+At runtime, `httpserver.NewApp(...)` reads the manifest and serves the versioned
+asset tree.
+
+If you need to reference a global asset manually, prefer app-owned helpers. The
+optional `view.SetStaticAssetBasePath(prefix string)` hook is still supported,
+but it is not required for generated Client Assets.
+
+## Legacy `-templ-css`
+
+`-templ-css` remains available for templ `css` components:
 
 ```bash
 go tool no-js gen assets -root . -templ-css
 ```
 
 That generates `styles/templ.css` and sends it through the same hashed asset
-pipeline as the rest of `web/assets`.
+pipeline. New apps should prefer colocated `.css` files when they want exported
+class constants and route-level bundles.
 
-Without `-templ-css`, templ `css` output stays on templ's normal render path and
-does not go through the static asset manifest.
-
-## Zero-Arg CSS And Explicit Variants
-
-The generated CSS registry automatically picks up zero-argument templ `css`
-components from:
-
-- `web/routes`
-- `web/components`
-
-If you need parameterized variants, return them from `TemplCSSVariants()` in
-`web/view`. For example, if `web/components` exposes
-`ProgressBar(percent int)`:
-
-```go
-package view
-
-import (
-	"example.com/your-app/web/components"
-	"github.com/a-h/templ"
-)
-
-func TemplCSSVariants() []templ.CSSClass {
-	return []templ.CSSClass{
-		components.ProgressBar(72),
-	}
-}
-```
-
-If you only use zero-argument `css` components, omit the hook.
+If you need parameterized templ CSS variants, return them from
+`TemplCSSVariants()` in `web/view`. If you only use zero-argument templ `css`
+components, omit the hook.
 
 ## `web/assets` Versus `web/public`
 

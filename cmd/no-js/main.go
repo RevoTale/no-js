@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/RevoTale/no-js/internal/bundler/approutegen"
+	"github.com/RevoTale/no-js/internal/bundler/clientassets"
 	"github.com/RevoTale/no-js/internal/bundler/i18ngen"
 	bundlerstaticassets "github.com/RevoTale/no-js/internal/bundler/staticassets"
 	"github.com/RevoTale/no-js/internal/bundler/templcssgen"
@@ -126,7 +127,11 @@ func generateRoutes(layout projectlayout.ProjectLayout) error {
 }
 
 func generateAssets(layout projectlayout.ProjectLayout, templCSS bool) error {
-	if !layout.ServerFeatures.StaticAssets && !templCSS {
+	hasClientAssets, err := clientassets.HasClientAssets(layout)
+	if err != nil {
+		return fmt.Errorf("discover client assets: %w", err)
+	}
+	if !layout.ServerFeatures.StaticAssets && !templCSS && !hasClientAssets {
 		return nil
 	}
 
@@ -155,6 +160,23 @@ func generateAssets(layout projectlayout.ProjectLayout, templCSS bool) error {
 		}
 		buildSourceDir = stageDir
 		cleanupSource = cleanup
+	}
+	if hasClientAssets {
+		stageDir, cleanup, err := clientassets.PrepareStaticSource(clientassets.PrepareStaticSourceConfig{
+			Layout:    layout,
+			SourceDir: buildSourceDir,
+		})
+		if err != nil {
+			return fmt.Errorf("prepare client assets static source: %w", err)
+		}
+		previousCleanup := cleanupSource
+		buildSourceDir = stageDir
+		cleanupSource = func() error {
+			if cleanupErr := cleanup(); cleanupErr != nil {
+				return cleanupErr
+			}
+			return previousCleanup()
+		}
 	}
 	defer func() {
 		_ = cleanupSource()

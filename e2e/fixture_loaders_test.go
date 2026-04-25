@@ -18,6 +18,24 @@ type routePageCSSFixture struct {
 	StylesheetURL string
 }
 
+type clientAssetsFixture struct {
+	AppDir           string
+	Home             responseSnapshot
+	About            responseSnapshot
+	Section          responseSnapshot
+	NotFound         responseSnapshot
+	RouteCSS         responseSnapshot
+	RouteScript      responseSnapshot
+	SectionCSS       responseSnapshot
+	SectionScript    responseSnapshot
+	NotFoundCSS      responseSnapshot
+	RouteCSSURL      string
+	RouteScriptURL   string
+	SectionCSSURL    string
+	SectionScriptURL string
+	NotFoundCSSURL   string
+}
+
 type templCSSFixture struct {
 	Home          responseSnapshot
 	Partial       responseSnapshot
@@ -163,6 +181,11 @@ type templRulesFixture struct {
 }
 
 var stylesheetPattern = regexp.MustCompile(`href="([^"]+/styles/templ\.css)"`)
+var routeIndexCSSPattern = regexp.MustCompile(`href="([^"]+/routes/index\.css)"`)
+var routeIndexScriptPattern = regexp.MustCompile(`src="([^"]+/routes/index\.js)"`)
+var routeSectionCSSPattern = regexp.MustCompile(`href="([^"]+/routes/section\.css)"`)
+var routeSectionScriptPattern = regexp.MustCompile(`src="([^"]+/routes/section\.js)"`)
+var routeNotFoundCSSPattern = regexp.MustCompile(`href="([^"]+/routes/404\.css)"`)
 var siteCSSPattern = regexp.MustCompile(`id="site-css"[^>]*href="([^"]+/site\.css)"`)
 var expensiveCountPattern = regexp.MustCompile(`<div id="expensive-count">([^<]+)</div>`)
 
@@ -183,6 +206,40 @@ func loadRoutePageCSSFixture(t *testing.T) (string, routePageCSSFixture) {
 		NotFound:      notFound,
 		Stylesheet:    stylesheet,
 		StylesheetURL: stylesheetURL,
+	}
+}
+
+func loadClientAssetsFixture(t *testing.T) clientAssetsFixture {
+	t.Helper()
+
+	appDir, server := startPreparedFixture(t, "clientassetsapp")
+
+	home := requestFixture(t, server, http.MethodGet, "/", nil, requestOptions{})
+	about := requestFixture(t, server, http.MethodGet, "/about", nil, requestOptions{})
+	section := requestFixture(t, server, http.MethodGet, "/section", nil, requestOptions{})
+	notFound := requestFixture(t, server, http.MethodGet, "/missing", nil, requestOptions{})
+	routeCSSURL := extractPatternURL(t, routeIndexCSSPattern, home.Body, "route stylesheet")
+	routeScriptURL := extractPatternURL(t, routeIndexScriptPattern, home.Body, "route script")
+	sectionCSSURL := extractPatternURL(t, routeSectionCSSPattern, section.Body, "section stylesheet")
+	sectionScriptURL := extractPatternURL(t, routeSectionScriptPattern, section.Body, "section script")
+	notFoundCSSURL := extractPatternURL(t, routeNotFoundCSSPattern, notFound.Body, "404 stylesheet")
+
+	return clientAssetsFixture{
+		AppDir:           appDir,
+		Home:             home,
+		About:            about,
+		Section:          section,
+		NotFound:         notFound,
+		RouteCSS:         requestFixture(t, server, http.MethodGet, routeCSSURL, nil, requestOptions{}),
+		RouteScript:      requestFixture(t, server, http.MethodGet, routeScriptURL, nil, requestOptions{}),
+		SectionCSS:       requestFixture(t, server, http.MethodGet, sectionCSSURL, nil, requestOptions{}),
+		SectionScript:    requestFixture(t, server, http.MethodGet, sectionScriptURL, nil, requestOptions{}),
+		NotFoundCSS:      requestFixture(t, server, http.MethodGet, notFoundCSSURL, nil, requestOptions{}),
+		RouteCSSURL:      routeCSSURL,
+		RouteScriptURL:   routeScriptURL,
+		SectionCSSURL:    sectionCSSURL,
+		SectionScriptURL: sectionScriptURL,
+		NotFoundCSSURL:   notFoundCSSURL,
 	}
 }
 
@@ -505,8 +562,14 @@ func mergeOptions(base requestOptions, extra requestOptions) requestOptions {
 func extractStylesheetURL(t *testing.T, html string) string {
 	t.Helper()
 
-	matches := stylesheetPattern.FindStringSubmatch(html)
-	require.Len(t, matches, 2, "stylesheet href not found")
+	return extractPatternURL(t, stylesheetPattern, html, "stylesheet href")
+}
+
+func extractPatternURL(t *testing.T, pattern *regexp.Regexp, html string, label string) string {
+	t.Helper()
+
+	matches := pattern.FindStringSubmatch(html)
+	require.Len(t, matches, 2, "%s not found", label)
 	return normalizeFixtureURL(matches[1])
 }
 

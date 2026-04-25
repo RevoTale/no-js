@@ -45,6 +45,12 @@ go tool no-js gen assets -root . -templ-css
   - No `web/assets` source directory; the hashed global templ stylesheet must still be built and loaded
   - Route source directories must stay free of `*_templ.go` and `templ_css_exports_gen.go`
 
+- `clientassetsapp`
+  - Colocated route and component `.css` files with generated exported class constants
+  - Colocated route and component TypeScript bundled into route-level module scripts
+  - Route-level client assets are present only on pages that use them
+  - 404 pages receive their own route-level stylesheet
+
 - `templcssapp`
   - Root page rendering
   - Root metadata and `metagen.Head(...)`

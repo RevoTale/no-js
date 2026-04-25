@@ -80,6 +80,7 @@ type PageModule[C any, P any, VM any] struct {
 	Render              PageRenderer[VM]
 	Layouts             []LayoutRenderer[VM]
 	RootLayout          func(meta metagen.Metadata, locale string, child templ.Component) templ.Component
+	ClientAssets        metagen.ClientAssets
 	ErrorPage           func(appCtx C, r *http.Request) templ.Component
 }
 
@@ -246,6 +247,7 @@ func servePageModule[C any, P any, VM any](
 	}
 	meta := metagen.Normalize(metaResult.meta)
 	meta = metagen.MergeManagedStylesheets(r.Context(), meta)
+	meta = metagen.MergeManagedClientAssets(r.Context(), meta, module.ClientAssets)
 
 	var loadOnce sync.Once
 	var loadResult pageLoadResult

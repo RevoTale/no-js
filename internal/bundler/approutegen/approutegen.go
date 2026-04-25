@@ -18,7 +18,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/RevoTale/no-js/framework/metagen"
 	frameworkrouter "github.com/RevoTale/no-js/framework/router"
+	"github.com/RevoTale/no-js/internal/bundler/clientassets"
 	"github.com/RevoTale/no-js/internal/bundler/viewcontract"
 	"github.com/RevoTale/no-js/internal/projectlayout"
 )
@@ -363,6 +365,11 @@ func Run(cfg Config) error {
 	}
 	slotOwners := buildSlotOwners(slotMetas, routes.SlotLayouts, routes.Defaults)
 
+	clientAssetPlan, err := clientassets.Generate(clientassets.Config{Layout: paths})
+	if err != nil {
+		return fmt.Errorf("generate client asset helpers: %w", err)
+	}
+
 	if err := os.RemoveAll(paths.GeneratedDir); err != nil {
 		return fmt.Errorf("clear generated output: %w", err)
 	}
@@ -372,6 +379,9 @@ func Run(cfg Config) error {
 
 	for _, tpl := range routes.Templates {
 		if err := writeTemplCopy(tpl); err != nil {
+			return err
+		}
+		if err := writeClientAssetHelperCopies(tpl); err != nil {
 			return err
 		}
 	}
@@ -411,6 +421,7 @@ func Run(cfg Config) error {
 		routes.Root,
 		routes.Layouts,
 		routes.NotFounds,
+		clientAssetPlan,
 	)
 	if err != nil {
 		return err
@@ -1903,6 +1914,43 @@ func rewriteGoPackageDeclaration(source []byte, packageName string) ([]byte, err
 	return nil, errors.New("go source missing package declaration")
 }
 
+func writeClientAssetHelperCopies(tpl templateDef) error {
+	if strings.TrimSpace(tpl.SourcePath) == "" || strings.TrimSpace(tpl.OutputDir) == "" {
+		return nil
+	}
+	entries, err := os.ReadDir(filepath.Dir(tpl.SourcePath))
+	if err != nil {
+		return fmt.Errorf("read client asset helper dir for %q: %w", tpl.SourcePath, err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !isClientAssetHelperFile(entry.Name()) {
+			continue
+		}
+		sourcePath := filepath.Join(filepath.Dir(tpl.SourcePath), entry.Name())
+		source, readErr := os.ReadFile(sourcePath)
+		if readErr != nil {
+			return fmt.Errorf("read %q: %w", sourcePath, readErr)
+		}
+		rewritten, rewriteErr := rewriteGoPackageDeclaration(source, tpl.Package)
+		if rewriteErr != nil {
+			return fmt.Errorf("rewrite package for %q: %w", sourcePath, rewriteErr)
+		}
+		outPath := filepath.Join(tpl.OutputDir, entry.Name())
+		if writeErr := os.WriteFile(outPath, rewritten, 0o644); writeErr != nil {
+			return fmt.Errorf("write %q: %w", outPath, writeErr)
+		}
+	}
+	return nil
+}
+
+func isClientAssetHelperFile(name string) bool {
+	return strings.HasSuffix(name, ".css_gen.go") ||
+		strings.HasSuffix(name, ".js_gen.go") ||
+		strings.HasSuffix(name, ".ts_gen.go") ||
+		strings.HasSuffix(name, ".mjs_gen.go") ||
+		strings.HasSuffix(name, ".mts_gen.go")
+}
+
 func writeSourcePackageCopy(sourcePackage sourcePackageDef, generatedRoot string) error {
 	outputDir := filepath.Join(generatedRoot, sourcePackage.ModuleName)
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
@@ -2323,7 +2371,13 @@ func generateRegistrySource(
 	root templateDef,
 	layouts map[string]templateDef,
 	notFounds map[string]templateDef,
+	clientAssetPlans ...clientassets.Plan,
 ) ([]byte, error) {
+	clientAssetPlan := clientassets.Plan{}
+	if len(clientAssetPlans) > 0 {
+		clientAssetPlan = clientAssetPlans[0]
+	}
+
 	if root.SourcePath == "" && root.ModuleName == "" {
 		return nil, errors.New("missing root template metadata")
 	}
@@ -2539,6 +2593,7 @@ func generateRegistrySource(
 			root,
 			layouts,
 			contractsByID,
+			clientAssetPlan.RouteAssets,
 		); err != nil {
 			return nil, err
 		}
@@ -2569,7 +2624,15 @@ func generateRegistrySource(
 	buffer.WriteString("\t}\n")
 	buffer.WriteString("}\n\n")
 
-	if err := writeNotFoundPageFunc(buffer, root, layouts, notFounds, slotNames, contractsByID); err != nil {
+	if err := writeNotFoundPageFunc(
+		buffer,
+		root,
+		layouts,
+		notFounds,
+		slotNames,
+		contractsByID,
+		clientAssetPlan.NotFoundAssets,
+	); err != nil {
 		return nil, err
 	}
 
@@ -2751,6 +2814,7 @@ func writeNotFoundPageFunc(
 	notFounds map[string]templateDef,
 	slotNames map[string][]string,
 	contractsByID map[string]routeContractDef,
+	notFoundAssets map[string]metagen.ClientAssets,
 ) error {
 	notFoundKeys := make([]string, 0, len(notFounds))
 	dynamicNotFoundKeys := make([]string, 0, len(notFounds))
@@ -2787,6 +2851,10 @@ func writeNotFoundPageFunc(
 	buffer.WriteString("\t\t},\n")
 	buffer.WriteString("\t}\n")
 	buffer.WriteString("\tmeta = metagen.MergeManagedStylesheets(requestContext(r), meta)\n")
+	buffer.WriteString(
+		"\tmeta = metagen.MergeManagedClientAssets(requestContext(r), meta, " +
+			"notFoundClientAssets(routeID))\n",
+	)
 	buffer.WriteString("\tswitch routeID {\n")
 	for _, routeID := range notFoundKeys {
 		if routeID == "" {
@@ -2882,6 +2950,8 @@ func writeNotFoundPageFunc(
 	writef(buffer, "\t\treturn %s.RootLayout(meta, notFound.Locale, component), nil\n", root.ModuleName)
 	buffer.WriteString("\t}\n")
 	buffer.WriteString("}\n\n")
+
+	writeClientAssetsSwitchFunc(buffer, "notFoundClientAssets", notFoundAssets)
 
 	buffer.WriteString("func nearestNotFoundRouteID(notFound framework.NotFoundContext) string {\n")
 	buffer.WriteString("\tfor _, candidate := range routeAncestry(notFound.MatchedRouteID) {\n")
@@ -3131,12 +3201,75 @@ func writeResolveLayoutModels(
 	return modelVars, nil
 }
 
+func writeClientAssetsSwitchFunc(
+	buffer *bytes.Buffer,
+	funcName string,
+	assetsByRoute map[string]metagen.ClientAssets,
+) {
+	buffer.WriteString("func " + funcName + "(routeID string) metagen.ClientAssets {\n")
+	keys := make([]string, 0, len(assetsByRoute))
+	for routeID, assets := range assetsByRoute {
+		if clientAssetsEmpty(assets) {
+			continue
+		}
+		keys = append(keys, routeID)
+	}
+	sort.Strings(keys)
+	if len(keys) > 0 {
+		buffer.WriteString("\tswitch routeID {\n")
+		for _, routeID := range keys {
+			writef(buffer, "\tcase %q:\n", routeID)
+			writeClientAssetsReturn(buffer, "\t\t", assetsByRoute[routeID])
+		}
+		buffer.WriteString("\t}\n")
+	}
+	buffer.WriteString("\treturn metagen.ClientAssets{}\n")
+	buffer.WriteString("}\n\n")
+}
+
+func writeClientAssetsLiteral(buffer *bytes.Buffer, indent string, assets metagen.ClientAssets) {
+	if clientAssetsEmpty(assets) {
+		return
+	}
+	buffer.WriteString(indent + "ClientAssets: metagen.ClientAssets{\n")
+	writeClientAssetsFields(buffer, indent+"\t", assets)
+	buffer.WriteString(indent + "},\n")
+}
+
+func writeClientAssetsReturn(buffer *bytes.Buffer, indent string, assets metagen.ClientAssets) {
+	buffer.WriteString(indent + "return metagen.ClientAssets{\n")
+	writeClientAssetsFields(buffer, indent+"\t", assets)
+	buffer.WriteString(indent + "}\n")
+}
+
+func writeClientAssetsFields(buffer *bytes.Buffer, indent string, assets metagen.ClientAssets) {
+	if len(assets.Stylesheets) > 0 {
+		buffer.WriteString(indent + "Stylesheets: []string{\n")
+		for _, stylesheet := range assets.Stylesheets {
+			writef(buffer, indent+"\t%q,\n", stylesheet)
+		}
+		buffer.WriteString(indent + "},\n")
+	}
+	if len(assets.ModuleScripts) > 0 {
+		buffer.WriteString(indent + "ModuleScripts: []string{\n")
+		for _, script := range assets.ModuleScripts {
+			writef(buffer, indent+"\t%q,\n", script)
+		}
+		buffer.WriteString(indent + "},\n")
+	}
+}
+
+func clientAssetsEmpty(assets metagen.ClientAssets) bool {
+	return len(assets.Stylesheets) == 0 && len(assets.ModuleScripts) == 0
+}
+
 func writePageModule(
 	buffer *bytes.Buffer,
 	meta routeMeta,
 	root templateDef,
 	layouts map[string]templateDef,
 	contractsByID map[string]routeContractDef,
+	routeAssets map[string]metagen.ClientAssets,
 ) error {
 	if _, ok := contractsByID[meta.RouteID]; !ok {
 		return fmt.Errorf("missing route contract for route %q", meta.RouteID)
@@ -3264,6 +3397,7 @@ func writePageModule(
 	buffer.WriteString("\t\t\t\t},\n")
 	writef(buffer, "\t\t\t\tRender: %s.Page,\n", meta.Page.ModuleName)
 	writef(buffer, "\t\t\t\tRootLayout: %s.RootLayout,\n", root.ModuleName)
+	writeClientAssetsLiteral(buffer, "\t\t\t\t", routeAssets[meta.RouteID])
 	buffer.WriteString("\t\t\t},\n")
 	return nil
 }

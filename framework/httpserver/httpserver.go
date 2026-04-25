@@ -216,7 +216,11 @@ func New[C any](cfg Config[C]) (http.Handler, error) {
 		}
 	}
 
+	assetBasePath := staticPrefix
 	var finalHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.TrimSpace(assetBasePath) != "" {
+			r = r.WithContext(metagen.WithAssetBasePath(r.Context(), assetBasePath))
+		}
 		if srv.tryServeHealth(w, r) {
 			return
 		}

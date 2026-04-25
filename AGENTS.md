@@ -61,6 +61,13 @@ If a task affects the consuming-app contract, also inspect:
   `v3` may intentionally differ from the declared package name.
 - MUST surface invalid app-bundle wiring at startup; framework happy-path APIs must not rely on request-time soft
   failures for missing required context or dependencies.
+- MUST keep Client Assets route-static by default. A route bundle is produced from the matched page, layout, or 404
+  files plus the colocated assets of every imported `web/components` package reachable from those files. For example,
+  if `page.templ` imports `web/components/meter`, the matched route bundle includes `meter.css` and `meter.ts` once,
+  even if the component renders conditionally or multiple times. Generated routes inject those route bundles through
+  `@metagen.Head(meta)`. This keeps runtime cheap, makes asset inclusion predictable, and avoids head/body ordering
+  problems from render-time asset registration. Do not make normal component rendering register assets per call; use
+  Advanced composition for exceptional render-precise needs.
 - MUST keep `README.md` high-level and task-oriented; field-level contract truth belongs in exported Go types and
   focused reference docs, not long README inventories.
 - MUST name app migration docs by source and target version, for example

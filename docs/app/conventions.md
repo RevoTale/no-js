@@ -106,6 +106,8 @@ model types, not one shared framework model.
   you configure `httpserver.CustomConfig.ServerErrorPage`
 - generated bundle wiring calls `view.SetStaticAssetBasePath` only when that
   function exists
+- generated Client Asset helpers live beside their `.css`, `.js`, and `.ts`
+  source files and use the same Go package as that directory
 - generated templ CSS registration appends `view.TemplCSSVariants()` only
   when that function exists
 

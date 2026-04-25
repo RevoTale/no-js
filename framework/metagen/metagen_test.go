@@ -276,3 +276,38 @@ func TestMergeManagedStylesheetsFromContext(t *testing.T) {
 
 	require.Equal(t, []string{"/styles/base.css", "/styles/page.css"}, merged.Stylesheets)
 }
+
+func TestHeadRendersModuleScriptsAfterStylesheets(t *testing.T) {
+	t.Parallel()
+
+	head := renderHeadToString(t, Metadata{
+		Stylesheets:   []string{"/assets/page.css"},
+		ModuleScripts: []string{" /assets/page.js ", "/assets/page.js"},
+	})
+
+	stylesheet := `<link data-metagen-managed="true" rel="stylesheet" href="/assets/page.css">`
+	script := `<script data-metagen-managed="true" type="module" src="/assets/page.js"></script>`
+	require.Contains(t, head, stylesheet)
+	require.Contains(t, head, script)
+	require.Less(t, strings.Index(head, stylesheet), strings.Index(head, script))
+	require.Equal(t, 1, strings.Count(head, script))
+}
+
+func TestMergeManagedClientAssetsResolvesStaticURLs(t *testing.T) {
+	t.Parallel()
+
+	ctx := WithAssetBasePath(context.Background(), "/_assets/hash")
+	merged := MergeManagedClientAssets(ctx, Metadata{
+		Stylesheets:   []string{"/global.css"},
+		ModuleScripts: []string{"https://cdn.example.com/app.js"},
+	}, ClientAssets{
+		Stylesheets:   []string{"routes/dashboard.css", "routes/dashboard.css"},
+		ModuleScripts: []string{"routes/dashboard.js"},
+	})
+
+	require.Equal(t, []string{"/global.css", "/_assets/hash/routes/dashboard.css"}, merged.Stylesheets)
+	require.Equal(t, []string{
+		"https://cdn.example.com/app.js",
+		"/_assets/hash/routes/dashboard.js",
+	}, merged.ModuleScripts)
+}

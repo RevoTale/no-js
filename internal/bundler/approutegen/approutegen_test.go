@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/RevoTale/no-js/framework/metagen"
+	"github.com/RevoTale/no-js/internal/bundler/clientassets"
 	"github.com/RevoTale/no-js/internal/bundler/viewcontract"
 	"github.com/RevoTale/no-js/internal/projectlayout"
 	"github.com/stretchr/testify/require"
@@ -870,6 +872,58 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 	require.Contains(t, text, "MetaGenContextChain: []framework.PageMetaGenContext")
 	require.NotContains(t, text, "ErrorPage:")
 	require.NotContains(t, text, "r_error_root")
+}
+
+func TestRegistryGenerationEmitsClientAssets(t *testing.T) {
+	metas := []routeMeta{
+		{
+			RouteID:        "",
+			RouteName:      "Root",
+			ParamsTypeName: "RootParams",
+			PageViewType:   "view.RootPageView",
+			Page:           templateDef{ModuleName: "r_page_root"},
+		},
+	}
+	plan := clientassets.Plan{
+		RouteAssets: map[string]metagen.ClientAssets{
+			"": {
+				Stylesheets:   []string{"routes/index.css"},
+				ModuleScripts: []string{"routes/index.js"},
+			},
+		},
+		NotFoundAssets: map[string]metagen.ClientAssets{
+			"": {Stylesheets: []string{"routes/404.css"}},
+		},
+	}
+
+	registry, err := generateRegistrySource(
+		projectlayout.ProjectLayout{GeneratedImport: "web/generated", AppModulePath: testAppModulePath},
+		zeroArgViewInspection(),
+		metas,
+		nil,
+		nil,
+		nil,
+		templateDef{Kind: rootTemplate, RouteID: "", ModuleName: "r_root_root"},
+		map[string]templateDef{},
+		map[string]templateDef{
+			"": {
+				Kind:       notFoundTemplate,
+				RouteID:    "",
+				ModuleName: "r_not_found_root",
+				ModelType:  "view.RootNotFoundView",
+			},
+		},
+		plan,
+	)
+	require.NoError(t, err)
+
+	text := string(registry)
+	require.Contains(t, text, "ClientAssets: metagen.ClientAssets{")
+	require.Contains(t, text, `"routes/index.css"`)
+	require.Contains(t, text, `"routes/index.js"`)
+	require.Contains(t, text, "metagen.MergeManagedClientAssets(requestContext(r), meta, notFoundClientAssets(routeID))")
+	require.Contains(t, text, "func notFoundClientAssets(routeID string) metagen.ClientAssets")
+	require.Contains(t, text, `"routes/404.css"`)
 }
 
 func TestRegistryGenerationRequiresRootNotFoundTemplate(t *testing.T) {

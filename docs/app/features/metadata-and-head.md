@@ -36,6 +36,7 @@ That output includes:
 - description
 - canonical and alternate links
 - stylesheet links managed by the framework
+- module script links managed by the framework
 - robots directives
 - Open Graph and Twitter tags
 
@@ -68,14 +69,20 @@ func (Resolver) MetaGenAuthorParamSlugPage(
 This keeps canonical URLs, localized URLs, and alternates on the same site-root
 policy.
 
-## Managed Stylesheets
+## Managed Client Assets
 
-`@metagen.Head(meta)` is also where framework-managed stylesheet links appear.
+`@metagen.Head(meta)` is also where framework-managed Client Assets appear.
 
 That includes:
 
+- route-level CSS generated from colocated `.css` files
+- route-level module scripts generated from colocated `.js` and `.ts` files
 - hashed asset stylesheets that you add to `metagen.Metadata.Stylesheets`
 - build-time templ CSS output when you use `-templ-css`
+
+Managed stylesheets render before managed module scripts. Route generation
+resolves their hashed URLs at runtime, so app templates do not need global asset
+base-path state for generated Client Assets.
 
 ## HTMX Partial Requests
 

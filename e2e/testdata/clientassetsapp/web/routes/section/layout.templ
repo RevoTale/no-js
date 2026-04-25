@@ -1,0 +1,13 @@
+package section
+
+import (
+	"example.com/no-js-e2e/clientassetsapp/web/components/meter"
+	"example.com/no-js-e2e/clientassetsapp/web/view"
+)
+
+templ Layout(model view.SectionLayoutView, child templ.Component) {
+	<section data-layout="section" class={ LayoutShellClass }>
+		@meter.Meter("Section layout meter")
+		@child
+	</section>
+}

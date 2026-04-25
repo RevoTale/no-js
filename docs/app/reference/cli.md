@@ -15,10 +15,11 @@ If you omit the mode, `gen` runs both route generation and asset generation.
 - `go tool no-js gen -root .`
   Run the normal generation loop.
 - `go tool no-js gen routes -root .`
-  Generate route handlers, resolver contracts, built-in i18n output, and the
-  templ CSS registry.
+  Generate route handlers, resolver contracts, built-in i18n output,
+  source-adjacent Client Asset helpers, and the templ CSS registry.
 - `go tool no-js gen assets -root .`
-  Build the static asset bundle and write the manifest.
+  Build global assets plus route-level Client Asset bundles and write the
+  manifest.
 - `go tool no-js gen check -root .`
   Run route generation, asset generation, then fail if `git diff --exit-code`
   is not clean.
@@ -31,8 +32,9 @@ If you omit the mode, `gen` runs both route generation and asset generation.
   Explicit bundle-config path. If omitted, `no-js` loads
   `no-js.bundle.yaml` from the app root when the file exists.
 - `-templ-css`
-  Generate `styles/templ.css` from templ `css` components before asset
-  bundling.
+  Generate legacy `styles/templ.css` from templ `css` components before asset
+  bundling. Colocated `.css`, `.js`, and `.ts` Client Assets do not need this
+  flag.
 
 ## What Each Run Produces
 
@@ -41,10 +43,12 @@ If you omit the mode, `gen` runs both route generation and asset generation.
 - `web/generated/*`
 - `web/resolvers/generated.go`
 - built-in i18n output when `web/i18n/messages` exists
+- `*.css_gen.go`, `*.js_gen.go`, and `*.ts_gen.go` beside discovered Client Asset sources
 - templ CSS registry output used by the runtime and optional asset bundling
 
 `go tool no-js gen assets -root .` writes:
 
+- route-level CSS and module script bundles for discovered Client Assets
 - processed files under the configured assets-build directory
 - the static asset manifest, by default `web/assets-build/manifest.json`
 
@@ -68,7 +72,7 @@ Use an explicit config file:
 go tool no-js gen -root . -config ./config/no-js.bundle.yaml
 ```
 
-Bundle templ CSS into the hashed asset pipeline:
+Bundle legacy templ CSS into the hashed asset pipeline:
 
 ```bash
 go tool no-js gen assets -root . -templ-css

@@ -1,0 +1,14 @@
+package routes
+
+import (
+	"example.com/no-js-e2e/clientassetsapp/web/components/meter"
+	"example.com/no-js-e2e/clientassetsapp/web/view"
+)
+
+templ Page(model view.RootPageView) {
+	<main data-route-page="home" class={ PageShellClass }>
+		<h1>{ model.Heading }</h1>
+		@meter.Meter("Route component meter")
+		@meter.Meter("Repeated route component meter")
+	</main>
+}
