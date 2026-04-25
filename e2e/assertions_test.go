@@ -42,6 +42,26 @@ func requireClassWithToken(t *testing.T, css string, classes []string, token str
 	return ""
 }
 
+func requireNoOriginalClassSelector(t *testing.T, css string, className string) {
+	t.Helper()
+
+	pattern := regexp.MustCompile(`(^|[,{>+~\s])\.` + regexp.QuoteMeta(className) + `([,{>+~:#.\[]|$)`)
+	require.NotRegexp(t, pattern, css)
+}
+
+func uniqueStrings(values []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
+}
+
 func requireContainsInlineClassRule(t *testing.T, html string, className string, token string) {
 	t.Helper()
 

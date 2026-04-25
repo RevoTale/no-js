@@ -80,12 +80,14 @@ func TestFixtureAppsDeclareToolsAndLocalReplaceInGoMod(t *testing.T) {
 		require.Contains(t, contents, "github.com/RevoTale/no-js/cmd/templgen")
 		require.Contains(t, contents, "github.com/evanw/esbuild v0.28.0 // indirect")
 		require.Contains(t, contents, "github.com/nicksnyder/go-i18n/v2 v2.6.1 // indirect")
+		require.Contains(t, contents, "github.com/tdewolff/parse/v2 v2.8.12 // indirect")
 		require.Contains(t, contents, "replace github.com/RevoTale/no-js => ../../..")
 
 		goSumPath := filepath.Join(fixturesDir, entry.Name(), "go.sum")
 		goSum, err := os.ReadFile(goSumPath)
 		require.NoError(t, err, "%s missing go.sum", entry.Name())
 		require.Contains(t, string(goSum), "github.com/evanw/esbuild v0.28.0/go.mod")
+		require.Contains(t, string(goSum), "github.com/tdewolff/parse/v2 v2.8.12/go.mod")
 
 		serverPath := filepath.Join(fixturesDir, entry.Name(), "cmd", "server", "main.go")
 		_, err = os.Stat(serverPath)
@@ -104,6 +106,7 @@ func TestClientAssetsFixtureApp(t *testing.T) {
 	require.Regexp(t, regexp.MustCompile(`^/_assets/[0-9a-f]{16}/routes/index\.js$`), report.RouteScriptURL)
 	require.Regexp(t, regexp.MustCompile(`^/_assets/[0-9a-f]{16}/routes/section\.css$`), report.SectionCSSURL)
 	require.Regexp(t, regexp.MustCompile(`^/_assets/[0-9a-f]{16}/routes/section\.js$`), report.SectionScriptURL)
+	require.Regexp(t, regexp.MustCompile(`^/_assets/[0-9a-f]{16}/routes/complex\.css$`), report.ComplexCSSURL)
 	require.Regexp(t, regexp.MustCompile(`^/_assets/[0-9a-f]{16}/routes/404\.css$`), report.NotFoundCSSURL)
 
 	require.Equal(t, 200, report.Home.Status)
@@ -114,19 +117,80 @@ func TestClientAssetsFixtureApp(t *testing.T) {
 	require.Equal(t, 1, strings.Count(report.Home.Body, report.RouteScriptURL))
 	require.NotContains(t, report.Home.Body, report.SectionCSSURL)
 	require.NotContains(t, report.Home.Body, report.SectionScriptURL)
+	require.NotContains(t, report.Home.Body, report.ComplexCSSURL)
 	require.NotContains(t, report.Home.Body, "PageShellClass")
 	require.NotContains(t, report.Home.Body, "MeterRootClass")
 	require.Contains(t, report.Home.Body, `class="n_`)
+
+	shellClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<main[^>]*data-route-page="home"[^>]*>`, report.Home.Body),
+	)
+	secondItemClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<div[^>]*data-hard-case="second"[^>]*>`, report.Home.Body),
+	)
+	labelClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<span[^>]*data-hard-case="label"[^>]*>`, report.Home.Body),
+	)
+	badgeClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<span[^>]*data-hard-case="badge"[^>]*>`, report.Home.Body),
+	)
+	mutedClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<span[^>]*data-hard-case="muted"[^>]*>`, report.Home.Body),
+	)
 
 	require.Equal(t, 200, report.RouteCSS.Status)
 	require.Contains(t, report.RouteCSS.ContentType, "text/css")
 	require.Contains(t, report.RouteCSS.Body, "padding:18px")
 	require.Contains(t, report.RouteCSS.Body, "border:2px solid #2563eb")
+	require.Contains(t, report.RouteCSS.Body, "outline:5px solid #f97316")
+	require.Contains(t, report.RouteCSS.Body, "border-radius:9px")
+	require.Contains(t, report.RouteCSS.Body, "background:#0f172a")
 	require.Contains(t, report.RouteCSS.Body, "color:#047857")
 	require.Equal(t, 1, strings.Count(report.RouteCSS.Body, "color:#047857"))
-	require.NotContains(t, report.RouteCSS.Body, ".shell")
-	require.NotContains(t, report.RouteCSS.Body, ".root")
-	require.NotContains(t, report.RouteCSS.Body, ".value")
+	requireNoOriginalClassSelector(t, report.RouteCSS.Body, "shell")
+	requireNoOriginalClassSelector(t, report.RouteCSS.Body, "item")
+	requireNoOriginalClassSelector(t, report.RouteCSS.Body, "featured")
+	requireNoOriginalClassSelector(t, report.RouteCSS.Body, "label")
+	requireNoOriginalClassSelector(t, report.RouteCSS.Body, "muted")
+	requireNoOriginalClassSelector(t, report.RouteCSS.Body, "badge")
+	requireNoOriginalClassSelector(t, report.RouteCSS.Body, "root")
+	requireNoOriginalClassSelector(t, report.RouteCSS.Body, "value")
+
+	shellClass := requireClassWithToken(t, report.RouteCSS.Body, shellClasses, "border:2px solid #2563eb")
+	itemClass := requireClassWithToken(t, report.RouteCSS.Body, secondItemClasses, "padding-inline:7px")
+	featuredClass := requireClassWithToken(t, report.RouteCSS.Body, secondItemClasses, "outline:5px solid #f97316")
+	labelClass := requireClassWithToken(t, report.RouteCSS.Body, labelClasses, "text-transform:uppercase")
+	badgeClass := requireClassWithToken(t, report.RouteCSS.Body, badgeClasses, "letter-spacing:.02em")
+	mutedClass := requireClassWithToken(t, report.RouteCSS.Body, mutedClasses, "opacity:.66")
+	require.Len(t, uniqueStrings([]string{shellClass, itemClass, featuredClass, labelClass, badgeClass, mutedClass}), 6)
+	require.Regexp(
+		t,
+		regexp.MustCompile(
+			`\.`+regexp.QuoteMeta(shellClass)+`>\.`+regexp.QuoteMeta(itemClass)+`\+\.`+
+				regexp.QuoteMeta(itemClass)+`:is\(\.`+regexp.QuoteMeta(featuredClass)+
+				`,\[data-state="\.featured"\]\) \.`+regexp.QuoteMeta(labelClass)+
+				`:not\(\.`+regexp.QuoteMeta(mutedClass)+`\):{1,2}before\{[^}]*border-radius:9px`,
+		),
+		report.RouteCSS.Body,
+	)
+	require.Regexp(
+		t,
+		regexp.MustCompile(
+			`@supports selector\(\.`+regexp.QuoteMeta(shellClass)+`:has\(\s*>\s*\.`+
+				regexp.QuoteMeta(itemClass)+`\s*\+\s*\.`+regexp.QuoteMeta(itemClass)+
+				`\.`+regexp.QuoteMeta(featuredClass)+`\)\)\{\.`+regexp.QuoteMeta(shellClass)+
+				`:has\(\s*>\s*\.`+regexp.QuoteMeta(itemClass)+`\s*\+\s*\.`+
+				regexp.QuoteMeta(itemClass)+`\.`+regexp.QuoteMeta(featuredClass)+
+				`\)>\.`+regexp.QuoteMeta(badgeClass)+
+				`:{1,2}after\{[^}]*background:#0f172a`,
+		),
+		report.RouteCSS.Body,
+	)
 
 	require.Equal(t, 200, report.RouteScript.Status)
 	require.Contains(t, report.RouteScript.ContentType, "text/javascript")
@@ -142,6 +206,7 @@ func TestClientAssetsFixtureApp(t *testing.T) {
 	require.NotContains(t, report.About.Body, `/routes/index.js`)
 	require.NotContains(t, report.About.Body, `/routes/section.css`)
 	require.NotContains(t, report.About.Body, `/routes/section.js`)
+	require.NotContains(t, report.About.Body, `/routes/complex.css`)
 
 	require.Equal(t, 200, report.Section.Status)
 	require.Contains(t, report.Section.Body, `data-layout="section"`)
@@ -152,6 +217,7 @@ func TestClientAssetsFixtureApp(t *testing.T) {
 	require.Equal(t, 1, strings.Count(report.Section.Body, report.SectionScriptURL))
 	require.NotContains(t, report.Section.Body, report.RouteCSSURL)
 	require.NotContains(t, report.Section.Body, report.RouteScriptURL)
+	require.NotContains(t, report.Section.Body, report.ComplexCSSURL)
 
 	require.Equal(t, 200, report.SectionCSS.Status)
 	require.Contains(t, report.SectionCSS.ContentType, "text/css")
@@ -172,6 +238,8 @@ func TestClientAssetsFixtureApp(t *testing.T) {
 	require.Equal(t, 1, strings.Count(report.SectionScript.Body, "clientAssetsMeter"))
 	require.NotContains(t, report.SectionScript.Body, "clientAssetsPage")
 
+	requireComplexClientAssetCSS(t, report)
+
 	require.Equal(t, 404, report.NotFound.Status)
 	require.Contains(t, report.NotFound.Body, report.NotFoundCSSURL)
 	require.Equal(t, 1, strings.Count(report.NotFound.Body, report.NotFoundCSSURL))
@@ -186,8 +254,182 @@ func TestClientAssetsFixtureApp(t *testing.T) {
 	require.FileExists(t, filepath.Join(report.AppDir, "web", "routes", "section", "layout.ts_gen.go"))
 	require.FileExists(t, filepath.Join(report.AppDir, "web", "routes", "section", "page.css_gen.go"))
 	require.FileExists(t, filepath.Join(report.AppDir, "web", "routes", "section", "page.ts_gen.go"))
+	require.FileExists(t, filepath.Join(report.AppDir, "web", "routes", "complex", "page.css_gen.go"))
 	require.FileExists(t, filepath.Join(report.AppDir, "web", "components", "meter", "meter.css_gen.go"))
 	require.FileExists(t, filepath.Join(report.AppDir, "web", "components", "meter", "meter.ts_gen.go"))
+	require.FileExists(t, filepath.Join(report.AppDir, "web", "components", "filterpanel", "filter_panel.css_gen.go"))
+}
+
+func requireComplexClientAssetCSS(t *testing.T, report clientAssetsFixture) {
+	t.Helper()
+
+	require.Equal(t, 200, report.Complex.Status)
+	require.Contains(t, report.Complex.Body, `data-route-page="complex"`)
+	require.Contains(t, report.Complex.Body, report.ComplexCSSURL)
+	require.Equal(t, 1, strings.Count(report.Complex.Body, report.ComplexCSSURL))
+	require.NotContains(t, report.Complex.Body, report.RouteCSSURL)
+	require.NotContains(t, report.Complex.Body, report.SectionCSSURL)
+
+	dashboardClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<main[^>]*data-route-page="complex"[^>]*>`, report.Complex.Body),
+	)
+	railClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<nav[^>]*data-complex="rail"[^>]*>`, report.Complex.Body),
+	)
+	cardClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<article[^>]*data-complex="card"[^>]*>`, report.Complex.Body),
+	)
+	statusClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<span[^>]*data-complex="status"[^>]*>`, report.Complex.Body),
+	)
+	metaClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<span[^>]*data-complex="meta"[^>]*>`, report.Complex.Body),
+	)
+	linkClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<a[^>]*data-complex="link"[^>]*>`, report.Complex.Body),
+	)
+	filterPanelClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<aside[^>]*data-component="filter-panel"[^>]*>`, report.Complex.Body),
+	)
+	filterClusterClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<ul[^>]*data-filter-cluster="primary"[^>]*>`, report.Complex.Body),
+	)
+	filterRiskClasses := classesForOpeningTag(
+		t,
+		mustMatchString(t, `<li[^>]*data-filter-token="risk"[^>]*>`, report.Complex.Body),
+	)
+
+	require.Equal(t, 200, report.ComplexCSS.Status)
+	require.Contains(t, report.ComplexCSS.ContentType, "text/css")
+	require.Contains(t, report.ComplexCSS.Body, "border:4px solid #0284c7")
+	require.Contains(t, report.ComplexCSS.Body, "box-shadow:0 0 0 3px #0ea5e9")
+	require.Contains(t, report.ComplexCSS.Body, "border-block-end:5px solid #db2777")
+	require.Contains(t, report.ComplexCSS.Body, "background:#f59e0b")
+	require.Contains(t, report.ComplexCSS.Body, "outline:6px solid #14b8a6")
+	require.Contains(t, report.ComplexCSS.Body, "text-shadow:0 1px #111827")
+	require.Contains(t, report.ComplexCSS.Body, "@layer clientassets.e2e")
+	require.NotContains(t, report.ComplexCSS.Body, "@layer clientassets.n_")
+	require.Contains(t, report.ComplexCSS.Body, "grid-template-columns:repeat(2,minmax(0,1fr))")
+	require.Contains(t, report.ComplexCSS.Body, "box-shadow:0 0 0 2px #16a34a")
+
+	for _, className := range []string{
+		"dashboard",
+		"rail",
+		"card",
+		"primary",
+		"secondary",
+		"disabled",
+		"status",
+		"meta",
+		"link",
+		"ghost",
+		"panel",
+		"cluster",
+		"token",
+		"active",
+		"danger",
+		"expanded",
+		"collapsed",
+	} {
+		requireNoOriginalClassSelector(t, report.ComplexCSS.Body, className)
+	}
+
+	dashboardClass := requireClassWithToken(t, report.ComplexCSS.Body, dashboardClasses, "color:#111827")
+	railClass := requireClassWithToken(t, report.ComplexCSS.Body, railClasses, "order:1")
+	cardClass := requireClassWithToken(t, report.ComplexCSS.Body, cardClasses, "border:4px solid #0284c7")
+	primaryClass := requireClassWithToken(t, report.ComplexCSS.Body, cardClasses, "background:#e0f2fe")
+	statusClass := requireClassWithToken(t, report.ComplexCSS.Body, statusClasses, "font-weight:700")
+	metaClass := requireClassWithToken(t, report.ComplexCSS.Body, metaClasses, "color:#7c2d12")
+	linkClass := requireClassWithToken(t, report.ComplexCSS.Body, linkClasses, "text-decoration-thickness:3px")
+	filterPanelClass := requireClassWithToken(
+		t,
+		report.ComplexCSS.Body,
+		filterPanelClasses,
+		"grid-template-columns:repeat(2,minmax(0,1fr))",
+	)
+	filterClusterClass := requireClassWithToken(t, report.ComplexCSS.Body, filterClusterClasses, "display:contents")
+	filterExpandedClass := requireClassWithToken(
+		t,
+		report.ComplexCSS.Body,
+		filterClusterClasses,
+		"border-inline-start:3px solid #22c55e",
+	)
+	filterTokenClass := requireClassWithToken(t, report.ComplexCSS.Body, filterRiskClasses, "padding:4px 8px")
+	filterDangerClass := requireClassWithToken(t, report.ComplexCSS.Body, filterRiskClasses, "background:#fee2e2")
+
+	require.Len(t, uniqueStrings([]string{
+		dashboardClass,
+		railClass,
+		cardClass,
+		primaryClass,
+		statusClass,
+		metaClass,
+		linkClass,
+		filterPanelClass,
+		filterClusterClass,
+		filterExpandedClass,
+		filterTokenClass,
+		filterDangerClass,
+	}), 12)
+
+	require.Regexp(
+		t,
+		regexp.MustCompile(
+			`\.`+regexp.QuoteMeta(dashboardClass)+`\[data-theme="\.ghost"\]>\.`+
+				regexp.QuoteMeta(railClass)+`\+\.`+regexp.QuoteMeta(cardClass)+
+				`:is\(\.`+regexp.QuoteMeta(primaryClass)+`,\.[^)]+\):not\(\.[^)]+\) \.`+
+				regexp.QuoteMeta(statusClass)+`:{1,2}before\{[^}]*box-shadow:0 0 0 3px #0ea5e9`,
+		),
+		report.ComplexCSS.Body,
+	)
+	require.Regexp(
+		t,
+		regexp.MustCompile(
+			`@media\s*\(min-width:42rem\)\{\.`+regexp.QuoteMeta(dashboardClass)+`>\.`+
+				regexp.QuoteMeta(railClass)+`~\.`+regexp.QuoteMeta(cardClass)+
+				`:has\(>\.`+regexp.QuoteMeta(statusClass)+`\+\.`+regexp.QuoteMeta(metaClass)+
+				`\[data-state~="\.hot"\]\)>\.`+regexp.QuoteMeta(linkClass)+
+				`:any-link:{1,2}after\{[^}]*border-block-end:5px solid #db2777`,
+		),
+		report.ComplexCSS.Body,
+	)
+	require.Regexp(
+		t,
+		regexp.MustCompile(
+			`@container \(min-width:45rem\)\{\.`+regexp.QuoteMeta(dashboardClass)+
+				`:has\(>\.`+regexp.QuoteMeta(cardClass)+`\.`+regexp.QuoteMeta(primaryClass)+
+				`\)>\.`+regexp.QuoteMeta(cardClass)+` \.`+regexp.QuoteMeta(metaClass)+
+				`:{1,2}after\{[^}]*background:#f59e0b`,
+		),
+		report.ComplexCSS.Body,
+	)
+	require.Regexp(
+		t,
+		regexp.MustCompile(
+			`@scope\s*\(\.`+regexp.QuoteMeta(dashboardClass)+`\)\s*to\s*\(\.[^)]+\)\{\.`+
+				regexp.QuoteMeta(cardClass)+`>\.`+regexp.QuoteMeta(statusClass)+
+				`\{[^}]*text-shadow:0 1px #111827`,
+		),
+		report.ComplexCSS.Body,
+	)
+	require.Regexp(
+		t,
+		regexp.MustCompile(
+			`@container filter-panel \(min-width:20rem\)\{\.`+regexp.QuoteMeta(filterPanelClass)+
+				`:has\(\.`+regexp.QuoteMeta(filterTokenClass)+`\.[^)]+\) \.`+
+				regexp.QuoteMeta(filterClusterClass)+`>\.`+regexp.QuoteMeta(filterTokenClass)+
+				`\+\.`+regexp.QuoteMeta(filterTokenClass)+`\{[^}]*box-shadow:0 0 0 2px #16a34a`,
+		),
+		report.ComplexCSS.Body,
+	)
 }
 
 func TestTemplCSSFixtureApp(t *testing.T) {

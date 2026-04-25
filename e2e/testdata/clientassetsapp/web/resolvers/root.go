@@ -87,3 +87,22 @@ func (Resolver) ResolveSectionPage(
 		Heading:        "Section With Layout Assets",
 	}, nil
 }
+
+func (Resolver) MetaGenComplexPage(
+	meta framework.MetaContext[*view.Context],
+	params ComplexParams,
+) (metagen.Metadata, error) {
+	return metagen.Metadata{Title: "Client Assets Complex Selectors"}, nil
+}
+
+func (Resolver) ResolveComplexPage(
+	ctx context.Context,
+	appCtx *view.Context,
+	r *http.Request,
+	params ComplexParams,
+) (view.ComplexPageView, error) {
+	return view.ComplexPageView{
+		RootLayoutView: view.RootLayoutView{PageTitle: "Client Assets Complex"},
+		Heading:        "Complex Client Asset Selectors",
+	}, nil
+}

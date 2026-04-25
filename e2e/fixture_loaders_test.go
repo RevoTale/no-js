@@ -23,16 +23,19 @@ type clientAssetsFixture struct {
 	Home             responseSnapshot
 	About            responseSnapshot
 	Section          responseSnapshot
+	Complex          responseSnapshot
 	NotFound         responseSnapshot
 	RouteCSS         responseSnapshot
 	RouteScript      responseSnapshot
 	SectionCSS       responseSnapshot
 	SectionScript    responseSnapshot
+	ComplexCSS       responseSnapshot
 	NotFoundCSS      responseSnapshot
 	RouteCSSURL      string
 	RouteScriptURL   string
 	SectionCSSURL    string
 	SectionScriptURL string
+	ComplexCSSURL    string
 	NotFoundCSSURL   string
 }
 
@@ -185,6 +188,7 @@ var routeIndexCSSPattern = regexp.MustCompile(`href="([^"]+/routes/index\.css)"`
 var routeIndexScriptPattern = regexp.MustCompile(`src="([^"]+/routes/index\.js)"`)
 var routeSectionCSSPattern = regexp.MustCompile(`href="([^"]+/routes/section\.css)"`)
 var routeSectionScriptPattern = regexp.MustCompile(`src="([^"]+/routes/section\.js)"`)
+var routeComplexCSSPattern = regexp.MustCompile(`href="([^"]+/routes/complex\.css)"`)
 var routeNotFoundCSSPattern = regexp.MustCompile(`href="([^"]+/routes/404\.css)"`)
 var siteCSSPattern = regexp.MustCompile(`id="site-css"[^>]*href="([^"]+/site\.css)"`)
 var expensiveCountPattern = regexp.MustCompile(`<div id="expensive-count">([^<]+)</div>`)
@@ -217,11 +221,13 @@ func loadClientAssetsFixture(t *testing.T) clientAssetsFixture {
 	home := requestFixture(t, server, http.MethodGet, "/", nil, requestOptions{})
 	about := requestFixture(t, server, http.MethodGet, "/about", nil, requestOptions{})
 	section := requestFixture(t, server, http.MethodGet, "/section", nil, requestOptions{})
+	complex := requestFixture(t, server, http.MethodGet, "/complex", nil, requestOptions{})
 	notFound := requestFixture(t, server, http.MethodGet, "/missing", nil, requestOptions{})
 	routeCSSURL := extractPatternURL(t, routeIndexCSSPattern, home.Body, "route stylesheet")
 	routeScriptURL := extractPatternURL(t, routeIndexScriptPattern, home.Body, "route script")
 	sectionCSSURL := extractPatternURL(t, routeSectionCSSPattern, section.Body, "section stylesheet")
 	sectionScriptURL := extractPatternURL(t, routeSectionScriptPattern, section.Body, "section script")
+	complexCSSURL := extractPatternURL(t, routeComplexCSSPattern, complex.Body, "complex stylesheet")
 	notFoundCSSURL := extractPatternURL(t, routeNotFoundCSSPattern, notFound.Body, "404 stylesheet")
 
 	return clientAssetsFixture{
@@ -229,16 +235,19 @@ func loadClientAssetsFixture(t *testing.T) clientAssetsFixture {
 		Home:             home,
 		About:            about,
 		Section:          section,
+		Complex:          complex,
 		NotFound:         notFound,
 		RouteCSS:         requestFixture(t, server, http.MethodGet, routeCSSURL, nil, requestOptions{}),
 		RouteScript:      requestFixture(t, server, http.MethodGet, routeScriptURL, nil, requestOptions{}),
 		SectionCSS:       requestFixture(t, server, http.MethodGet, sectionCSSURL, nil, requestOptions{}),
 		SectionScript:    requestFixture(t, server, http.MethodGet, sectionScriptURL, nil, requestOptions{}),
+		ComplexCSS:       requestFixture(t, server, http.MethodGet, complexCSSURL, nil, requestOptions{}),
 		NotFoundCSS:      requestFixture(t, server, http.MethodGet, notFoundCSSURL, nil, requestOptions{}),
 		RouteCSSURL:      routeCSSURL,
 		RouteScriptURL:   routeScriptURL,
 		SectionCSSURL:    sectionCSSURL,
 		SectionScriptURL: sectionScriptURL,
+		ComplexCSSURL:    complexCSSURL,
 		NotFoundCSSURL:   notFoundCSSURL,
 	}
 }

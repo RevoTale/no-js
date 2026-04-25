@@ -47,6 +47,12 @@ Use those constants from templ:
 The original class names stay in source CSS. The rendered HTML and built CSS use
 anonymized class names.
 
+The anonymizer parses CSS selectors with `github.com/tdewolff/parse/v2/css`, so
+selector syntax such as `>`, `+`, `:is(...)`, `:not(...)`, `:has(...)`, and
+pseudo-elements is rewritten as selectors, not by raw string replacement. The
+final bundled stylesheet still goes through the normal minification and
+fingerprinting asset pipeline.
+
 ## Route Bundles
 
 `no-js gen assets` bundles matched route dependencies into route-level assets:

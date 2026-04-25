@@ -26,3 +26,8 @@ type SectionPageView struct {
 	RootLayoutView
 	Heading string
 }
+
+type ComplexPageView struct {
+	RootLayoutView
+	Heading string
+}

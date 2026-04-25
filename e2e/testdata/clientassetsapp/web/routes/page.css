@@ -2,3 +2,35 @@
 	padding: 18px;
 	border: 2px solid #2563eb;
 }
+
+.item {
+	padding-inline: 7px;
+}
+
+.featured {
+	outline: 5px solid #f97316;
+}
+
+.label {
+	text-transform: uppercase;
+}
+
+.badge {
+	letter-spacing: .02em;
+}
+
+.muted {
+	opacity: .66;
+}
+
+.shell > .item + .item:is(.featured, [data-state=".featured"]) .label:not(.muted)::before {
+	content: ".shell";
+	border-radius: 9px;
+}
+
+@supports selector(.shell:has(> .item + .item.featured)) {
+	.shell:has(> .item + .item.featured) > .badge::after {
+		content: "ready";
+		background: #0f172a;
+	}
+}

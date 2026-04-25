@@ -8,6 +8,14 @@ import (
 templ Page(model view.RootPageView) {
 	<main data-route-page="home" class={ PageShellClass }>
 		<h1>{ model.Heading }</h1>
+		<div data-hard-case="first" class={ PageItemClass }>
+			<span>First item</span>
+		</div>
+		<div data-hard-case="second" data-state=".featured" class={ PageItemClass, PageFeaturedClass }>
+			<span data-hard-case="label" class={ PageLabelClass }>Second item</span>
+		</div>
+		<span data-hard-case="badge" class={ PageBadgeClass }>Badge</span>
+		<span data-hard-case="muted" class={ PageMutedClass } hidden>Muted token</span>
 		@meter.Meter("Route component meter")
 		@meter.Meter("Repeated route component meter")
 	</main>

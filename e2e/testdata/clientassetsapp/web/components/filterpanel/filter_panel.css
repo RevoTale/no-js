@@ -1,0 +1,47 @@
+.panel {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.cluster {
+	display: contents;
+}
+
+.token {
+	padding: 4px 8px;
+}
+
+.active {
+	color: #14532d;
+}
+
+.danger {
+	background: #fee2e2;
+}
+
+.expanded {
+	border-inline-start: 3px solid #22c55e;
+}
+
+.collapsed {
+	filter: grayscale(1);
+}
+
+.panel[data-density="compact"] .cluster:is(.expanded, .collapsed) > .token:is(.active, .danger):not([aria-disabled="true"])::before {
+	content: ".panel";
+	transform: translateX(2px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.panel > .cluster:where(.expanded, .collapsed) > .token:nth-child(2n + 1)::after {
+		content: "filter";
+		transition: transform .15s ease;
+	}
+}
+
+@container filter-panel (min-width: 20rem) {
+	.panel:has(.token.active) .cluster > .token + .token {
+		box-shadow: 0 0 0 2px #16a34a;
+	}
+}
