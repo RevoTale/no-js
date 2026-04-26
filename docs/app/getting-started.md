@@ -58,18 +58,21 @@ your-app/
 
 ## Strict App Shape
 
-Generation validates `web/routes` and `web/components`. Keep `web/routes` for
-endpoint, layout, and composition inputs only. Do not put helper Go files, docs,
-images, JSON/YAML data, or `error.templ` there. Route CSS and scripts are valid
-only when they match a same-directory `page.templ`, `layout.templ`, or
-`404.templ`.
+Generation validates `web/routes` and `web/components` before it writes code.
+Use this mental model:
 
-Keep `web/components` for component packages only. Each component lives under
-`web/components/<name>/` and must have `<name>.templ` or `<name>.go`. Component
-CSS and scripts must use the same stem, such as `<name>.css` or `<name>.ts`; choose at most one script extension per component package.
-Support `.go` files are allowed, but exported Go API belongs in `<name>.go`;
-keep helpers private. Images, fonts, downloads, docs, and data files belong in
-`web/assets`, `web/public`, or another app-owned package.
+- `web/routes` is only for endpoint, layout, 404, and composition inputs.
+  Route assets must match a same-directory `page.templ`, `layout.templ`, or
+  `404.templ`, such as `page.css` beside `page.templ`.
+- `web/components` is only for component packages. Each component lives under
+  `web/components/<name>/` and must have `<name>.templ` or `<name>.go`.
+  Component assets use the same stem, such as `card.css` or `card.tsx` inside
+  `web/components/card/`.
+- Support `.go` files in component packages are allowed, but exported Go API
+  belongs in `<name>.go`. Keep helpers private.
+
+Put helper packages, images, fonts, downloads, docs, and data files outside
+those generation input trees.
 
 ## 3. Add The Minimal Files
 

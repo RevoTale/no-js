@@ -33,6 +33,33 @@ Optional app-owned directories:
 - `web/public`
   Fixed-path public files.
 
+## Strict Shape At A Glance
+
+Use this as the first check for normal page and component work. The full
+validator contract follows:
+
+```text
+web/routes/
+  root.templ
+  page.templ | route.go
+  layout.templ | default.templ | 404.templ
+  page.css | page.{js,ts,tsx,mjs,mts}
+  layout.css | layout.{js,ts,tsx,mjs,mts}
+  404.css | 404.{js,ts,tsx,mjs,mts}
+
+web/components/
+  card/
+    card.templ | card.go
+    card.css
+    card.{js,ts,tsx,mjs,mts}
+    helpers.go        # private declarations only
+```
+
+`web/routes` is for generation inputs that produce endpoints, layouts, 404
+pages, and route-owned Client Assets. `web/components` is a component package
+tree: no root files, one component per directory, same-stem assets, and public
+Go API only in the same-stem anchor file.
+
 ## Route Files And Directories
 
 Reserved route template names:
@@ -127,7 +154,7 @@ Allowed files inside `web/components/<name>/`:
 *.go                               # private support code only
 *_test.go                          # tests, including external package tests
 <name>.css
-<name>.{js,ts,tsx,mjs,mts}             # choose one; all emit <name>.js
+<name>.{js,ts,tsx,mjs,mts}         # choose one; all emit <name>.js
 <name>_templ.go
 templ_css_exports_gen.go
 <name>.{css,js,ts,tsx,mjs,mts}_gen.go
@@ -136,7 +163,9 @@ templ_css_exports_gen.go
 Each component package must contain `<name>.templ` or `<name>.go`. Handwritten
 `.templ` files must be the same-stem anchor file; split large markup into
 another component package instead of adding `variants.templ` or `header.templ`.
-Component CSS must use the component stem. Component scripts must also use the component stem, and each component package may have only one script source because `.js`, `.ts`, `.tsx`, `.mjs`, and `.mts` all emit `<name>.js`.
+Component CSS must use the component stem. Component scripts must also use the
+component stem, and each component package may have only one script source
+because `.js`, `.ts`, `.tsx`, `.mjs`, and `.mts` all emit `<name>.js`.
 
 Only `<name>.go` may declare exported top-level Go declarations. Support files
 like `helpers.go`, `classes.go`, or `formatting.go` are allowed for line-length

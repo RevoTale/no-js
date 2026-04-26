@@ -54,6 +54,18 @@ If a task affects the consuming-app contract, also inspect:
 - MUST keep stable app package directories aligned with their Go package name in source, generated code, fixtures,
   and docs. For example, `web/view` must be `package view`, and `web/components/card` should be `package card`.
   Do not use import aliases to hide package/directory mismatches.
+- MUST preserve the strict `web/components` model in the framework:
+  * `web/components` contains no files directly.
+  * Each component package lives under `web/components/**/<name>/`; nested component packages are allowed. The
+    directory basename, Go package name, and component anchor stem must align.
+  * For example, `web/components/card/header/header.templ` is valid; `web/components/card/header.templ` is not.
+  * Each component package must contain at least one anchor file: `<name>.templ` or `<name>.go`.
+  * Handwritten `.templ` files are anchor-only. Split large variants or subparts into another component package
+    instead of adding `variants.templ`, `header.templ`, or similar files.
+  * Optional component assets must be same-stem: `<name>.css` and at most one
+    `<name>.{js,ts,tsx,mjs,mts}`.
+  * Public handwritten Go API belongs only in `<name>.go`; other handwritten non-test `.go` files in the same compoennt directory should define only private types and functions.
+    files and must not declare exported funcs, methods, types, vars, or consts.
 - MUST keep e2e fixture apps under `e2e/testdata` valid on disk. Tests for invalid app shapes must copy a valid
   fixture to a temp directory and break only that temp copy before asserting generation failure.
 - MUST treat route-control directories under `web/routes` as routing syntax, not mandatory Go package names.
@@ -72,6 +84,8 @@ If a task affects the consuming-app contract, also inspect:
   Advanced composition for exceptional render-precise needs.
 - MUST keep `README.md` high-level and task-oriented; field-level contract truth belongs in exported Go types and
   focused reference docs, not long README inventories.
+- MUST layer consuming-app docs for low cognitive load: put the short mental model in getting-started docs, exact
+  path examples in feature guides, and full allow-lists or edge-case contracts in conventions/reference docs.
 - MUST name app migration docs by source and target version, for example
   `docs/app/migrations/v1.3.0-to-v1.4.0.md`. Use `next` only before the target
   release version exists, and rename it to the concrete higher version after release.

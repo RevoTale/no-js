@@ -58,13 +58,19 @@ CSS composition:
 
 ## Pick The Right Place
 
+Use the exact owner stem in route and component Client Asset filenames:
+
 | You need | Put it here |
 | --- | --- |
 | Simple component-scoped class CSS | templ `css {}` in the `.templ` file |
-| CSS for a route, layout, or 404 page | same-stem `.css` beside the route template, such as `page.css` beside `page.templ` |
-| CSS for a component | `.css` in the component package |
-| JS/TS for a route, layout, or 404 page | same-stem `.js`, `.ts`, `.tsx`, `.mjs`, or `.mts` beside the route template |
-| JS/TS for a component | `.js`, `.ts`, `.tsx`, `.mjs`, or `.mts` in the component package |
+| CSS for a route page | `web/routes/dashboard/page.css` beside `page.templ` |
+| CSS for a layout | `web/routes/dashboard/layout.css` beside `layout.templ` |
+| CSS for a 404 page | `web/routes/dashboard/404.css` beside `404.templ` |
+| CSS for a component | `web/components/meter/meter.css` beside `meter.templ` or `meter.go` |
+| JS/TS/TSX for a route page | `web/routes/dashboard/page.tsx` beside `page.templ` |
+| JS/TS/TSX for a layout | `web/routes/dashboard/layout.tsx` beside `layout.templ` |
+| JS/TS/TSX for a 404 page | `web/routes/dashboard/404.tsx` beside `404.templ` |
+| JS/TS/TSX for a component | `web/components/meter/meter.tsx` beside `meter.templ` or `meter.go` |
 | CSS or JS consumed by another website | `web/assets/embed.css` or `web/assets/embed.js` |
 | Fonts, images, downloads, Open Graph images, vendor files | `web/assets` |
 | Fixed paths like `/favicon.ico` or `/site.webmanifest` | `web/public` |
