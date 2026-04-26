@@ -393,6 +393,26 @@ func runGo(t *testing.T, dir string, args ...string) []byte {
 	return output
 }
 
+func runGoError(t *testing.T, dir string, args ...string) []byte {
+	t.Helper()
+
+	cmd := exec.Command("go", args...)
+	cmd.Dir = dir
+
+	goCacheDir := filepath.Join(dir, ".cache", "go-build")
+	require.NoError(t, os.MkdirAll(goCacheDir, 0o755))
+
+	cmd.Env = append(
+		os.Environ(),
+		"GOWORK=off",
+		"GOCACHE="+goCacheDir,
+	)
+
+	output, err := cmd.CombinedOutput()
+	require.Error(t, err, "command unexpectedly succeeded: go %s", strings.Join(args, " "))
+	return output
+}
+
 func repoRootPath(t *testing.T) string {
 	t.Helper()
 

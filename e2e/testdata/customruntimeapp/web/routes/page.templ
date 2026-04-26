@@ -1,10 +1,10 @@
 package routes
 
-import "example.com/no-js-e2e/customruntimeapp/web/components"
+import "example.com/no-js-e2e/customruntimeapp/web/components/shell"
 import "example.com/no-js-e2e/customruntimeapp/web/view"
 
 templ Page(model view.RootPageView) {
 	<main id="custom-runtime-page">
-		@components.Shell(model.Heading)
+		@shell.Shell(model.Heading)
 	</main>
 }

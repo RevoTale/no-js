@@ -1,10 +1,10 @@
 package vars
 
-import "example.com/no-js-e2e/templrulesapp/web/components"
+import "example.com/no-js-e2e/templrulesapp/web/components/meter"
 import "example.com/no-js-e2e/templrulesapp/web/view"
 
 templ Page(model view.MeterPageView) {
 	<main id="vars-page">
-		@components.Meter(model.Progress, model.Accent)
+		@meter.Meter(model.Progress, model.Accent)
 	</main>
 }

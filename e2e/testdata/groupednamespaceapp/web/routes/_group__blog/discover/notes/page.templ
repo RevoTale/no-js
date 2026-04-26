@@ -1,6 +1,6 @@
 package notes
 
-import "example.com/no-js-e2e/groupednamespaceapp/web/components"
+import "example.com/no-js-e2e/groupednamespaceapp/web/components/discovercard"
 import "example.com/no-js-e2e/groupednamespaceapp/web/view"
 
 css notesPage() {
@@ -10,6 +10,6 @@ css notesPage() {
 
 templ Page(model view.RootLayoutView) {
 	<main id="discover-notes" class={ notesPage() }>
-		@components.DiscoverCard("Blog", "Notes", 64)
+		@discovercard.DiscoverCard("Blog", "Notes", 64)
 	</main>
 }

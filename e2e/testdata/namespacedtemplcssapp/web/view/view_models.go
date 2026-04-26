@@ -1,7 +1,7 @@
 package view
 
 import (
-	"example.com/no-js-e2e/namespacedtemplcssapp/web/components"
+	"example.com/no-js-e2e/namespacedtemplcssapp/web/components/statchip"
 	"github.com/a-h/templ"
 )
 
@@ -15,6 +15,6 @@ func (view RootLayoutView) LayoutPageTitle() string {
 
 func TemplCSSVariants() []templ.CSSClass {
 	return []templ.CSSClass{
-		components.ProgressBar(72),
+		statchip.ProgressBar(72),
 	}
 }

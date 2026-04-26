@@ -21,8 +21,9 @@ go tool no-js gen [routes|assets|check] [-root .] [-config path]
 ```
 
 If you omit the mode, `gen` runs both route generation and asset generation.
-Think of `routes` as the generation step that writes Go code, and `assets` as
-the asset step that writes bundled, fingerprinted runtime files.
+Every mode first validates the strict `web/routes` and `web/components` app
+shape. Think of `routes` as the generation step that writes Go code, and
+`assets` as the asset step that writes bundled, fingerprinted runtime files.
 
 ## Modes
 
@@ -54,7 +55,7 @@ the asset step that writes bundled, fingerprinted runtime files.
 - `web/generated/*`
 - `web/resolvers/generated.go`
 - built-in i18n output when `web/i18n/messages` exists
-- `*.css_gen.go`, `*.js_gen.go`, and `*.ts_gen.go` beside discovered Client Asset sources
+- `*.css_gen.go` and `*.{js,ts,tsx,mjs,mts}_gen.go` beside discovered Client Asset sources
 - templ CSS registry output unless `assets.templ_css` is false
 
 `go tool no-js gen assets -root .` writes:

@@ -1,7 +1,7 @@
 package view
 
 import (
-	"example.com/no-js-e2e/templcssapp/web/components"
+	"example.com/no-js-e2e/templcssapp/web/components/hero"
 	"github.com/a-h/templ"
 )
 
@@ -22,6 +22,6 @@ type RootPageView struct {
 
 func TemplCSSVariants() []templ.CSSClass {
 	return []templ.CSSClass{
-		components.Progress(50),
+		hero.Progress(50),
 	}
 }

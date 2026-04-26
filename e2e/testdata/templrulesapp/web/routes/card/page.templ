@@ -1,10 +1,10 @@
 package card
 
-import "example.com/no-js-e2e/templrulesapp/web/components"
+import "example.com/no-js-e2e/templrulesapp/web/components/card"
 import "example.com/no-js-e2e/templrulesapp/web/view"
 
 templ Page(model view.CardPageView) {
 	<main id="card-page">
-		@components.Card(model.Title, model.Urgent)
+		@card.Card(model.Title, model.Urgent)
 	</main>
 }

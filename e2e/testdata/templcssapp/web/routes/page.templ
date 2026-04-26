@@ -1,13 +1,13 @@
 package routes
 
 import (
-	"example.com/no-js-e2e/templcssapp/web/components"
+	"example.com/no-js-e2e/templcssapp/web/components/hero"
 	"example.com/no-js-e2e/templcssapp/web/view"
 )
 
 templ Page(model view.RootPageView) {
 	<main id="home-page">
 		<h1>{ model.Heading }</h1>
-		@components.Hero(model.Body, model.Progress)
+		@hero.Hero(model.Body, model.Progress)
 	</main>
 }

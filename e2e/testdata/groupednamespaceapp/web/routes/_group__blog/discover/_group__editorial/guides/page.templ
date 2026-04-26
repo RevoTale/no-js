@@ -1,6 +1,6 @@
 package guides
 
-import "example.com/no-js-e2e/groupednamespaceapp/web/components"
+import "example.com/no-js-e2e/groupednamespaceapp/web/components/discovercard"
 import "example.com/no-js-e2e/groupednamespaceapp/web/view"
 
 css guidesPage() {
@@ -10,6 +10,6 @@ css guidesPage() {
 
 templ Page(model view.RootLayoutView) {
 	<main id="discover-guides" class={ guidesPage() }>
-		@components.DiscoverCard("Editorial", "Guides", 64)
+		@discovercard.DiscoverCard("Editorial", "Guides", 64)
 	</main>
 }

@@ -81,6 +81,82 @@ Important route rules:
 - route-local `components/` directories are rejected; put reusable templates
   under `web/components`
 
+## Generation Input Validation
+
+`no-js gen` validates `web/routes` and `web/components` before generation.
+Those directories are framework input trees, not general app workspaces.
+
+Allowed `web/routes` files:
+
+```text
+root.templ              # only at web/routes/root.templ
+page.templ
+layout.templ
+default.templ           # only inside slot roots
+404.templ
+route.go
+robots.go              # only at web/routes/robots.go
+feed.go
+sitemap.go
+page.{css,js,ts,tsx,mjs,mts}
+layout.{css,js,ts,tsx,mjs,mts}
+404.{css,js,ts,tsx,mjs,mts}
+page.{css,js,ts,tsx,mjs,mts}_gen.go
+layout.{css,js,ts,tsx,mjs,mts}_gen.go
+404.{css,js,ts,tsx,mjs,mts}_gen.go
+```
+
+Route Client Assets are valid only when the matching `page.templ`, `layout.templ`,
+or `404.templ` exists in the same directory. Each route owner may have at most
+one script source extension because `page.ts` and `page.tsx` both emit
+`page.js`.
+
+Move route helper code to `web/resolvers`, `web/view`, or another app-owned
+package outside `web/routes`. Move route images, fonts, downloads, and other
+static files to `web/assets` or `web/public`.
+
+`web/components` is a component package tree. Do not put files directly
+under `web/components`; each component lives in a directory whose basename is
+also the Go package name and file stem.
+
+Allowed files inside `web/components/<name>/`:
+
+```text
+<name>.templ                       # public templ anchor
+<name>.go                          # public Go anchor for code-only API or helpers
+*.go                               # private support code only
+*_test.go                          # tests, including external package tests
+<name>.css
+<name>.{js,ts,tsx,mjs,mts}             # choose one; all emit <name>.js
+<name>_templ.go
+templ_css_exports_gen.go
+<name>.{css,js,ts,tsx,mjs,mts}_gen.go
+```
+
+Each component package must contain `<name>.templ` or `<name>.go`. Handwritten
+`.templ` files must be the same-stem anchor file; split large markup into
+another component package instead of adding `variants.templ` or `header.templ`.
+Component CSS must use the component stem. Component scripts must also use the component stem, and each component package may have only one script source because `.js`, `.ts`, `.tsx`, `.mjs`, and `.mts` all emit `<name>.js`.
+
+Only `<name>.go` may declare exported top-level Go declarations. Support files
+like `helpers.go`, `classes.go`, or `formatting.go` are allowed for line-length
+and readability policies, but their funcs, methods, types, vars, and consts
+must stay private. Move public component API to `<name>.go`.
+
+Examples:
+
+```text
+web/components/card/card.templ
+web/components/card/card.go
+web/components/card/helpers.go       # private declarations only
+web/components/card/card.css
+web/components/card/card.ts
+web/components/card/header/header.templ
+```
+
+Images, fonts, downloads, docs, and JSON/YAML data files belong outside
+`web/components`.
+
 ## Generated Output
 
 `no-js` writes generated files to:

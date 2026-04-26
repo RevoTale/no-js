@@ -15,6 +15,7 @@ The `e2e` package treats them as black-box apps:
 
 Every fixture app should:
 - be generatable in place with `go tool no-js ...`
+- keep `web/routes` and strict `web/components/<name>/<name>.*` component packages within the app shape validator contract
 - expose `cmd/server/main.go`
 - accept `-addr`
 - print exactly one readiness line to stdout: `LISTEN_URL=http://127.0.0.1:NNNN`

@@ -1,11 +1,11 @@
 package name
 
-import "example.com/no-js-e2e/i18nprefixalwaysapp/web/components"
+import "example.com/no-js-e2e/i18nprefixalwaysapp/web/components/hero"
 import "example.com/no-js-e2e/i18nprefixalwaysapp/web/view"
 
 templ Page(model view.GreetPageView) {
 	<main id="greet-page">
-		@components.Hero(model.Heading, model.Locale)
+		@hero.Hero(model.Heading, model.Locale)
 		<p id="greet-description">{ model.Description }</p>
 		<nav>
 			<a id="switch-en" href={ model.SwitchToEnglish }>English</a>

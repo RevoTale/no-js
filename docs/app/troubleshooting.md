@@ -29,14 +29,16 @@ Fix:
 - add `web/routes/404.templ`
 
 These files are required on the happy path. `web/routes/error.templ` is not a
-required framework file; use `httpserver.CustomConfig.ServerErrorPage` when you
-need custom 500 UI.
+framework file and is rejected by generation; use
+`httpserver.CustomConfig.ServerErrorPage` when you need custom 500 UI.
 
-## `unsupported route template`, `default.templ is only allowed...`, Or `route.go is not allowed inside slot directories`
+## `unsupported file in web/routes`, `unsupported route template`, Or `route.go is not allowed inside slot directories`
 
 Cause:
 
 - the route tree contains a file or slot layout that breaks the route contract
+- `web/routes` contains helper code, docs, static files, generated templ output,
+  route Client Assets without matching templates, or legacy `error.templ`
 
 Fix:
 
@@ -46,8 +48,42 @@ Fix:
 - keep `route.go`, `robots.go`, `feed.go`, and `sitemap.go` out of slot
   directories
 - do not place `page.templ` and `route.go` at the same route
+- keep `page.css` with `page.templ`, `layout.css` with `layout.templ`,
+  and `404.css` with `404.templ`; use the same rule for JS/TS files
+- move helper code to `web/resolvers`, `web/view`, or another app package
+- move static files to `web/assets` or `web/public`
+- delete `web/routes/error.templ` and configure custom 500 UI through
+  `httpserver.CustomConfig.ServerErrorPage`
 
 See [App Conventions](conventions.md) for the allowed shapes.
+
+## `unsupported file in web/components` Or `component package ... must contain`
+
+Cause:
+
+- files were placed directly under `web/components` instead of a component
+  package directory
+- a component package is missing its `<name>.templ` or `<name>.go` anchor
+- a component package has extra handwritten `.templ` files such as
+  `variants.templ`
+- route or component CSS/scripts do not use the required same stem
+- a route owner or component package contains more than one same-stem script source, such as `page.ts` and `page.tsx` beside `page.templ`
+- a support `.go` file declares exported Go API
+- `web/components` contains docs, images, fonts, JSON/YAML data, or other
+  non-component files
+
+Fix:
+
+- use `web/components/<name>/<name>.templ` or
+  `web/components/<name>/<name>.go` for every component package
+- split large markup into more component packages, such as
+  `web/components/card/header/header.templ`
+- keep route and component Client Assets same-stem, such as `<name>.css` and
+  `<name>.ts`; choose only one script source extension per route owner or
+  component package
+- move exported Go API to `<name>.go`; keep support files private
+- move images, fonts, downloads, docs, and data files to `web/assets`,
+  `web/public`, or another app-owned package
 
 ## `component templates must be under web/components`
 

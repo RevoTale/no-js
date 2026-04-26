@@ -19,6 +19,7 @@ import (
 
 	"github.com/RevoTale/no-js/framework/metagen"
 	frameworkrouter "github.com/RevoTale/no-js/framework/router"
+	"github.com/RevoTale/no-js/internal/bundler/clientassetext"
 	"github.com/RevoTale/no-js/internal/filesystem"
 	"github.com/RevoTale/no-js/internal/projectlayout"
 	"github.com/evanw/esbuild/pkg/api"
@@ -1272,26 +1273,15 @@ func shouldSkipDir(dir string, layout projectlayout.ProjectLayout) bool {
 }
 
 func isCSSFile(filePath string) bool {
-	return strings.EqualFold(filepath.Ext(filePath), ".css")
+	return clientassetext.IsCSSFile(filePath)
 }
 
 func isScriptFile(filePath string) bool {
-	ext := strings.ToLower(filepath.Ext(filePath))
-	switch ext {
-	case ".js", ".ts", ".mjs", ".mts":
-		return true
-	default:
-		return false
-	}
+	return clientassetext.IsScriptFile(filePath)
 }
 
 func isGeneratedHelper(filePath string) bool {
-	name := filepath.Base(filePath)
-	return strings.HasSuffix(name, ".css_gen.go") ||
-		strings.HasSuffix(name, ".js_gen.go") ||
-		strings.HasSuffix(name, ".ts_gen.go") ||
-		strings.HasSuffix(name, ".mjs_gen.go") ||
-		strings.HasSuffix(name, ".mts_gen.go")
+	return clientassetext.IsGeneratedHelperName(filepath.Base(filePath))
 }
 
 func isSkipAll(err error) bool {

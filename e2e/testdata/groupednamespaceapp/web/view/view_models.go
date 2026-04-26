@@ -1,7 +1,7 @@
 package view
 
 import (
-	"example.com/no-js-e2e/groupednamespaceapp/web/components"
+	"example.com/no-js-e2e/groupednamespaceapp/web/components/discovercard"
 	"github.com/a-h/templ"
 )
 
@@ -22,7 +22,7 @@ type DiscoverPageView struct {
 
 func TemplCSSVariants() []templ.CSSClass {
 	return []templ.CSSClass{
-		components.ProgressBar(64),
-		components.ProgressBar(80),
+		discovercard.ProgressBar(64),
+		discovercard.ProgressBar(80),
 	}
 }

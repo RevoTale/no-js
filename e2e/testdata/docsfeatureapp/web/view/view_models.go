@@ -1,7 +1,7 @@
 package view
 
 import (
-	"example.com/no-js-e2e/docsfeatureapp/web/components"
+	"example.com/no-js-e2e/docsfeatureapp/web/components/profile"
 	"github.com/a-h/templ"
 )
 
@@ -26,7 +26,7 @@ type AuthorPageView struct {
 
 func TemplCSSVariants() []templ.CSSClass {
 	return []templ.CSSClass{
-		components.ProgressBar(64),
-		components.ProgressBar(72),
+		profile.ProgressBar(64),
+		profile.ProgressBar(72),
 	}
 }

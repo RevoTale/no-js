@@ -1,7 +1,7 @@
 package analytics
 
 import (
-	"example.com/no-js-e2e/docsfeatureapp/web/components"
+	"example.com/no-js-e2e/docsfeatureapp/web/components/profile"
 	"example.com/no-js-e2e/docsfeatureapp/web/view"
 )
 
@@ -13,6 +13,6 @@ css analyticsShell() {
 templ Default(model view.RootLayoutView) {
 	<aside class={ analyticsShell() } data-slot="analytics">
 		<p>Quarterly analytics</p>
-		@components.ProfileCard("Conversions", 72)
+		@profile.ProfileCard("Conversions", 72)
 	</aside>
 }

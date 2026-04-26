@@ -82,7 +82,7 @@ static asset pipeline after Client Assets are staged.
 
 ## Script Processing
 
-Client Asset scripts support `.js`, `.ts`, `.mjs`, and `.mts`.
+Client Asset scripts support `.js`, `.ts`, `.tsx`, `.mjs`, and `.mts`.
 
 The generator writes source-adjacent helpers such as:
 

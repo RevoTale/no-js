@@ -183,6 +183,18 @@ Reserved control directories shape the route tree:
 
 Any other `_...` route directory name is invalid.
 
+## Route Tree Is Strict
+
+Generation fails when `web/routes` contains files that are not route inputs.
+Keep only route templates, route convention Go files, and same-stem
+page/layout/404 Client Assets there. A route Client Asset must have the
+matching `page.templ`, `layout.templ`, or `404.templ` in the same directory. For example, `page.css` and `page.ts`
+are valid beside `page.templ`, but `helper.go`, `README.md`, `logo.svg`,
+`root.css`, `default.css`, and `error.templ` are rejected.
+
+Use `web/resolvers` and `web/view` for route logic, `web/components` for
+reusable components, and `web/assets` or `web/public` for static files.
+
 ## Recommended Patterns
 
 - Keep page templates view-model-shaped.

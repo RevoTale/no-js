@@ -54,6 +54,8 @@ If a task affects the consuming-app contract, also inspect:
 - MUST keep stable app package directories aligned with their Go package name in source, generated code, fixtures,
   and docs. For example, `web/view` must be `package view`, and `web/components/card` should be `package card`.
   Do not use import aliases to hide package/directory mismatches.
+- MUST keep e2e fixture apps under `e2e/testdata` valid on disk. Tests for invalid app shapes must copy a valid
+  fixture to a temp directory and break only that temp copy before asserting generation failure.
 - MUST treat route-control directories under `web/routes` as routing syntax, not mandatory Go package names.
   `_group__*`, `_slot__*`, `_param__*`, `_catchall__*`, and `_optional_catchall__*` files must still use one clear,
   valid package name per directory.

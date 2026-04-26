@@ -1,7 +1,7 @@
 package author
 
 import (
-	"example.com/no-js-e2e/docsfeatureapp/web/components"
+	"example.com/no-js-e2e/docsfeatureapp/web/components/profile"
 	"example.com/no-js-e2e/docsfeatureapp/web/view"
 )
 
@@ -12,6 +12,6 @@ templ Page(model view.AuthorPageView) {
 		<div id="author-shared">{ model.SharedA }|{ model.SharedB }</div>
 		<div id="expensive-count">{ model.LoadCount }</div>
 		<a id="switch-en" href={ model.SwitchToEnglish }>English</a>
-		@components.ProfileCard(model.Heading, model.Progress)
+		@profile.ProfileCard(model.Heading, model.Progress)
 	</main>
 }

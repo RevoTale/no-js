@@ -1,6 +1,6 @@
 package dashboard
 
-import "example.com/no-js-e2e/namespacedtemplcssapp/web/components"
+import "example.com/no-js-e2e/namespacedtemplcssapp/web/components/statchip"
 import "example.com/no-js-e2e/namespacedtemplcssapp/web/view"
 
 css dashboardCard() {
@@ -11,6 +11,6 @@ css dashboardCard() {
 templ Page(model view.RootLayoutView) {
 	<main id="marketing-dashboard" class={ dashboardCard() }>
 		<h1>Marketing Dashboard</h1>
-		@components.StatChip("Qualified pipeline", 72)
+		@statchip.StatChip("Qualified pipeline", 72)
 	</main>
 }

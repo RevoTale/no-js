@@ -56,6 +56,21 @@ your-app/
       view_models.go
 ```
 
+## Strict App Shape
+
+Generation validates `web/routes` and `web/components`. Keep `web/routes` for
+endpoint, layout, and composition inputs only. Do not put helper Go files, docs,
+images, JSON/YAML data, or `error.templ` there. Route CSS and scripts are valid
+only when they match a same-directory `page.templ`, `layout.templ`, or
+`404.templ`.
+
+Keep `web/components` for component packages only. Each component lives under
+`web/components/<name>/` and must have `<name>.templ` or `<name>.go`. Component
+CSS and scripts must use the same stem, such as `<name>.css` or `<name>.ts`; choose at most one script extension per component package.
+Support `.go` files are allowed, but exported Go API belongs in `<name>.go`;
+keep helpers private. Images, fonts, downloads, docs, and data files belong in
+`web/assets`, `web/public`, or another app-owned package.
+
 ## 3. Add The Minimal Files
 
 `web/view/context.go`

@@ -1,10 +1,10 @@
 package panel
 
-import "example.com/no-js-e2e/templrulesapp/web/components"
+import "example.com/no-js-e2e/templrulesapp/web/components/panel"
 import "example.com/no-js-e2e/templrulesapp/web/view"
 
 templ Page(model view.RootLayoutView) {
 	<main id="panel-page">
-		@components.DockSection()
+		@panel.DockSection()
 	</main>
 }

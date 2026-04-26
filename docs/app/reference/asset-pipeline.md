@@ -1,52 +1,121 @@
 # Asset Pipeline Reference
 
-Use this reference when you need the app-facing rules for generated CSS,
-generated scripts, explicit hashed files, and fixed public files. For task
+Use this reference when you need to decide where an app asset belongs, which
+command generates it, and how `no-js` serves it at runtime. For task-oriented
 examples, start with [Static Assets And Client Assets](../features/static-assets.md).
+
+## Quick Choice
+
+| You need | Put it here | Generated behavior |
+| --- | --- | --- |
+| Simple templ component CSS | templ `css {}` in a `.templ` file | extracted to `styles/templ.css` by default when declarations exist |
+| Route, layout, or 404 CSS | `web/routes/**/page.css`, `layout.css`, or `404.css` | bundled into the matched route stylesheet |
+| Component CSS | `web/components/<name>/<name>.css` | bundled into routes that import that component package |
+| Route, layout, or 404 JavaScript or TypeScript | `web/routes/**/page.{js,ts,tsx,mjs,mts}`, `layout.*`, or `404.*` | bundled into the matched route module script |
+| Component JavaScript or TypeScript | one of `web/components/<name>/<name>.{js,ts,tsx,mjs,mts}` | bundled into routes that import that component package |
+| Fingerprinted images, fonts, downloads, vendor files, or manual global files | `web/assets/**/*` | copied or minified into `web/assets-build` and manifest-addressed |
+| Fixed paths such as `/favicon.ico` | `web/public/**/*` | served at the same request path |
+
+Most app pages should rely on generated route/component Client Assets and
+`@metagen.Head(meta)`. Use `web/assets` only when the file needs its own hashed
+URL outside the route graph.
 
 ## Commands
 
 | Command | What it writes |
 | --- | --- |
-| `go tool no-js gen routes -root .` | generated Go route code, resolver contracts, Client Asset constants, script helpers |
-| `go tool no-js gen assets -root .` | route CSS bundles, route module script bundles, explicit `web/assets` files, static manifest |
-| `go tool no-js gen -root .` | both steps |
+| `go tool no-js gen routes -root .` | generated route Go code, resolver contracts, source-adjacent Client Asset helpers, built-in i18n output, and the templ CSS registry |
+| `go tool no-js gen assets -root .` | browser CSS and script bundles, explicit `web/assets` output, and `web/assets-build/manifest.json` |
+| `go tool no-js gen -root .` | both route generation and asset generation |
 
-`routes` is the generation step. It writes Go code that templates and the
-runtime can compile.
+`routes` writes Go files that the app compiles. `assets` writes browser files
+that the runtime serves. In normal app development, run the combined command:
 
-`assets` is the asset step. It writes browser files under `web/assets-build`
-and fingerprints them through the manifest.
-
-## Source Paths
-
-| Source | Purpose | Auto-injected |
-| --- | --- | --- |
-| templ `css {}` in `.templ` files | simple component-scoped CSS | global `styles/templ.css` when declarations exist unless `assets.templ_css` is false |
-| `web/routes/**/<name>.css` | route, layout, or 404 CSS with the same stem as `<name>.templ` | yes, for matched routes |
-| `web/components/**/*.css` | component CSS | yes, when a matched route imports the component package |
-| `web/routes/**/<name>.{js,ts,mjs,mts}` | route, layout, or 404 scripts with the same stem as `<name>.templ` | yes, for matched routes |
-| `web/components/**/*.{js,ts,mjs,mts}` | component scripts | yes, when a matched route imports the component package |
-| `web/assets/**/*` | explicit hashed files | no |
-| `web/public/**/*` | fixed request paths | no |
-
-## Generated CSS
-
-templ `css {}` components and colocated `.css` files serve different needs.
-Prefer templ `css {}` for simple component-scoped class declarations. Use
-colocated `.css` files when you need stylesheet selectors, pseudo-classes,
-pseudo-elements, combinators, at-rules, or route-level CSS.
-
-Route-owned CSS must use the same file stem as the route template that owns it:
-
-```text
-page.templ   -> page.css
-layout.templ -> layout.css
-404.templ    -> 404.css
+```bash
+go tool no-js gen -root .
 ```
 
-Component CSS is package-owned. When a matched route imports a component
-package, every Client Asset in that component package is included once.
+## Source Rules
+
+### templ `css {}`
+
+Default: enabled.
+
+```yaml
+version: 1
+
+assets:
+  templ_css: true
+```
+
+You usually omit this config because `true` is the default. When templ CSS
+extraction is enabled, `no-js` scans templ `css {}` declarations and
+`web/view.TemplCSSVariants()`. If zero-argument declarations or variants exist,
+asset generation emits:
+
+```text
+web/assets-build/styles/templ.css
+```
+
+The stylesheet is injected into managed head output for every page, and templ's
+inline CSS registration is suppressed. If no declarations or variants exist, no
+`styles/templ.css` file is emitted.
+
+Disable extraction when you intentionally want templ's inline registration path:
+
+```yaml
+version: 1
+
+assets:
+  templ_css: false
+```
+
+### Route Client Assets
+
+Route Client Assets must be colocated with the route template that owns them.
+Only these stems are valid:
+
+```text
+page.templ   -> page.css   or page.{js,ts,tsx,mjs,mts}
+layout.templ -> layout.css or layout.{js,ts,tsx,mjs,mts}
+404.templ    -> 404.css    or 404.{js,ts,tsx,mjs,mts}
+```
+
+A route asset is valid only when the matching template exists in the same
+directory. For example, `web/routes/dashboard/page.css` requires
+`web/routes/dashboard/page.templ`.
+
+Use route assets for CSS or scripts that belong to an endpoint, layout, or 404
+page. Choose only one script source extension per route owner; for example, do
+not keep both `page.ts` and `page.tsx`. They are injected only for matched
+routes through `@metagen.Head(meta)`.
+
+### Component Client Assets
+
+Component Client Assets must live in a strict component package:
+
+```text
+web/components/meter/meter.templ
+web/components/meter/meter.css
+web/components/meter/meter.tsx
+```
+
+Rules:
+
+- the component package directory name is the anchor name
+- the package must contain `meter.templ` or `meter.go`
+- component CSS must be `meter.css`
+- component scripts must be one of `meter.js`, `meter.ts`, `meter.tsx`, `meter.mjs`, or
+  `meter.mts`
+- do not place files directly under `web/components`
+- do not add extra handwritten templates such as `variants.templ`
+- keep images, fonts, downloads, docs, and data files outside `web/components`
+
+When a matched route imports the component package, the route receives that
+component package's CSS and script once. Routes that do not import the package do
+not receive those assets.
+
+## Generated CSS
 
 Colocated `.css` files create source-adjacent Go constants:
 
@@ -56,54 +125,80 @@ const (
 )
 ```
 
-Use the constants from templ. Do not hard-code generated class names.
+Use the generated constants from templ:
 
-Generated CSS is scoped by class-name anonymization. The original class names
-stay in source files; rendered HTML and built CSS use the generated names.
+```templ
+templ Page() {
+	<main class={ PageShellClass }>
+		Dashboard
+	</main>
+}
+```
 
-templ `css {}` components are extracted by default. That writes one global
-`styles/templ.css` into the hashed asset output when zero-argument templ CSS
-declarations or `TemplCSSVariants()` are present. Set `assets.templ_css` to
-`false` in `no-js.bundle.yaml` to keep templ CSS inline.
+Do not hard-code generated class names. The source CSS keeps readable class
+names, while rendered HTML and built CSS use anonymized names.
 
-At runtime, `httpserver.NewApp(...)` injects that stylesheet into managed head
-output for every page and suppresses the registered inline templ CSS.
+Use colocated `.css` files when you need normal stylesheet features:
+
+- pseudo-classes such as `:hover`, `:focus-visible`, or `:has(...)`
+- pseudo-elements such as `::before`
+- combinators such as `.card > .icon + .label`
+- at-rules such as `@media`, `@container`, or `@scope`
+
+Use templ `css {}` for simple component-scoped class declarations.
 
 ## Generated Scripts
 
-Route-owned scripts follow the same-stem rule:
+Client Asset scripts may use these source extensions:
 
 ```text
-page.templ   -> page.ts
-layout.templ -> layout.ts
-404.templ    -> 404.ts
+.js
+.ts
+.tsx
+.mjs
+.mts
 ```
 
-Colocated `.js`, `.ts`, `.mjs`, and `.mts` files create exported script helpers,
-for example:
+All script sources emit browser module scripts with `.js` output paths. Choose
+one source extension for each route owner or component package. The validator
+enforces this because `page.ts` and `page.tsx` both emit `page.js`, and
+`meter.ts` and `meter.tsx` both emit `meter.js`.
 
-```go
-func PageScript() templ.Component
+Generated routes inject matched scripts through `@metagen.Head(meta)`. Normal
+pages do not need to call generated script helpers manually.
+
+Client Asset scripts are bundled with esbuild. Relative imports and package
+imports are supported when esbuild can resolve them from the app workspace:
+
+```ts
+import { animate } from "./animation";
+import { createFocusTrap } from "focus-trap";
 ```
 
-Normal generated routes do not need to call these helpers manually. Route
-generation injects matched route scripts through `@metagen.Head(meta)`.
-
-Client Asset scripts are bundled with esbuild as browser module scripts.
-Relative imports and package imports are supported when esbuild can resolve
-them from the app workspace.
-
-TypeScript is bundled, not typechecked. Run `tsc --noEmit` in app validation
-when you need TypeScript typechecking.
+Package imports require the dependency to be installed in the app workspace.
+TSX is bundled by esbuild, but `no-js` does not install or configure a JSX
+runtime for you. Configure the app the same way you would for esbuild: provide
+the JSX runtime imports, `jsxImportSource`, or related app settings your TSX
+source expects. TypeScript and TSX are bundled, not typechecked. Run
+`tsc --noEmit` in app validation when you need typechecking.
 
 ## Explicit `web/assets`
 
 Use `web/assets` for files that need their own hashed URL and should not be
-attached to a route or component.
+automatically attached to a route or component.
+
+Good fits:
+
+- images and fonts
+- Open Graph images
+- downloads
+- embeddable CSS or JavaScript for another site
+- vendor files
+- a global stylesheet you include intentionally
 
 Files under `web/assets`:
 
-- are included in `web/assets-build`
+- are written under `web/assets-build`
 - are fingerprinted in the manifest
 - may be minified when they are `.css`, `.js`, `.mjs`, or `.cjs`
 - are not auto-injected into pages
@@ -114,16 +209,34 @@ Package imports from `node_modules` are not supported in `web/assets` CSS or
 JavaScript. Browser-resolvable relative imports can work when the imported file
 is also present under `web/assets`, but `no-js` does not rewrite import paths.
 
+Reference a hashed asset intentionally from app code:
+
+```go
+metagen.AssetURL(ctx, "site.css")
+```
+
+## Fixed `web/public` Files
+
+Use `web/public` when the request path must stay fixed:
+
+```text
+web/public/favicon.ico      -> /favicon.ico
+web/public/site.webmanifest -> /site.webmanifest
+```
+
+Do not put files in `web/public` when they should be fingerprinted.
+
 ## Runtime Output
 
 Generated Client Asset bundles and explicit `web/assets` files share the same
-runtime output:
+runtime output directory:
 
 ```text
 web/assets-build/
   manifest.json
   routes/dashboard.css
   routes/dashboard.js
+  styles/templ.css
   embed.js
 ```
 
@@ -133,9 +246,93 @@ At runtime, `httpserver.NewApp(...)` reads the manifest and serves files under:
 /_assets/<hash>/
 ```
 
+The default manifest path is:
+
+```text
+web/assets-build/manifest.json
+```
+
+Override it only when you also configure the same path in runtime setup. See
+[Bundle Config Reference](bundle-config.md) for build-time path settings.
+
+## Common Fixes
+
+### Route Asset Without Matching Template
+
+A file like this fails validation:
+
+```text
+web/routes/dashboard/page.css
+```
+
+unless this file exists beside it:
+
+```text
+web/routes/dashboard/page.templ
+```
+
+Fix by adding the matching template, renaming the asset stem, or moving the file
+to `web/assets` if it is not route-owned.
+
+### Component Asset With The Wrong Stem
+
+This fails:
+
+```text
+web/components/meter/theme.css
+web/components/meter/behavior.ts
+```
+
+Use the component anchor stem instead:
+
+```text
+web/components/meter/meter.css
+web/components/meter/meter.tsx
+```
+
+### Multiple Route Or Component Script Sources
+
+This route fails because both files belong to `page.templ` and emit `page.js`:
+
+```text
+web/routes/dashboard/page.ts
+web/routes/dashboard/page.tsx
+```
+
+This component fails because both files emit `meter.js`:
+
+```text
+web/components/meter/meter.ts
+web/components/meter/meter.tsx
+```
+
+Keep one script source and move shared code into an imported support module
+outside the component asset slot.
+
+### Component File In The Root
+
+This fails:
+
+```text
+web/components/badge.templ
+```
+
+Use a component package directory:
+
+```text
+web/components/badge/badge.templ
+```
+
+### Need A Global File On Every Page
+
+If the file is generated by templ `css {}`, keep the default templ CSS pipeline.
+If it is a handwritten stylesheet or script, put it in `web/assets` and include
+it intentionally from metadata or your root template.
+
 ## Related Docs
 
 - [Static Assets And Client Assets](../features/static-assets.md)
+- [App Conventions](../conventions.md)
 - [CLI Reference](cli.md)
 - [Bundle Config Reference](bundle-config.md)
 - [Metadata and Head](../features/metadata-and-head.md)

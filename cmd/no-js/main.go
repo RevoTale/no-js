@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/RevoTale/no-js/internal/bundler/approutegen"
+	"github.com/RevoTale/no-js/internal/bundler/appshape"
 	"github.com/RevoTale/no-js/internal/bundler/clientassets"
 	"github.com/RevoTale/no-js/internal/bundler/i18ngen"
 	bundlerstaticassets "github.com/RevoTale/no-js/internal/bundler/staticassets"
@@ -64,6 +65,9 @@ func runGen(args []string) error {
 	layout, err := resolveLayout(rootDir, configPath)
 	if err != nil {
 		return err
+	}
+	if err := appshape.Validate(layout); err != nil {
+		return fmt.Errorf("validate app shape: %w", err)
 	}
 
 	switch mode {

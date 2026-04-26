@@ -1,10 +1,10 @@
 package hooks
 
-import "example.com/no-js-e2e/templrulesapp/web/components"
+import "example.com/no-js-e2e/templrulesapp/web/components/dropdown"
 import "example.com/no-js-e2e/templrulesapp/web/view"
 
 templ Page(model view.RootLayoutView) {
 	<main id="hooks-page">
-		@components.Dropdown()
+		@dropdown.Dropdown()
 	</main>
 }

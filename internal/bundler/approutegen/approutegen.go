@@ -20,6 +20,7 @@ import (
 
 	"github.com/RevoTale/no-js/framework/metagen"
 	frameworkrouter "github.com/RevoTale/no-js/framework/router"
+	"github.com/RevoTale/no-js/internal/bundler/clientassetext"
 	"github.com/RevoTale/no-js/internal/bundler/clientassets"
 	"github.com/RevoTale/no-js/internal/bundler/viewcontract"
 	"github.com/RevoTale/no-js/internal/projectlayout"
@@ -1944,11 +1945,7 @@ func writeClientAssetHelperCopies(tpl templateDef) error {
 }
 
 func isClientAssetHelperFile(name string) bool {
-	return strings.HasSuffix(name, ".css_gen.go") ||
-		strings.HasSuffix(name, ".js_gen.go") ||
-		strings.HasSuffix(name, ".ts_gen.go") ||
-		strings.HasSuffix(name, ".mjs_gen.go") ||
-		strings.HasSuffix(name, ".mts_gen.go")
+	return clientassetext.IsGeneratedHelperName(name)
 }
 
 func writeSourcePackageCopy(sourcePackage sourcePackageDef, generatedRoot string) error {

@@ -1,11 +1,11 @@
 package deps
 
-import "example.com/no-js-e2e/templrulesapp/web/components"
+import "example.com/no-js-e2e/templrulesapp/web/components/meter"
 import "example.com/no-js-e2e/templrulesapp/web/view"
 
 templ Page(model view.MeterPageView) {
 	<main id="deps-page">
-		@components.Meter(model.Progress, model.Accent)
-		@components.Meter(model.Progress, model.Accent)
+		@meter.Meter(model.Progress, model.Accent)
+		@meter.Meter(model.Progress, model.Accent)
 	</main>
 }

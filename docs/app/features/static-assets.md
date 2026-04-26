@@ -63,8 +63,8 @@ CSS composition:
 | Simple component-scoped class CSS | templ `css {}` in the `.templ` file |
 | CSS for a route, layout, or 404 page | same-stem `.css` beside the route template, such as `page.css` beside `page.templ` |
 | CSS for a component | `.css` in the component package |
-| JS/TS for a route, layout, or 404 page | same-stem `.js`, `.ts`, `.mjs`, or `.mts` beside the route template |
-| JS/TS for a component | `.js`, `.ts`, `.mjs`, or `.mts` in the component package |
+| JS/TS for a route, layout, or 404 page | same-stem `.js`, `.ts`, `.tsx`, `.mjs`, or `.mts` beside the route template |
+| JS/TS for a component | `.js`, `.ts`, `.tsx`, `.mjs`, or `.mts` in the component package |
 | CSS or JS consumed by another website | `web/assets/embed.css` or `web/assets/embed.js` |
 | Fonts, images, downloads, Open Graph images, vendor files | `web/assets` |
 | Fixed paths like `/favicon.ico` or `/site.webmanifest` | `web/public` |
@@ -131,9 +131,14 @@ templ Meter(label string) {
 When a route imports `web/components/meter`, that route receives the component
 CSS once. Routes that do not import the component do not receive that CSS.
 
-Component packages are package-owned for Client Assets. You can keep component
-CSS and scripts in the component package; they do not need to match the template
-file stem.
+Component packages are package-owned for Client Assets, and asset names must
+match the component package anchor. For `web/components/meter`, use
+`meter.css` plus at most one script source: `meter.js`, `meter.ts`, `meter.tsx`,
+`meter.mjs`, or `meter.mts`. Do not add `theme.css`, `behavior.ts`, or more
+than one same-stem script source inside that package. Other static files, such as
+images, fonts, downloads, docs, or JSON data, do not belong in
+`web/components`; put them under `web/assets`, `web/public`, or another
+app-owned package.
 
 ## Add Route Scripts
 
@@ -144,7 +149,9 @@ web/routes/dashboard/page.ts
 ```
 
 Use the same file stem as the route template: `page.ts` for `page.templ`,
-`layout.ts` for `layout.templ`, and `404.ts` for `404.templ`.
+`layout.ts` for `layout.templ`, and `404.ts` for `404.templ`. Choose one script
+extension per route owner; `page.ts` and `page.tsx` both emit `page.js`, so they
+cannot live beside the same `page.templ`.
 
 ```ts
 import { createFocusTrap } from "focus-trap";
@@ -181,8 +188,11 @@ import { createFocusTrap } from "focus-trap";
 Package imports require the dependency to be installed in the app workspace.
 `no-js` does not install `node_modules` for you.
 
-TypeScript is bundled, not typechecked. If your app uses TypeScript, keep
-`tsc --noEmit` in your app validation flow.
+TSX is bundled by esbuild, but `no-js` does not configure React, Preact, or any
+other JSX runtime for you. Provide the imports, `jsxImportSource`, or app-level
+settings your TSX source expects. TypeScript and TSX are bundled, not
+typechecked. Keep `tsc --noEmit` in your app validation flow when you need
+typechecking.
 
 ## CSS Imports
 

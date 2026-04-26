@@ -1,13 +1,13 @@
 package dashboard
 
 import (
-	"example.com/no-js-e2e/docsfeatureapp/web/components"
+	"example.com/no-js-e2e/docsfeatureapp/web/components/profile"
 	"example.com/no-js-e2e/docsfeatureapp/web/view"
 )
 
 templ Page(model view.RootLayoutView) {
 	<main id="marketing-dashboard">
 		<h1>Marketing Dashboard</h1>
-		@components.ProfileCard("Qualified pipeline", 64)
+		@profile.ProfileCard("Qualified pipeline", 64)
 	</main>
 }

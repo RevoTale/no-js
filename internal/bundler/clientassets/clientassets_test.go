@@ -163,14 +163,20 @@ import "example.com/client-assets/web/components/meter"
 	writeFile(t, filepath.Join(filepath.Dir(layout.RoutesDir), "components", "meter", "meter.templ"), "package meter\n")
 	writeFile(
 		t,
-		filepath.Join(filepath.Dir(layout.RoutesDir), "components", "meter", "meter.ts"),
-		"export const value = 1;\n",
+		filepath.Join(filepath.Dir(layout.RoutesDir), "components", "meter", "meter.tsx"),
+		strings.Join([]string{
+			"/** @jsx jsx */",
+			"const jsx = (tag: string, props: Record<string, string>) => ({ tag, props });",
+			`const marker = <span data-client-assets-meter="loaded" />;`,
+			"export const value = marker.props['data-client-assets-meter'];",
+			"",
+		}, "\n"),
 	)
 
 	plan, err := Generate(Config{Layout: layout})
 	require.NoError(t, err)
 
-	helper := readFile(t, filepath.Join(filepath.Dir(layout.RoutesDir), "components", "meter", "meter.ts_gen.go"))
+	helper := readFile(t, filepath.Join(filepath.Dir(layout.RoutesDir), "components", "meter", "meter.tsx_gen.go"))
 	require.Contains(t, helper, "func MeterScript() templ.Component")
 	require.Contains(t, helper, `metagen.AssetURL(ctx, "components/meter/meter.js")`)
 	require.Equal(t, []string{"routes/index.js"}, plan.RouteAssets[""].ModuleScripts)

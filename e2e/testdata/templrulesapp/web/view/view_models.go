@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"example.com/no-js-e2e/templrulesapp/web/components"
+	"example.com/no-js-e2e/templrulesapp/web/components/progress"
 	"github.com/a-h/templ"
 )
 
@@ -54,7 +54,7 @@ type StreamPageView struct {
 
 func TemplCSSVariants() []templ.CSSClass {
 	return []templ.CSSClass{
-		components.ProgressBar(72),
+		progress.ProgressBar(72),
 	}
 }
 

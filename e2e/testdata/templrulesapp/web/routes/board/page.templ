@@ -1,13 +1,13 @@
 package board
 
-import "example.com/no-js-e2e/templrulesapp/web/components"
+import "example.com/no-js-e2e/templrulesapp/web/components/board"
 import "example.com/no-js-e2e/templrulesapp/web/view"
 
 templ Page(model view.BoardPageView) {
 	<main id="board-page">
-		@components.Board(
-			components.BoardHeader(model.Title),
-			components.BoardBody(model.Body),
+		@board.Board(
+			board.BoardHeader(model.Title),
+			board.BoardBody(model.Body),
 		)
 	</main>
 }
