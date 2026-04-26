@@ -75,13 +75,20 @@ If a task affects the consuming-app contract, also inspect:
   `v3` may intentionally differ from the declared package name.
 - MUST surface invalid app-bundle wiring at startup; framework happy-path APIs must not rely on request-time soft
   failures for missing required context or dependencies.
-- MUST keep Client Assets route-static by default. A route bundle is produced from the matched page, layout, or 404
-  files plus the colocated assets of every imported `web/components` package reachable from those files. For example,
-  if `page.templ` imports `web/components/meter`, the matched route bundle includes `meter.css` and `meter.ts` once,
-  even if the component renders conditionally or multiple times. Generated routes inject those route bundles through
-  `@metagen.Head(meta)`. This keeps runtime cheap, makes asset inclusion predictable, and avoids head/body ordering
-  problems from render-time asset registration. Do not make normal component rendering register assets per call; use
-  Advanced composition for exceptional render-precise needs.
+- MUST keep Client Assets route-static by default. Asset discovery is based on the matched page, layout, slot, or 404
+  templates plus the colocated assets of every imported `web/components` package reachable from those files.
+- MUST use the layout-subtree CSS mental model for generated Client Asset stylesheets. CSS is folded up to the nearest
+  non-root `layout.templ` that contains the subtree, even when that layout has no colocated `layout.css`. Root CSS
+  stays app-shell-only and must not become "all app CSS" by default. For example, `web/routes/dashboard/layout.templ`
+  can produce one `routes/dashboard/layout.css` containing descendant page CSS, slot CSS, and imported dashboard
+  component CSS, reused by every dashboard page. Page-level CSS is only standalone when there is no non-root layout
+  owner that should own that subtree.
+- MUST keep JavaScript as shared owner entries plus esbuild chunks. For example, `web/routes/dashboard/page.tsx`
+  emits `routes/dashboard/page.js`, component scripts emit under `components/<name>/`, and shared JS imports are
+  emitted under `chunks/`. Generated routes inject the ordered owner files they need through `@metagen.Head(meta)`.
+  Do not make normal component rendering mutate page assets at render time. Client Assets must be discovered during
+  generation from route/layout/slot templates and reachable component imports. Use app-owned manual composition only
+  when an app needs render-precise asset control outside the generated route-static model.
 - MUST keep `README.md` high-level and task-oriented; field-level contract truth belongs in exported Go types and
   focused reference docs, not long README inventories.
 - MUST layer consuming-app docs for low cognitive load: put the short mental model in getting-started docs, exact
