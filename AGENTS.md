@@ -64,7 +64,7 @@ If a task affects the consuming-app contract, also inspect:
     instead of adding `variants.templ`, `header.templ`, or similar files.
   * Optional component assets must be same-stem: `<name>.css` and at most one
     `<name>.{js,ts,tsx,mjs,mts}`.
-  * Public handwritten Go API belongs only in `<name>.go`; other handwritten non-test `.go` files in the same compoennt directory should define only private types and functions.
+  * Public handwritten Go API belongs only in `<name>.go`; other handwritten non-test `.go` files in the same component directory are support
     files and must not declare exported funcs, methods, types, vars, or consts.
 - MUST keep e2e fixture apps under `e2e/testdata` valid on disk. Tests for invalid app shapes must copy a valid
   fixture to a temp directory and break only that temp copy before asserting generation failure.
@@ -78,17 +78,19 @@ If a task affects the consuming-app contract, also inspect:
 - MUST keep Client Assets route-static by default. Asset discovery is based on the matched page, layout, slot, or 404
   templates plus the colocated assets of every imported `web/components` package reachable from those files.
 - MUST use the layout-subtree CSS mental model for generated Client Asset stylesheets. CSS is folded up to the nearest
-  non-root `layout.templ` that contains the subtree, even when that layout has no colocated `layout.css`. Root CSS
-  stays app-shell-only and must not become "all app CSS" by default. For example, `web/routes/dashboard/layout.templ`
+  non-root `layout.templ` that contains the subtree, even when that layout has no colocated `layout.css`.
+  `web/routes/root.css` stays app-shell-only and must not become "all app CSS" by default. For example,
+  `web/routes/dashboard/layout.templ`
   can produce one `routes/dashboard/layout.css` containing descendant page CSS, slot CSS, and imported dashboard
   component CSS, reused by every dashboard page. Page-level CSS is only standalone when there is no non-root layout
-  owner that should own that subtree.
+  owner that should own that subtree. Final generated CSS files still pass through the static asset builder's esbuild
+  CSS transform before reaching the browser; do not treat the pre-static-build staging files as final output.
 - MUST keep JavaScript as shared owner entries plus esbuild chunks. For example, `web/routes/dashboard/page.tsx`
   emits `routes/dashboard/page.js`, component scripts emit under `components/<name>/`, and shared JS imports are
   emitted under `chunks/`. Generated routes inject the ordered owner files they need through `@metagen.Head(meta)`.
   Do not make normal component rendering mutate page assets at render time. Client Assets must be discovered during
-  generation from route/layout/slot templates and reachable component imports. Use app-owned manual composition only
-  when an app needs render-precise asset control outside the generated route-static model.
+  generation from route/layout/slot templates and reachable component imports. Use Advanced composition only when an
+  app needs manual, render-precise asset control outside the generated route-static model.
 - MUST keep `README.md` high-level and task-oriented; field-level contract truth belongs in exported Go types and
   focused reference docs, not long README inventories.
 - MUST layer consuming-app docs for low cognitive load: put the short mental model in getting-started docs, exact

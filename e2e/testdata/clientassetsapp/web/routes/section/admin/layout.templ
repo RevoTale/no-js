@@ -1,0 +1,9 @@
+package admin
+
+import "example.com/no-js-e2e/clientassetsapp/web/view"
+
+templ Layout(model view.SectionAdminLayoutView, child templ.Component) {
+	<section data-layout="section-admin">
+		@child
+	</section>
+}

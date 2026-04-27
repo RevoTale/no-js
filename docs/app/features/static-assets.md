@@ -19,12 +19,19 @@ Most apps use all three asset lanes, but each lane has a different job:
   Use for simple component-scoped class styles. `no-js` extracts these into one
   global `styles/templ.css` by default when declarations exist.
 - Client Assets
-  Use for route, layout, 404, or component CSS/JS/TS. `no-js` bundles these
-  per matched route and injects them through `@metagen.Head(meta)`.
+  Use for route, layout, 404, or component CSS/JS/TS. CSS is folded into root,
+  layout-subtree, or page-fallback stylesheets. Scripts stay as owner module
+  entries, with shared imports emitted as esbuild chunks.
 - `web/assets`
   Use for images, fonts, downloads, vendor files, or files consumed outside the
   route graph. `no-js` fingerprints them under `/_assets/<hash>/`, but app
   code must reference them intentionally.
+
+`go tool no-js gen assets` sends every final `.css` file through the static
+asset builder. Global templ CSS, generated route/component Client Asset
+stylesheets, and explicit `web/assets/**/*.css` files are transformed and
+minified by esbuild before the browser receives them. Dynamic templ `css {}`
+that stays local to rendering is not part of that global asset build.
 
 You do not need `no-js.bundle.yaml` for the default templ CSS behavior. Add the
 file only when you need to change a default, such as disabling global templ CSS
@@ -63,6 +70,7 @@ Use the exact owner stem in route and component Client Asset filenames:
 | You need | Put it here |
 | --- | --- |
 | Simple component-scoped class CSS | templ `css {}` in the `.templ` file |
+| Shell CSS for every page | `web/routes/root.css` beside `root.templ` |
 | CSS for a route page | `web/routes/dashboard/page.css` beside `page.templ` |
 | CSS for a layout | `web/routes/dashboard/layout.css` beside `layout.templ` |
 | CSS for a 404 page | `web/routes/dashboard/404.css` beside `404.templ` |
@@ -112,8 +120,16 @@ Run generation:
 go tool no-js gen -root .
 ```
 
-`no-js` generates `page.css_gen.go`, anonymizes the class name in rendered HTML,
-and injects the route stylesheet through `@metagen.Head(meta)`.
+`no-js` generates `page.css_gen.go` and anonymizes the class name in rendered
+HTML. The browser stylesheet depends on the route shape:
+
+- if the page is under a non-root `layout.templ`, the page CSS is folded into
+  that layout subtree stylesheet, such as `routes/dashboard/layout.css`
+- if there is no non-root layout owner, the page gets a fallback stylesheet,
+  such as `routes/dashboard/page.css`
+- `web/routes/root.css` is shell CSS and stays separate from page/layout CSS
+
+Generated routes inject the needed stylesheets through `@metagen.Head(meta)`.
 
 ## Add Component CSS
 
@@ -134,8 +150,10 @@ templ Meter(label string) {
 }
 ```
 
-When a route imports `web/components/meter`, that route receives the component
-CSS once. Routes that do not import the component do not receive that CSS.
+When a route or layout imports `web/components/meter`, `meter.css` is folded
+into the stylesheet owned by the nearest non-root layout. If there is no
+non-root layout, it is folded into the page fallback stylesheet. Routes outside
+that layout subtree do not receive the component CSS.
 
 Component packages are package-owned for Client Assets, and asset names must
 match the component package anchor. For `web/components/meter`, use
@@ -172,19 +190,23 @@ Run generation:
 go tool no-js gen -root .
 ```
 
-The matched route receives one module script:
+The matched route receives the owner module entries it needs. Scripts are not
+folded into layout CSS bundles:
 
 ```html
-<script type="module" src="/_assets/<hash>/routes/dashboard.js"></script>
+<script type="module" src="/_assets/<hash>/routes/dashboard/page.js"></script>
 ```
 
 Normal pages should not call script helpers manually. Generated routes add
-route scripts once through `@metagen.Head(meta)`.
+owner scripts once through `@metagen.Head(meta)`. If a layout or imported
+component is reused by many routes, all those routes point to the same owner
+script path. Shared imports are emitted as esbuild
+chunks and loaded by the owner scripts.
 
 ## JavaScript And TypeScript Imports
 
-Client Asset scripts are bundled with esbuild. Relative imports and package
-imports are supported:
+Client Asset scripts are bundled together with esbuild splitting enabled.
+Relative imports and package imports are supported:
 
 ```ts
 import { animate } from "./animation";

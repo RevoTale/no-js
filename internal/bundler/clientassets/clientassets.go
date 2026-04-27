@@ -47,6 +47,12 @@ type PrepareStaticSourceConfig struct {
 type RouteSpec struct {
 	RouteID       string
 	TemplatePaths []string
+	CSSBundles    []CSSBundleSpec
+}
+
+type CSSBundleSpec struct {
+	OwnerTemplatePath string
+	TemplatePaths     []string
 }
 
 type Plan struct {
@@ -54,8 +60,8 @@ type Plan struct {
 	NotFoundAssets map[string]metagen.ClientAssets
 
 	cssFiles    []*cssAsset
+	cssBundles  []*cssBundle
 	scriptFiles []*scriptAsset
-	routes      []*routeBundle
 }
 
 type cssAsset struct {
@@ -63,6 +69,7 @@ type cssAsset struct {
 	PackageDir  string
 	PackageName string
 	HelperPath  string
+	AssetPath   string
 	Transformed string
 	Classes     []cssClass
 }
@@ -84,12 +91,14 @@ type scriptAsset struct {
 }
 
 type routeBundle struct {
-	RouteID     string
-	AssetSlug   string
-	CSSPath     string
-	JSPath      string
-	CSSFiles    []*cssAsset
-	ScriptFiles []*scriptAsset
+	RouteID        string
+	CSSBundlePaths []string
+	ScriptFiles    []*scriptAsset
+}
+
+type cssBundle struct {
+	AssetPath string
+	CSSFiles  []*cssAsset
 }
 
 type assetIndex struct {
@@ -163,29 +172,39 @@ func BuildPlan(cfg Config) (Plan, error) {
 		return Plan{}, err
 	}
 
-	bundles := make([]*routeBundle, 0, len(routes)+len(notFounds))
-	routeAssets := make(map[string]metagen.ClientAssets, len(routes))
+	cssBundlesByPath := map[string]*cssBundle{}
+	cssBundleOrder := []string{}
+	routeBundles := make(map[string]*routeBundle, len(routes))
 	for _, route := range routes {
-		bundle := buildRouteBundle(layout, index, route)
-		bundle.AssetSlug = assetSlug(route.RouteID)
-		routeAssets[route.RouteID] = bundleClientAssets(bundle)
-		bundles = append(bundles, bundle)
+		bundle, cssBundles, err := buildRouteBundle(layout, index, route)
+		if err != nil {
+			return Plan{}, err
+		}
+		routeBundles[route.RouteID] = bundle
+		mergeCSSBundles(cssBundlesByPath, &cssBundleOrder, cssBundles)
 	}
 
-	notFoundAssets := make(map[string]metagen.ClientAssets, len(notFounds))
+	notFoundBundles := make(map[string]*routeBundle, len(notFounds))
 	for _, notFound := range notFounds {
-		bundle := buildRouteBundle(layout, index, notFound)
-		bundle.AssetSlug = notFoundAssetSlug(notFound.RouteID)
-		notFoundAssets[notFound.RouteID] = bundleClientAssets(bundle)
-		bundles = append(bundles, bundle)
+		bundle, cssBundles, err := buildRouteBundle(layout, index, notFound)
+		if err != nil {
+			return Plan{}, err
+		}
+		notFoundBundles[notFound.RouteID] = bundle
+		mergeCSSBundles(cssBundlesByPath, &cssBundleOrder, cssBundles)
+	}
+
+	cssBundles := make([]*cssBundle, 0, len(cssBundleOrder))
+	for _, assetPath := range cssBundleOrder {
+		cssBundles = append(cssBundles, cssBundlesByPath[assetPath])
 	}
 
 	return Plan{
-		RouteAssets:    routeAssets,
-		NotFoundAssets: notFoundAssets,
+		RouteAssets:    bundleClientAssetsByRoute(routeBundles, cssBundlesByPath),
+		NotFoundAssets: bundleClientAssetsByRoute(notFoundBundles, cssBundlesByPath),
 		cssFiles:       index.cssFiles,
+		cssBundles:     cssBundles,
 		scriptFiles:    index.scriptFiles,
-		routes:         bundles,
 	}, nil
 }
 
@@ -253,7 +272,7 @@ func PrepareStaticSource(cfg PrepareStaticSourceConfig) (string, func() error, e
 		_ = cleanup()
 		return "", nil, err
 	}
-	if err := writeStaticOutputs(stageDir, plan); err != nil {
+	if err := writeStaticOutputs(stageDir, layout, plan); err != nil {
 		_ = cleanup()
 		return "", nil, err
 	}
@@ -354,11 +373,16 @@ func newCSSAsset(
 	if err != nil {
 		return nil, err
 	}
+	assetPath, err := logicalCSSAssetPath(layout, filePath)
+	if err != nil {
+		return nil, err
+	}
 	return &cssAsset{
 		SourcePath:  filePath,
 		PackageDir:  filepath.Dir(filePath),
 		PackageName: packageName,
 		HelperPath:  strings.TrimSuffix(filePath, ".css") + ".css_gen.go",
+		AssetPath:   assetPath,
 		Transformed: transformed,
 		Classes:     classes,
 	}, nil
@@ -596,35 +620,149 @@ func (mapper *cssClassMapper) classes() []cssClass {
 	return classes
 }
 
-func buildRouteBundle(layout projectlayout.ProjectLayout, index *assetIndex, route RouteSpec) *routeBundle {
+func buildRouteBundle(
+	layout projectlayout.ProjectLayout,
+	index *assetIndex,
+	route RouteSpec,
+) (*routeBundle, []*cssBundle, error) {
 	collector := newDependencyCollector(layout, index)
 	for _, templatePath := range route.TemplatePaths {
 		collector.addFile(templatePath)
 	}
-	cssFiles := sortedCSSAssets(collector.css)
-	scriptFiles := sortedScriptAssets(collector.scripts)
+
+	cssSpecs := route.CSSBundles
+	if len(cssSpecs) == 0 {
+		cssSpecs = fallbackCSSBundleSpecs(route)
+	}
+
+	cssBundles := make([]*cssBundle, 0, len(cssSpecs))
+	cssBundlePaths := make([]string, 0, len(cssSpecs))
+	seenBundlePaths := map[string]struct{}{}
+	for _, spec := range cssSpecs {
+		assetPath, err := cssBundleAssetPath(layout, spec)
+		if err != nil {
+			return nil, nil, err
+		}
+		if _, ok := seenBundlePaths[assetPath]; !ok {
+			seenBundlePaths[assetPath] = struct{}{}
+			cssBundlePaths = append(cssBundlePaths, assetPath)
+		}
+		cssBundles = append(cssBundles, &cssBundle{
+			AssetPath: assetPath,
+			CSSFiles:  collectCSSBundleAssets(layout, index, spec.TemplatePaths),
+		})
+	}
+
 	return &routeBundle{
-		RouteID:     route.RouteID,
-		CSSFiles:    cssFiles,
-		ScriptFiles: scriptFiles,
+		RouteID:        route.RouteID,
+		CSSBundlePaths: cssBundlePaths,
+		ScriptFiles:    sortedScriptAssets(collector.scripts),
+	}, cssBundles, nil
+}
+
+func bundleClientAssetsByRoute(
+	bundles map[string]*routeBundle,
+	cssBundlesByPath map[string]*cssBundle,
+) map[string]metagen.ClientAssets {
+	assetsByRoute := make(map[string]metagen.ClientAssets, len(bundles))
+	for routeID, bundle := range bundles {
+		assetsByRoute[routeID] = bundleClientAssets(bundle, cssBundlesByPath)
+	}
+	return assetsByRoute
+}
+
+func bundleClientAssets(bundle *routeBundle, cssBundlesByPath map[string]*cssBundle) metagen.ClientAssets {
+	assets := metagen.ClientAssets{}
+	for _, assetPath := range bundle.CSSBundlePaths {
+		cssBundle := cssBundlesByPath[assetPath]
+		if cssBundle == nil || len(cssBundle.CSSFiles) == 0 {
+			continue
+		}
+		assets.Stylesheets = append(assets.Stylesheets, assetPath)
+	}
+	for _, file := range bundle.ScriptFiles {
+		assets.ModuleScripts = append(assets.ModuleScripts, file.AssetPath)
+	}
+	return assets
+}
+
+func fallbackCSSBundleSpecs(route RouteSpec) []CSSBundleSpec {
+	specs := make([]CSSBundleSpec, 0, len(route.TemplatePaths))
+	for _, templatePath := range route.TemplatePaths {
+		if strings.TrimSpace(templatePath) == "" {
+			continue
+		}
+		specs = append(specs, CSSBundleSpec{
+			OwnerTemplatePath: templatePath,
+			TemplatePaths:     []string{templatePath},
+		})
+	}
+	return specs
+}
+
+func cssBundleAssetPath(layout projectlayout.ProjectLayout, spec CSSBundleSpec) (string, error) {
+	ownerPath := strings.TrimSpace(spec.OwnerTemplatePath)
+	if ownerPath == "" {
+		return "", fmt.Errorf("css bundle owner template path is required")
+	}
+	return logicalCSSAssetPath(layout, ownerPath)
+}
+
+func collectCSSBundleAssets(
+	layout projectlayout.ProjectLayout,
+	index *assetIndex,
+	templatePaths []string,
+) []*cssAsset {
+	files := []*cssAsset{}
+	seen := map[*cssAsset]struct{}{}
+	for _, templatePath := range templatePaths {
+		collector := newDependencyCollector(layout, index)
+		collector.addFile(templatePath)
+		for _, css := range nonEmptyCSSAssets(sortedCSSAssets(collector.css)) {
+			if _, ok := seen[css]; ok {
+				continue
+			}
+			seen[css] = struct{}{}
+			files = append(files, css)
+		}
+	}
+	return files
+}
+
+func mergeCSSBundles(
+	bundlesByPath map[string]*cssBundle,
+	bundleOrder *[]string,
+	bundles []*cssBundle,
+) {
+	for _, bundle := range bundles {
+		if bundle == nil || strings.TrimSpace(bundle.AssetPath) == "" {
+			continue
+		}
+		existing := bundlesByPath[bundle.AssetPath]
+		if existing == nil {
+			existing = &cssBundle{AssetPath: bundle.AssetPath}
+			bundlesByPath[bundle.AssetPath] = existing
+			*bundleOrder = append(*bundleOrder, bundle.AssetPath)
+		}
+		appendUniqueCSSAssets(&existing.CSSFiles, bundle.CSSFiles)
 	}
 }
 
-func bundleClientAssets(bundle *routeBundle) metagen.ClientAssets {
-	if len(bundle.CSSFiles) > 0 {
-		bundle.CSSPath = path.Join("routes", bundle.AssetSlug+".css")
+func appendUniqueCSSAssets(target *[]*cssAsset, files []*cssAsset) {
+	seen := map[*cssAsset]struct{}{}
+	for _, file := range *target {
+		seen[file] = struct{}{}
 	}
-	if len(bundle.ScriptFiles) > 0 {
-		bundle.JSPath = path.Join("routes", bundle.AssetSlug+".js")
+	for _, file := range files {
+		if file == nil {
+			continue
+		}
+		if _, ok := seen[file]; ok {
+			continue
+		}
+		seen[file] = struct{}{}
+		*target = append(*target, file)
 	}
-	assets := metagen.ClientAssets{}
-	if bundle.CSSPath != "" {
-		assets.Stylesheets = append(assets.Stylesheets, bundle.CSSPath)
-	}
-	if bundle.JSPath != "" {
-		assets.ModuleScripts = append(assets.ModuleScripts, bundle.JSPath)
-	}
-	return assets
 }
 
 type dependencyCollector struct {
@@ -679,6 +817,9 @@ func (collector *dependencyCollector) addFileAssets(filePath string) {
 			collector.css[asset] = struct{}{}
 		}
 	}
+	if stem == "root" {
+		return
+	}
 	for _, asset := range collector.index.scriptByDir[dir] {
 		if assetStem(asset.SourcePath) == stem {
 			collector.scripts[asset] = struct{}{}
@@ -732,81 +873,107 @@ func (collector *dependencyCollector) componentDirForImport(importPath string) (
 }
 
 func DiscoverRouteSpecs(layout projectlayout.ProjectLayout) ([]RouteSpec, error) {
-	root := strings.TrimSpace(layout.RoutesDir)
-	if root == "" {
-		return nil, fmt.Errorf("routes dir is required")
-	}
-	if _, err := os.Stat(root); err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
+	discovery, err := discoverRouteAssets(layout)
+	if err != nil {
 		return nil, err
 	}
 
-	layoutByRoute := map[string]string{}
-	pages := map[string]string{}
-	rootTemplate := ""
-	if err := filepath.WalkDir(root, func(filePath string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+	routeIDs := make([]string, 0, len(discovery.pages))
+	for routeID := range discovery.pages {
+		if isSlotRouteID(routeID) {
+			continue
 		}
-		if entry.IsDir() {
-			return nil
-		}
-		name := entry.Name()
-		if name != "root.templ" && name != "layout.templ" && name != "page.templ" {
-			return nil
-		}
-		routeID, err := routeIDForDir(root, filepath.Dir(filePath))
-		if err != nil {
-			return err
-		}
-		switch name {
-		case "root.templ":
-			rootTemplate = filePath
-		case "layout.templ":
-			layoutByRoute[routeID] = filePath
-		case "page.templ":
-			pages[routeID] = filePath
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	routeIDs := make([]string, 0, len(pages))
-	for routeID := range pages {
 		routeIDs = append(routeIDs, routeID)
 	}
 	sort.Strings(routeIDs)
+
 	routes := make([]RouteSpec, 0, len(routeIDs))
 	for _, routeID := range routeIDs {
-		templates := []string{}
-		if strings.TrimSpace(rootTemplate) != "" {
-			templates = append(templates, rootTemplate)
-		}
-		templates = append(templates, layoutTemplateChain(routeID, layoutByRoute)...)
-		templates = append(templates, pages[routeID])
-		routes = append(routes, RouteSpec{RouteID: routeID, TemplatePaths: templates})
+		templates, cssBundles := clientAssetTemplatesForRoute(
+			discovery.rootTemplate,
+			routeID,
+			discovery.layoutByRoute,
+			discovery.slotTemplatesByOwner,
+			discovery.pages[routeID],
+		)
+		routes = append(routes, RouteSpec{
+			RouteID:       routeID,
+			TemplatePaths: templates,
+			CSSBundles:    cssBundles,
+		})
 	}
 	return routes, nil
 }
 
 func DiscoverNotFoundSpecs(layout projectlayout.ProjectLayout) ([]RouteSpec, error) {
+	discovery, err := discoverRouteAssets(layout)
+	if err != nil {
+		return nil, err
+	}
+
+	routeIDs := make([]string, 0, len(discovery.notFounds))
+	for routeID := range discovery.notFounds {
+		if isSlotRouteID(routeID) {
+			continue
+		}
+		routeIDs = append(routeIDs, routeID)
+	}
+	sort.Strings(routeIDs)
+
+	routes := make([]RouteSpec, 0, len(routeIDs))
+	for _, routeID := range routeIDs {
+		templates, cssBundles := clientAssetTemplatesForRoute(
+			discovery.rootTemplate,
+			routeID,
+			discovery.layoutByRoute,
+			discovery.slotTemplatesByOwner,
+			discovery.notFounds[routeID],
+		)
+		routes = append(routes, RouteSpec{
+			RouteID:       routeID,
+			TemplatePaths: templates,
+			CSSBundles:    cssBundles,
+		})
+	}
+	return routes, nil
+}
+
+type routeAssetDiscovery struct {
+	rootTemplate         string
+	layoutByRoute        map[string]string
+	pages                map[string]string
+	notFounds            map[string]string
+	slotTemplatesByOwner map[string][]string
+}
+
+type routeTemplateRef struct {
+	RouteID    string
+	SourcePath string
+}
+
+func discoverRouteAssets(layout projectlayout.ProjectLayout) (*routeAssetDiscovery, error) {
 	root := strings.TrimSpace(layout.RoutesDir)
 	if root == "" {
 		return nil, fmt.Errorf("routes dir is required")
 	}
 	if _, err := os.Stat(root); err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return &routeAssetDiscovery{
+				layoutByRoute:        map[string]string{},
+				pages:                map[string]string{},
+				notFounds:            map[string]string{},
+				slotTemplatesByOwner: map[string][]string{},
+			}, nil
 		}
 		return nil, err
 	}
 
-	layoutByRoute := map[string]string{}
-	notFounds := map[string]string{}
-	rootTemplate := ""
+	discovery := &routeAssetDiscovery{
+		layoutByRoute:        map[string]string{},
+		pages:                map[string]string{},
+		notFounds:            map[string]string{},
+		slotTemplatesByOwner: map[string][]string{},
+	}
 	if err := filepath.WalkDir(root, func(filePath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -815,45 +982,114 @@ func DiscoverNotFoundSpecs(layout projectlayout.ProjectLayout) ([]RouteSpec, err
 			return nil
 		}
 		name := entry.Name()
-		if name != "root.templ" && name != "layout.templ" && name != "404.templ" {
+		switch name {
+		case "root.templ", "layout.templ", "page.templ", "default.templ", "404.templ":
+		default:
 			return nil
 		}
-		routeID, err := routeIDForDir(root, filepath.Dir(filePath))
+
+		dir := filepath.Dir(filePath)
+		routeID, err := routeIDForDir(root, dir)
 		if err != nil {
 			return err
 		}
+		if ownerRouteID, ok, err := slotOwnerRouteID(root, dir); err != nil {
+			return err
+		} else if ok {
+			discovery.slotTemplatesByOwner[ownerRouteID] = append(
+				discovery.slotTemplatesByOwner[ownerRouteID],
+				filePath,
+			)
+		}
+
 		switch name {
 		case "root.templ":
-			rootTemplate = filePath
+			discovery.rootTemplate = filePath
 		case "layout.templ":
-			layoutByRoute[routeID] = filePath
+			discovery.layoutByRoute[routeID] = filePath
+		case "page.templ":
+			discovery.pages[routeID] = filePath
 		case "404.templ":
-			notFounds[routeID] = filePath
+			discovery.notFounds[routeID] = filePath
 		}
 		return nil
 	}); err != nil {
 		return nil, err
 	}
 
-	routeIDs := make([]string, 0, len(notFounds))
-	for routeID := range notFounds {
-		routeIDs = append(routeIDs, routeID)
+	for ownerRouteID := range discovery.slotTemplatesByOwner {
+		sort.Strings(discovery.slotTemplatesByOwner[ownerRouteID])
 	}
-	sort.Strings(routeIDs)
-	routes := make([]RouteSpec, 0, len(routeIDs))
-	for _, routeID := range routeIDs {
-		templates := []string{}
-		if strings.TrimSpace(rootTemplate) != "" {
-			templates = append(templates, rootTemplate)
-		}
-		templates = append(templates, layoutTemplateChain(routeID, layoutByRoute)...)
-		templates = append(templates, notFounds[routeID])
-		routes = append(routes, RouteSpec{RouteID: routeID, TemplatePaths: templates})
-	}
-	return routes, nil
+	return discovery, nil
 }
 
-func layoutTemplateChain(routeID string, layoutByRoute map[string]string) []string {
+func clientAssetTemplatesForRoute(
+	rootTemplate string,
+	routeID string,
+	layoutByRoute map[string]string,
+	slotTemplatesByOwner map[string][]string,
+	terminalTemplate string,
+) ([]string, []CSSBundleSpec) {
+	templates := []string{}
+	seenTemplates := map[string]struct{}{}
+	cssBundles := []CSSBundleSpec{}
+
+	if strings.TrimSpace(rootTemplate) != "" {
+		appendUniquePath(&templates, seenTemplates, rootTemplate)
+		cssBundles = append(cssBundles, CSSBundleSpec{
+			OwnerTemplatePath: rootTemplate,
+			TemplatePaths:     []string{rootTemplate},
+		})
+	}
+
+	layoutRefs := layoutTemplateChain(routeID, layoutByRoute)
+	lastNonRootLayout := -1
+	for _, layout := range layoutRefs {
+		appendUniquePath(&templates, seenTemplates, layout.SourcePath)
+		bundlePaths := []string{layout.SourcePath}
+		for _, slotTemplate := range slotTemplatesByOwner[layout.RouteID] {
+			appendUniquePath(&templates, seenTemplates, slotTemplate)
+			bundlePaths = append(bundlePaths, slotTemplate)
+		}
+		if layout.RouteID != "" {
+			lastNonRootLayout = len(cssBundles)
+		}
+		cssBundles = append(cssBundles, CSSBundleSpec{
+			OwnerTemplatePath: layout.SourcePath,
+			TemplatePaths:     bundlePaths,
+		})
+	}
+
+	if strings.TrimSpace(terminalTemplate) != "" {
+		appendUniquePath(&templates, seenTemplates, terminalTemplate)
+		if lastNonRootLayout >= 0 {
+			cssBundles[lastNonRootLayout].TemplatePaths = append(
+				cssBundles[lastNonRootLayout].TemplatePaths,
+				terminalTemplate,
+			)
+		} else {
+			cssBundles = append(cssBundles, CSSBundleSpec{
+				OwnerTemplatePath: terminalTemplate,
+				TemplatePaths:     []string{terminalTemplate},
+			})
+		}
+	}
+
+	return templates, cssBundles
+}
+
+func appendUniquePath(paths *[]string, seen map[string]struct{}, filePath string) {
+	if strings.TrimSpace(filePath) == "" {
+		return
+	}
+	if _, ok := seen[filePath]; ok {
+		return
+	}
+	seen[filePath] = struct{}{}
+	*paths = append(*paths, filePath)
+}
+
+func layoutTemplateChain(routeID string, layoutByRoute map[string]string) []routeTemplateRef {
 	segments := []string{}
 	if strings.TrimSpace(routeID) != "" {
 		segments = strings.Split(routeID, "/")
@@ -862,13 +1098,49 @@ func layoutTemplateChain(routeID string, layoutByRoute map[string]string) []stri
 	for idx := 1; idx <= len(segments); idx++ {
 		candidates = append(candidates, strings.Join(segments[:idx], "/"))
 	}
-	templates := make([]string, 0, len(candidates))
+	refs := make([]routeTemplateRef, 0, len(candidates))
 	for _, candidate := range candidates {
 		if filePath := layoutByRoute[candidate]; strings.TrimSpace(filePath) != "" {
-			templates = append(templates, filePath)
+			refs = append(refs, routeTemplateRef{RouteID: candidate, SourcePath: filePath})
 		}
 	}
-	return templates
+	return refs
+}
+
+func slotOwnerRouteID(root string, dir string) (string, bool, error) {
+	relative, err := filepath.Rel(root, dir)
+	if err != nil {
+		return "", false, err
+	}
+	relative = filepath.ToSlash(relative)
+	if relative == "." {
+		return "", false, nil
+	}
+	segments := strings.Split(relative, "/")
+	for index, segment := range segments {
+		if !strings.HasPrefix(segment, "_slot__") {
+			continue
+		}
+		ownerDir := root
+		if index > 0 {
+			ownerDir = filepath.Join(root, filepath.FromSlash(strings.Join(segments[:index], "/")))
+		}
+		ownerRouteID, err := routeIDForDir(root, ownerDir)
+		if err != nil {
+			return "", false, err
+		}
+		return ownerRouteID, true, nil
+	}
+	return "", false, nil
+}
+
+func isSlotRouteID(routeID string) bool {
+	for _, segment := range strings.Split(routeID, "/") {
+		if strings.HasPrefix(segment, "_slot__") {
+			return true
+		}
+	}
+	return false
 }
 
 func routeIDForDir(root string, dir string) (string, error) {
@@ -891,68 +1163,74 @@ func routeIDForDir(root string, dir string) (string, error) {
 	return strings.Join(parts, "/"), nil
 }
 
-func writeStaticOutputs(stageDir string, plan Plan) error {
-	for _, script := range plan.scriptFiles {
-		if err := writeScriptBundle(stageDir, script.AssetPath, []*scriptAsset{script}); err != nil {
+func writeStaticOutputs(stageDir string, layout projectlayout.ProjectLayout, plan Plan) error {
+	for _, bundle := range plan.cssBundles {
+		if err := writeCSSBundle(stageDir, bundle); err != nil {
 			return err
 		}
 	}
-	for _, route := range plan.routes {
-		if route.CSSPath != "" {
-			if err := writeCSSBundle(stageDir, route.CSSPath, route.CSSFiles); err != nil {
-				return err
-			}
-		}
-		if route.JSPath != "" {
-			if err := writeScriptBundle(stageDir, route.JSPath, route.ScriptFiles); err != nil {
-				return err
-			}
-		}
+	if err := writeScriptBundles(stageDir, layout, plan.scriptFiles); err != nil {
+		return err
 	}
 	return nil
 }
 
-func writeCSSBundle(stageDir string, assetPath string, files []*cssAsset) error {
-	if len(files) == 0 {
+func writeCSSBundle(stageDir string, bundle *cssBundle) error {
+	if bundle == nil || len(bundle.CSSFiles) == 0 {
 		return nil
 	}
 	builder := strings.Builder{}
-	for _, file := range files {
-		if strings.TrimSpace(file.Transformed) == "" {
+	for _, file := range bundle.CSSFiles {
+		if file == nil || strings.TrimSpace(file.Transformed) == "" {
 			continue
 		}
 		if builder.Len() > 0 {
 			builder.WriteByte('\n')
 		}
 		builder.WriteString(file.Transformed)
-		builder.WriteByte('\n')
+		if !strings.HasSuffix(file.Transformed, "\n") {
+			builder.WriteByte('\n')
+		}
 	}
 	if strings.TrimSpace(builder.String()) == "" {
 		return nil
 	}
-	return writeStageFile(stageDir, assetPath, []byte(builder.String()))
+	return writeStageFile(stageDir, bundle.AssetPath, []byte(builder.String()))
 }
 
-func writeScriptBundle(stageDir string, assetPath string, files []*scriptAsset) error {
+func writeScriptBundles(stageDir string, layout projectlayout.ProjectLayout, files []*scriptAsset) error {
 	if len(files) == 0 {
 		return nil
 	}
-	imports := strings.Builder{}
+	entryPoints := make([]string, 0, len(files))
+	assetPathOwners := map[string]string{}
 	for _, file := range files {
-		imports.WriteString("import ")
-		imports.WriteString(strconv.Quote(filepath.ToSlash(file.SourcePath)))
-		imports.WriteString(";\n")
+		if file == nil {
+			continue
+		}
+		assetPath := filepath.ToSlash(file.AssetPath)
+		if existing, ok := assetPathOwners[assetPath]; ok {
+			return fmt.Errorf("client script output %q is produced by both %q and %q", assetPath, existing, file.SourcePath)
+		}
+		assetPathOwners[assetPath] = file.SourcePath
+		entryPoints = append(entryPoints, file.SourcePath)
 	}
+	if len(entryPoints) == 0 {
+		return nil
+	}
+
+	webRoot := filepath.Dir(layout.RoutesDir)
 	result := api.Build(api.BuildOptions{
-		Stdin: &api.StdinOptions{
-			Contents:   imports.String(),
-			ResolveDir: filepath.Dir(files[0].SourcePath),
-			Sourcefile: "no-js-client-assets-entry.js",
-			Loader:     api.LoaderJS,
-		},
+		EntryPoints:       entryPoints,
+		AbsWorkingDir:     layout.RootDir,
+		Outdir:            stageDir,
+		Outbase:           webRoot,
+		EntryNames:        "[dir]/[name]",
+		ChunkNames:        "chunks/[name]-[hash]",
 		Bundle:            true,
-		Write:             false,
+		Write:             true,
 		Format:            api.FormatESModule,
+		Splitting:         true,
 		Platform:          api.PlatformBrowser,
 		Target:            api.ES2020,
 		MinifyWhitespace:  true,
@@ -960,12 +1238,9 @@ func writeScriptBundle(stageDir string, assetPath string, files []*scriptAsset) 
 		MinifyIdentifiers: true,
 	})
 	if len(result.Errors) > 0 {
-		return fmt.Errorf("bundle client script %q: %s", assetPath, result.Errors[0].Text)
+		return fmt.Errorf("bundle client scripts: %s", result.Errors[0].Text)
 	}
-	if len(result.OutputFiles) == 0 {
-		return nil
-	}
-	return writeStageFile(stageDir, assetPath, result.OutputFiles[0].Contents)
+	return nil
 }
 
 func writeStageFile(stageDir string, assetPath string, content []byte) error {
@@ -1132,7 +1407,15 @@ func componentsImportPath(layout projectlayout.ProjectLayout) string {
 	return path.Join(path.Dir(routesImport), "components")
 }
 
+func logicalCSSAssetPath(layout projectlayout.ProjectLayout, filePath string) (string, error) {
+	return logicalAssetPath(layout, filePath, ".css")
+}
+
 func logicalScriptAssetPath(layout projectlayout.ProjectLayout, filePath string) (string, error) {
+	return logicalAssetPath(layout, filePath, ".js")
+}
+
+func logicalAssetPath(layout projectlayout.ProjectLayout, filePath string, outputExt string) (string, error) {
 	webRoot := filepath.Dir(layout.RoutesDir)
 	relative, err := filepath.Rel(webRoot, filePath)
 	if err != nil || strings.HasPrefix(relative, "..") {
@@ -1143,7 +1426,7 @@ func logicalScriptAssetPath(layout projectlayout.ProjectLayout, filePath string)
 	}
 	relative = filepath.ToSlash(relative)
 	ext := path.Ext(relative)
-	return strings.TrimSuffix(relative, ext) + ".js", nil
+	return strings.TrimSuffix(relative, ext) + outputExt, nil
 }
 
 func quotedImports(content string) []string {
@@ -1155,6 +1438,17 @@ func quotedImports(content string) []string {
 		}
 	}
 	return imports
+}
+
+func nonEmptyCSSAssets(files []*cssAsset) []*cssAsset {
+	out := make([]*cssAsset, 0, len(files))
+	for _, file := range files {
+		if file == nil || strings.TrimSpace(file.Transformed) == "" {
+			continue
+		}
+		out = append(out, file)
+	}
+	return out
 }
 
 func sortedCSSAssets(values map[*cssAsset]struct{}) []*cssAsset {
@@ -1191,32 +1485,6 @@ func hashedGeneratedClassName(key string) string {
 	hash := sha1.Sum([]byte(key))
 	encoded := hex.EncodeToString(hash[:])
 	return "n_" + encoded[:8]
-}
-
-func notFoundAssetSlug(routeID string) string {
-	if strings.TrimSpace(routeID) == "" {
-		return "404"
-	}
-	return assetSlug(routeID) + "_404"
-}
-
-func assetSlug(routeID string) string {
-	trimmed := strings.Trim(strings.TrimSpace(routeID), "/")
-	if trimmed == "" {
-		return "index"
-	}
-	builder := strings.Builder{}
-	for _, r := range trimmed {
-		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
-			builder.WriteRune(r)
-		case r == '-' || r == '_':
-			builder.WriteRune(r)
-		default:
-			builder.WriteByte('_')
-		}
-	}
-	return strings.Trim(builder.String(), "_")
 }
 
 func pascalIdentifier(value string) string {

@@ -1439,6 +1439,64 @@ func TestGenerateBundleSourceDisablesTemplCSSRegistryWhenDisabled(t *testing.T) 
 	require.NotContains(t, text, "TemplCSSClasses:               TemplCSSClasses,")
 }
 
+func TestClientAssetRouteSpecsAttachSlotTemplatesToOwnerRoute(t *testing.T) {
+	t.Parallel()
+
+	root := templateDef{SourcePath: "web/routes/root.templ"}
+	layouts := map[string]templateDef{
+		"": {RouteID: "", SourcePath: "web/routes/layout.templ"},
+	}
+	metas := []routeMeta{{
+		RouteID: "dashboard",
+		Page:    templateDef{SourcePath: "web/routes/dashboard/page.templ"},
+	}}
+	slotOwners := map[string][]slotDef{
+		"": {{
+			Name:         "aside",
+			RootInternal: "_slot__aside",
+			Default:      &templateDef{RouteID: "_slot__aside", SourcePath: "web/routes/_slot__aside/default.templ"},
+			Pages: []routeMeta{{
+				RouteID: "_slot__aside/details",
+				Page:    templateDef{SourcePath: "web/routes/_slot__aside/details/page.templ"},
+			}},
+			Layouts: map[string]templateDef{
+				"_slot__aside": {RouteID: "_slot__aside", SourcePath: "web/routes/_slot__aside/layout.templ"},
+			},
+		}},
+	}
+
+	specs := clientAssetRouteSpecs(root, metas, layouts, slotOwners)
+	require.Len(t, specs, 1)
+	require.Equal(t, "dashboard", specs[0].RouteID)
+	require.Equal(t, []string{
+		"web/routes/root.templ",
+		"web/routes/layout.templ",
+		"web/routes/_slot__aside/layout.templ",
+		"web/routes/_slot__aside/default.templ",
+		"web/routes/_slot__aside/details/page.templ",
+		"web/routes/dashboard/page.templ",
+	}, specs[0].TemplatePaths)
+	require.Equal(t, []clientassets.CSSBundleSpec{
+		{
+			OwnerTemplatePath: "web/routes/root.templ",
+			TemplatePaths:     []string{"web/routes/root.templ"},
+		},
+		{
+			OwnerTemplatePath: "web/routes/layout.templ",
+			TemplatePaths: []string{
+				"web/routes/layout.templ",
+				"web/routes/_slot__aside/layout.templ",
+				"web/routes/_slot__aside/default.templ",
+				"web/routes/_slot__aside/details/page.templ",
+			},
+		},
+		{
+			OwnerTemplatePath: "web/routes/dashboard/page.templ",
+			TemplatePaths:     []string{"web/routes/dashboard/page.templ"},
+		},
+	}, specs[0].CSSBundles)
+}
+
 func TestGenerateBundleSourceWiresStaticAssetHookWhenPresent(t *testing.T) {
 	t.Parallel()
 

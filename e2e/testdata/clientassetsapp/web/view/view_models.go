@@ -31,3 +31,17 @@ type ComplexPageView struct {
 	RootLayoutView
 	Heading string
 }
+
+type SectionSummaryPageView struct {
+	RootLayoutView
+	Heading string
+}
+
+type SectionAdminLayoutView struct {
+	RootLayoutView
+}
+
+type SectionAdminPageView struct {
+	RootLayoutView
+	Heading string
+}

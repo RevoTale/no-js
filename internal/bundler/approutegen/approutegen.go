@@ -366,7 +366,10 @@ func Run(cfg Config) error {
 	}
 	slotOwners := buildSlotOwners(slotMetas, routes.SlotLayouts, routes.Defaults)
 
-	clientAssetPlan, err := clientassets.Generate(clientassets.Config{Layout: paths})
+	clientAssetPlan, err := clientassets.Generate(clientassets.Config{
+		Layout: paths,
+		Routes: clientAssetRouteSpecs(routes.Root, metas, routes.Layouts, slotOwners),
+	})
 	if err != nil {
 		return fmt.Errorf("generate client asset helpers: %w", err)
 	}
@@ -2212,6 +2215,107 @@ func defaultsFromSlotOwners(slotOwners map[string][]slotDef) map[string]template
 		}
 	}
 	return out
+}
+
+func clientAssetRouteSpecs(
+	root templateDef,
+	metas []routeMeta,
+	layouts map[string]templateDef,
+	slotOwners map[string][]slotDef,
+) []clientassets.RouteSpec {
+	specs := make([]clientassets.RouteSpec, 0, len(metas))
+	for _, meta := range metas {
+		templatePaths := []string{}
+		seen := map[string]struct{}{}
+		cssBundles := []clientassets.CSSBundleSpec{}
+
+		appendClientAssetTemplatePath(&templatePaths, seen, root)
+		if strings.TrimSpace(root.SourcePath) != "" {
+			cssBundles = append(cssBundles, clientassets.CSSBundleSpec{
+				OwnerTemplatePath: root.SourcePath,
+				TemplatePaths:     []string{root.SourcePath},
+			})
+		}
+
+		lastNonRootLayout := -1
+		for _, layout := range layoutChain(meta.RouteID, layouts) {
+			appendClientAssetTemplatePath(&templatePaths, seen, layout)
+			bundlePaths := []string{layout.SourcePath}
+			for _, slotTemplate := range clientAssetSlotTemplates(slotOwners[layout.RouteID]) {
+				appendClientAssetTemplatePath(&templatePaths, seen, slotTemplate)
+				bundlePaths = append(bundlePaths, slotTemplate.SourcePath)
+			}
+			if layout.RouteID != "" {
+				lastNonRootLayout = len(cssBundles)
+			}
+			cssBundles = append(cssBundles, clientassets.CSSBundleSpec{
+				OwnerTemplatePath: layout.SourcePath,
+				TemplatePaths:     bundlePaths,
+			})
+		}
+
+		appendClientAssetTemplatePath(&templatePaths, seen, meta.Page)
+		if strings.TrimSpace(meta.Page.SourcePath) != "" {
+			if lastNonRootLayout >= 0 {
+				cssBundles[lastNonRootLayout].TemplatePaths = append(
+					cssBundles[lastNonRootLayout].TemplatePaths,
+					meta.Page.SourcePath,
+				)
+			} else {
+				cssBundles = append(cssBundles, clientassets.CSSBundleSpec{
+					OwnerTemplatePath: meta.Page.SourcePath,
+					TemplatePaths:     []string{meta.Page.SourcePath},
+				})
+			}
+		}
+
+		specs = append(specs, clientassets.RouteSpec{
+			RouteID:       meta.RouteID,
+			TemplatePaths: templatePaths,
+			CSSBundles:    cssBundles,
+		})
+	}
+	return specs
+}
+
+func clientAssetSlotTemplates(slots []slotDef) []templateDef {
+	templates := []templateDef{}
+	seen := map[string]struct{}{}
+	for _, slot := range slots {
+		if slot.Default != nil {
+			appendClientAssetTemplateDefs(&templates, seen, layoutChain(slot.RootInternal, slot.Layouts)...)
+			appendClientAssetTemplateDefs(&templates, seen, *slot.Default)
+		}
+		for _, page := range slot.Pages {
+			appendClientAssetTemplateDefs(&templates, seen, layoutChain(page.RouteID, slot.Layouts)...)
+			appendClientAssetTemplateDefs(&templates, seen, page.Page)
+		}
+	}
+	return templates
+}
+
+func appendClientAssetTemplateDefs(paths *[]templateDef, seen map[string]struct{}, templates ...templateDef) {
+	for _, tpl := range templates {
+		if strings.TrimSpace(tpl.SourcePath) == "" {
+			continue
+		}
+		if _, ok := seen[tpl.SourcePath]; ok {
+			continue
+		}
+		seen[tpl.SourcePath] = struct{}{}
+		*paths = append(*paths, tpl)
+	}
+}
+
+func appendClientAssetTemplatePath(paths *[]string, seen map[string]struct{}, tpl templateDef) {
+	if strings.TrimSpace(tpl.SourcePath) == "" {
+		return
+	}
+	if _, ok := seen[tpl.SourcePath]; ok {
+		return
+	}
+	seen[tpl.SourcePath] = struct{}{}
+	*paths = append(*paths, tpl.SourcePath)
 }
 
 func generateResolverNamespaceSource(

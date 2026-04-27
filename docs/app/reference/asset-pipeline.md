@@ -9,10 +9,11 @@ examples, start with [Static Assets And Client Assets](../features/static-assets
 | You need | Put it here | Generated behavior |
 | --- | --- | --- |
 | Simple templ component CSS | templ `css {}` in a `.templ` file | extracted to `styles/templ.css` by default when declarations exist |
-| Route, layout, or 404 CSS | `web/routes/**/page.css`, `layout.css`, or `404.css` | bundled into the matched route stylesheet |
-| Component CSS | `web/components/<name>/<name>.css` | bundled into routes that import that component package |
-| Route, layout, or 404 JavaScript or TypeScript | `web/routes/**/page.{js,ts,tsx,mjs,mts}`, `layout.*`, or `404.*` | bundled into the matched route module script |
-| Component JavaScript or TypeScript | one of `web/components/<name>/<name>.{js,ts,tsx,mjs,mts}` | bundled into routes that import that component package |
+| Root CSS | `web/routes/root.css` | emitted as shell CSS and injected into generated routes when non-empty |
+| Route, layout, or 404 CSS | `web/routes/**/page.css`, `layout.css`, or `404.css` | folded into root, layout-subtree, or page-fallback stylesheets |
+| Component CSS | `web/components/<name>/<name>.css` | folded into the matched layout-subtree or page-fallback stylesheet when imported |
+| Route, layout, or 404 JavaScript or TypeScript | `web/routes/**/page.{js,ts,tsx,mjs,mts}`, `layout.*`, or `404.*` | emitted as a shared owner module entry and injected into matched routes |
+| Component JavaScript or TypeScript | one of `web/components/<name>/<name>.{js,ts,tsx,mjs,mts}` | emitted once and injected into routes that import that component package |
 | Fingerprinted images, fonts, downloads, vendor files, or manual global files | `web/assets/**/*` | copied or minified into `web/assets-build` and manifest-addressed |
 | Fixed paths such as `/favicon.ico` | `web/public/**/*` | served at the same request path |
 
@@ -20,12 +21,18 @@ Most app pages should rely on generated route/component Client Assets and
 `@metagen.Head(meta)`. Use `web/assets` only when the file needs its own hashed
 URL outside the route graph.
 
+Client Assets are route-static. CSS is grouped by route shape: `root.css` is
+shell CSS, non-root layouts own subtree stylesheets, and pages without a
+non-root layout get a page fallback stylesheet. JavaScript stays owner-based:
+matched routes inject the layout, page, 404, and imported component module
+entries they need, with shared imports emitted as esbuild chunks.
+
 ## Commands
 
 | Command | What it writes |
 | --- | --- |
 | `go tool no-js gen routes -root .` | generated route Go code, resolver contracts, source-adjacent Client Asset helpers, built-in i18n output, and the templ CSS registry |
-| `go tool no-js gen assets -root .` | browser CSS and script bundles, explicit `web/assets` output, and `web/assets-build/manifest.json` |
+| `go tool no-js gen assets -root .` | browser CSS files, script entries, shared chunks, explicit `web/assets` output, and `web/assets-build/manifest.json` |
 | `go tool no-js gen -root .` | both route generation and asset generation |
 
 `routes` writes Go files that the app compiles. `assets` writes browser files
@@ -76,6 +83,7 @@ Route Client Assets must be colocated with the route template that owns them.
 Only these stems are valid:
 
 ```text
+root.templ   -> root.css
 page.templ   -> page.css   or page.{js,ts,tsx,mjs,mts}
 layout.templ -> layout.css or layout.{js,ts,tsx,mjs,mts}
 404.templ    -> 404.css    or 404.{js,ts,tsx,mjs,mts}
@@ -85,10 +93,22 @@ A route asset is valid only when the matching template exists in the same
 directory. For example, `web/routes/dashboard/page.css` requires
 `web/routes/dashboard/page.templ`.
 
-Use route assets for CSS or scripts that belong to an endpoint, layout, or 404
-page. Choose only one script source extension per route owner; for example, do
-not keep both `page.ts` and `page.tsx`. They are injected only for matched
-routes through `@metagen.Head(meta)`.
+Use route assets for CSS or scripts that belong to the app shell, endpoint,
+layout, or 404 page. Choose only one script source extension per route owner;
+for example, do not keep both `page.ts` and `page.tsx`.
+
+CSS output follows the layout-subtree model:
+
+- `root.css` emits `routes/root.css` and is shell CSS only
+- a non-root `layout.templ` owns `routes/<layout-dir>/layout.css`, even when no
+  physical `layout.css` exists
+- descendant page CSS, slot CSS, and imported component CSS fold into that
+  nearest non-root layout stylesheet
+- if no non-root layout owns the page, page CSS and imported component CSS fold
+  into a page fallback stylesheet such as `routes/dashboard/page.css`
+
+Scripts are injected as owner module entries through `@metagen.Head(meta)`.
+Slot assets are folded into the layout that can render the slot.
 
 ### Component Client Assets
 
@@ -111,9 +131,10 @@ Rules:
 - do not add extra handwritten templates such as `variants.templ`
 - keep images, fonts, downloads, docs, and data files outside `web/components`
 
-When a matched route imports the component package, the route receives that
-component package's CSS and script once. Routes that do not import the package do
-not receive those assets.
+When a matched route imports the component package, component CSS is folded into
+the nearest layout-subtree or page-fallback stylesheet. Component scripts remain
+owner module entries such as `components/meter/meter.js`. Routes that do not
+import the package do not receive those assets.
 
 ## Generated CSS
 
@@ -138,6 +159,28 @@ templ Page() {
 Do not hard-code generated class names. The source CSS keeps readable class
 names, while rendered HTML and built CSS use anonymized names.
 
+Each non-empty CSS source contributes to a generated stylesheet. The output path
+is chosen by route ownership, not always by the source file path:
+
+- `web/routes/root.css` emits `routes/root.css`
+- `web/routes/dashboard/layout.templ` can emit `routes/dashboard/layout.css`
+  even when there is no physical `layout.css`, because descendant CSS can fold
+  into that layout bundle
+- `web/routes/dashboard/page.css` emits `routes/dashboard/page.css` only when no
+  non-root layout owns that page
+- `web/components/meter/meter.css` folds into whichever generated route/layout
+  stylesheet imports `web/components/meter`
+
+Empty or whitespace-only CSS still gets helper generation but is not injected
+and does not write a browser file.
+
+After route ownership is resolved, `gen assets` stages those generated
+stylesheets and sends them through the same static asset builder as
+`web/assets/**/*.css`. The final browser files are esbuild-transformed and
+minified. This is a final CSS transform step; route/component CSS ownership is
+still decided by `no-js`, and CSS does not emit shared esbuild chunks like
+JavaScript.
+
 Use colocated `.css` files when you need normal stylesheet features:
 
 - pseudo-classes such as `:hover`, `:focus-visible`, or `:has(...)`
@@ -159,16 +202,22 @@ Client Asset scripts may use these source extensions:
 .mts
 ```
 
-All script sources emit browser module scripts with `.js` output paths. Choose
-one source extension for each route owner or component package. The validator
-enforces this because `page.ts` and `page.tsx` both emit `page.js`, and
-`meter.ts` and `meter.tsx` both emit `meter.js`.
+All script sources emit browser module entries with `.js` output paths that
+mirror the owner source path. For example, `web/routes/dashboard/page.tsx`
+emits `routes/dashboard/page.js`, and `web/components/meter/meter.ts` emits
+`components/meter/meter.js`. Choose one source extension for each route owner
+or component package. The validator enforces this because `page.ts` and
+`page.tsx` both emit `page.js`, and `meter.ts` and `meter.tsx` both emit
+`meter.js`.
 
-Generated routes inject matched scripts through `@metagen.Head(meta)`. Normal
-pages do not need to call generated script helpers manually.
+Generated routes inject matched owner entries through `@metagen.Head(meta)`.
+Normal pages do not need to call generated script helpers manually. Shared
+esbuild chunks are imported by those owner entries, so generated metadata does
+not list chunk files directly.
 
-Client Asset scripts are bundled with esbuild. Relative imports and package
-imports are supported when esbuild can resolve them from the app workspace:
+Client Asset scripts are bundled together with esbuild splitting enabled. Relative
+imports and package imports are supported when esbuild can resolve them from the
+app workspace:
 
 ```ts
 import { animate } from "./animation";
@@ -228,14 +277,18 @@ Do not put files in `web/public` when they should be fingerprinted.
 
 ## Runtime Output
 
-Generated Client Asset bundles and explicit `web/assets` files share the same
-runtime output directory:
+Generated Client Asset files, shared chunks, and explicit `web/assets` files
+share the same runtime output directory:
 
 ```text
 web/assets-build/
   manifest.json
-  routes/dashboard.css
-  routes/dashboard.js
+  routes/root.css
+  routes/layout.css
+  routes/dashboard/layout.css
+  routes/layout.js
+  routes/dashboard/page.js
+  chunks/chunk-ABC123.js
   styles/templ.css
   embed.js
 ```

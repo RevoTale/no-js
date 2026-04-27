@@ -106,3 +106,59 @@ func (Resolver) ResolveComplexPage(
 		Heading:        "Complex Client Asset Selectors",
 	}, nil
 }
+
+func (Resolver) MetaGenSectionSummaryPage(
+	meta framework.MetaContext[*view.Context],
+	params SectionSummaryParams,
+) (metagen.Metadata, error) {
+	return metagen.Metadata{Title: "Client Assets Section Summary"}, nil
+}
+
+func (Resolver) ResolveSectionSummaryPage(
+	ctx context.Context,
+	appCtx *view.Context,
+	r *http.Request,
+	params SectionSummaryParams,
+) (view.SectionSummaryPageView, error) {
+	return view.SectionSummaryPageView{
+		RootLayoutView: view.RootLayoutView{PageTitle: "Client Assets Section Summary"},
+		Heading:        "Section Summary With Shared Layout CSS",
+	}, nil
+}
+
+func (Resolver) MetaGenSectionAdminLayout(
+	meta framework.MetaContext[*view.Context],
+	params SectionAdminParams,
+) (metagen.Metadata, error) {
+	return metagen.Metadata{Title: "Client Assets Section Admin Layout"}, nil
+}
+
+func (Resolver) ResolveSectionAdminLayout(
+	ctx context.Context,
+	appCtx *view.Context,
+	r *http.Request,
+	params SectionAdminParams,
+) (view.SectionAdminLayoutView, error) {
+	return view.SectionAdminLayoutView{
+		RootLayoutView: view.RootLayoutView{PageTitle: "Client Assets Section Admin"},
+	}, nil
+}
+
+func (Resolver) MetaGenSectionAdminPage(
+	meta framework.MetaContext[*view.Context],
+	params SectionAdminParams,
+) (metagen.Metadata, error) {
+	return metagen.Metadata{Title: "Client Assets Section Admin"}, nil
+}
+
+func (Resolver) ResolveSectionAdminPage(
+	ctx context.Context,
+	appCtx *view.Context,
+	r *http.Request,
+	params SectionAdminParams,
+) (view.SectionAdminPageView, error) {
+	return view.SectionAdminPageView{
+		RootLayoutView: view.RootLayoutView{PageTitle: "Client Assets Section Admin"},
+		Heading:        "Section Admin With Nested Layout CSS",
+	}, nil
+}

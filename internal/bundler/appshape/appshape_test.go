@@ -16,6 +16,7 @@ func TestValidateAllowsRouteAndComponentGenerationInputs(t *testing.T) {
 
 	writeFile(t, filepath.Join(layout.RoutesDir, "root.templ"), "package routes\n")
 	writeFile(t, filepath.Join(layout.RoutesDir, "404.templ"), "package routes\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "root.css"), ":root {}\n")
 	writeFile(t, filepath.Join(layout.RoutesDir, "page.templ"), "package routes\n")
 	writeFile(t, filepath.Join(layout.RoutesDir, "page.css"), ".shell {}\n")
 	writeFile(t, filepath.Join(layout.RoutesDir, "page.ts"), "console.log('page')\n")
@@ -78,6 +79,17 @@ func TestValidateRejectsUnsupportedRouteFile(t *testing.T) {
 	err := Validate(layout)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `unsupported file in web/routes: "helper.go"`)
+}
+
+func TestValidateRejectsRootScriptAsset(t *testing.T) {
+	root := t.TempDir()
+	layout := testLayout(root)
+	writeFile(t, filepath.Join(layout.RoutesDir, "root.templ"), "package routes\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "root.ts"), "console.log('root')\n")
+
+	err := Validate(layout)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `unsupported file in web/routes: "root.ts"`)
 }
 
 func TestValidateRejectsRouteAssetWithoutMatchingTemplate(t *testing.T) {

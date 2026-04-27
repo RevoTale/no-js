@@ -19,24 +19,34 @@ type routePageCSSFixture struct {
 }
 
 type clientAssetsFixture struct {
-	AppDir           string
-	Home             responseSnapshot
-	About            responseSnapshot
-	Section          responseSnapshot
-	Complex          responseSnapshot
-	NotFound         responseSnapshot
-	RouteCSS         responseSnapshot
-	RouteScript      responseSnapshot
-	SectionCSS       responseSnapshot
-	SectionScript    responseSnapshot
-	ComplexCSS       responseSnapshot
-	NotFoundCSS      responseSnapshot
-	RouteCSSURL      string
-	RouteScriptURL   string
-	SectionCSSURL    string
-	SectionScriptURL string
-	ComplexCSSURL    string
-	NotFoundCSSURL   string
+	AppDir                 string
+	Home                   responseSnapshot
+	About                  responseSnapshot
+	Section                responseSnapshot
+	SectionSummary         responseSnapshot
+	SectionAdmin           responseSnapshot
+	Complex                responseSnapshot
+	NotFound               responseSnapshot
+	RootCSS                responseSnapshot
+	RouteCSS               responseSnapshot
+	RouteScript            responseSnapshot
+	MeterScript            responseSnapshot
+	SectionCSS             responseSnapshot
+	SectionLayoutScript    responseSnapshot
+	SectionPageScript      responseSnapshot
+	SectionAdminCSS        responseSnapshot
+	ComplexCSS             responseSnapshot
+	NotFoundCSS            responseSnapshot
+	RootCSSURL             string
+	RouteCSSURL            string
+	RouteScriptURL         string
+	MeterScriptURL         string
+	SectionCSSURL          string
+	SectionLayoutScriptURL string
+	SectionPageScriptURL   string
+	SectionAdminCSSURL     string
+	ComplexCSSURL          string
+	NotFoundCSSURL         string
 }
 
 type templCSSFixture struct {
@@ -184,11 +194,15 @@ type templRulesFixture struct {
 }
 
 var stylesheetPattern = regexp.MustCompile(`href="([^"]+/styles/templ\.css)"`)
-var routeIndexCSSPattern = regexp.MustCompile(`href="([^"]+/routes/index\.css)"`)
-var routeIndexScriptPattern = regexp.MustCompile(`src="([^"]+/routes/index\.js)"`)
-var routeSectionCSSPattern = regexp.MustCompile(`href="([^"]+/routes/section\.css)"`)
-var routeSectionScriptPattern = regexp.MustCompile(`src="([^"]+/routes/section\.js)"`)
-var routeComplexCSSPattern = regexp.MustCompile(`href="([^"]+/routes/complex\.css)"`)
+var routeRootCSSPattern = regexp.MustCompile(`href="([^"]+/routes/root\.css)"`)
+var routePageCSSPattern = regexp.MustCompile(`href="([^"]+/routes/page\.css)"`)
+var routePageScriptPattern = regexp.MustCompile(`src="([^"]+/routes/page\.js)"`)
+var routeMeterScriptPattern = regexp.MustCompile(`src="([^"]+/components/meter/meter\.js)"`)
+var routeSectionCSSPattern = regexp.MustCompile(`href="([^"]+/routes/section/layout\.css)"`)
+var routeSectionLayoutScriptPattern = regexp.MustCompile(`src="([^"]+/routes/section/layout\.js)"`)
+var routeSectionPageScriptPattern = regexp.MustCompile(`src="([^"]+/routes/section/page\.js)"`)
+var routeSectionAdminCSSPattern = regexp.MustCompile(`href="([^"]+/routes/section/admin/layout\.css)"`)
+var routeComplexCSSPattern = regexp.MustCompile(`href="([^"]+/routes/complex/page\.css)"`)
 var routeNotFoundCSSPattern = regexp.MustCompile(`href="([^"]+/routes/404\.css)"`)
 var siteCSSPattern = regexp.MustCompile(`id="site-css"[^>]*href="([^"]+/site\.css)"`)
 var expensiveCountPattern = regexp.MustCompile(`<div id="expensive-count">([^<]+)</div>`)
@@ -221,34 +235,51 @@ func loadClientAssetsFixture(t *testing.T) clientAssetsFixture {
 	home := requestFixture(t, server, http.MethodGet, "/", nil, requestOptions{})
 	about := requestFixture(t, server, http.MethodGet, "/about", nil, requestOptions{})
 	section := requestFixture(t, server, http.MethodGet, "/section", nil, requestOptions{})
+	sectionSummary := requestFixture(t, server, http.MethodGet, "/section/summary", nil, requestOptions{})
+	sectionAdmin := requestFixture(t, server, http.MethodGet, "/section/admin", nil, requestOptions{})
 	complex := requestFixture(t, server, http.MethodGet, "/complex", nil, requestOptions{})
 	notFound := requestFixture(t, server, http.MethodGet, "/missing", nil, requestOptions{})
-	routeCSSURL := extractPatternURL(t, routeIndexCSSPattern, home.Body, "route stylesheet")
-	routeScriptURL := extractPatternURL(t, routeIndexScriptPattern, home.Body, "route script")
+
+	rootCSSURL := extractPatternURL(t, routeRootCSSPattern, home.Body, "root stylesheet")
+	routeCSSURL := extractPatternURL(t, routePageCSSPattern, home.Body, "route stylesheet")
+	routeScriptURL := extractPatternURL(t, routePageScriptPattern, home.Body, "route script")
+	meterScriptURL := extractPatternURL(t, routeMeterScriptPattern, home.Body, "meter script")
 	sectionCSSURL := extractPatternURL(t, routeSectionCSSPattern, section.Body, "section stylesheet")
-	sectionScriptURL := extractPatternURL(t, routeSectionScriptPattern, section.Body, "section script")
+	sectionLayoutScriptURL := extractPatternURL(t, routeSectionLayoutScriptPattern, section.Body, "section layout script")
+	sectionPageScriptURL := extractPatternURL(t, routeSectionPageScriptPattern, section.Body, "section page script")
+	sectionAdminCSSURL := extractPatternURL(t, routeSectionAdminCSSPattern, sectionAdmin.Body, "section admin stylesheet")
 	complexCSSURL := extractPatternURL(t, routeComplexCSSPattern, complex.Body, "complex stylesheet")
 	notFoundCSSURL := extractPatternURL(t, routeNotFoundCSSPattern, notFound.Body, "404 stylesheet")
 
 	return clientAssetsFixture{
-		AppDir:           appDir,
-		Home:             home,
-		About:            about,
-		Section:          section,
-		Complex:          complex,
-		NotFound:         notFound,
-		RouteCSS:         requestFixture(t, server, http.MethodGet, routeCSSURL, nil, requestOptions{}),
-		RouteScript:      requestFixture(t, server, http.MethodGet, routeScriptURL, nil, requestOptions{}),
-		SectionCSS:       requestFixture(t, server, http.MethodGet, sectionCSSURL, nil, requestOptions{}),
-		SectionScript:    requestFixture(t, server, http.MethodGet, sectionScriptURL, nil, requestOptions{}),
-		ComplexCSS:       requestFixture(t, server, http.MethodGet, complexCSSURL, nil, requestOptions{}),
-		NotFoundCSS:      requestFixture(t, server, http.MethodGet, notFoundCSSURL, nil, requestOptions{}),
-		RouteCSSURL:      routeCSSURL,
-		RouteScriptURL:   routeScriptURL,
-		SectionCSSURL:    sectionCSSURL,
-		SectionScriptURL: sectionScriptURL,
-		ComplexCSSURL:    complexCSSURL,
-		NotFoundCSSURL:   notFoundCSSURL,
+		AppDir:                 appDir,
+		Home:                   home,
+		About:                  about,
+		Section:                section,
+		SectionSummary:         sectionSummary,
+		SectionAdmin:           sectionAdmin,
+		Complex:                complex,
+		NotFound:               notFound,
+		RootCSS:                requestFixture(t, server, http.MethodGet, rootCSSURL, nil, requestOptions{}),
+		RouteCSS:               requestFixture(t, server, http.MethodGet, routeCSSURL, nil, requestOptions{}),
+		RouteScript:            requestFixture(t, server, http.MethodGet, routeScriptURL, nil, requestOptions{}),
+		MeterScript:            requestFixture(t, server, http.MethodGet, meterScriptURL, nil, requestOptions{}),
+		SectionCSS:             requestFixture(t, server, http.MethodGet, sectionCSSURL, nil, requestOptions{}),
+		SectionLayoutScript:    requestFixture(t, server, http.MethodGet, sectionLayoutScriptURL, nil, requestOptions{}),
+		SectionPageScript:      requestFixture(t, server, http.MethodGet, sectionPageScriptURL, nil, requestOptions{}),
+		SectionAdminCSS:        requestFixture(t, server, http.MethodGet, sectionAdminCSSURL, nil, requestOptions{}),
+		ComplexCSS:             requestFixture(t, server, http.MethodGet, complexCSSURL, nil, requestOptions{}),
+		NotFoundCSS:            requestFixture(t, server, http.MethodGet, notFoundCSSURL, nil, requestOptions{}),
+		RootCSSURL:             rootCSSURL,
+		RouteCSSURL:            routeCSSURL,
+		RouteScriptURL:         routeScriptURL,
+		MeterScriptURL:         meterScriptURL,
+		SectionCSSURL:          sectionCSSURL,
+		SectionLayoutScriptURL: sectionLayoutScriptURL,
+		SectionPageScriptURL:   sectionPageScriptURL,
+		SectionAdminCSSURL:     sectionAdminCSSURL,
+		ComplexCSSURL:          complexCSSURL,
+		NotFoundCSSURL:         notFoundCSSURL,
 	}
 }
 

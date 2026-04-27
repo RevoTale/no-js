@@ -62,8 +62,9 @@ Generation validates `web/routes` and `web/components` before it writes code.
 Use this mental model:
 
 - `web/routes` is only for endpoint, layout, 404, and composition inputs.
-  Route assets must match a same-directory `page.templ`, `layout.templ`, or
-  `404.templ`, such as `page.css` beside `page.templ`.
+  `root.css` may sit beside `root.templ` as shell CSS. Other route assets must
+  match a same-directory `page.templ`, `layout.templ`, or `404.templ`, such as
+  `page.css` beside `page.templ`.
 - `web/components` is only for component packages. Each component lives under
   `web/components/<name>/` and must have `<name>.templ` or `<name>.go`.
   Component assets use the same stem, such as `card.css` or `card.tsx` inside
@@ -73,6 +74,12 @@ Use this mental model:
 
 Put helper packages, images, fonts, downloads, docs, and data files outside
 those generation input trees.
+
+Client Assets come from generation-time route discovery. CSS is grouped by
+route shape: `root.css` stays shell-only, non-root layouts own subtree
+stylesheets, and pages without a non-root layout get a page fallback stylesheet.
+Scripts stay as owner module entries, so a matched page can inject a layout
+script, page script, imported component script, and shared esbuild chunks.
 
 ## 3. Add The Minimal Files
 
@@ -184,7 +191,7 @@ This generates:
 - `web/generated/*`
 - `web/resolvers/generated.go`
 - built-in i18n output if `web/i18n/messages` exists
-- Client Asset output if colocated `.css`, `.js`, or `.ts` files exist
+- Client Asset output if colocated `.css`, `.js`, `.ts`, `.tsx`, `.mjs`, or `.mts` files exist
 - explicit global assets if `web/assets` exists
 
 Generation also creates `web/resolvers/generated.go`. That file defines the

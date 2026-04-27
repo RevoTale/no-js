@@ -60,7 +60,7 @@ shape. Think of `routes` as the generation step that writes Go code, and
 
 `go tool no-js gen assets -root .` writes:
 
-- route-level CSS and module script bundles for discovered Client Assets
+- generated Client Asset stylesheets, module entries, and shared script chunks
 - explicit global `web/assets` files under the configured assets-build directory
 - the static asset manifest, by default `web/assets-build/manifest.json`
 

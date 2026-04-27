@@ -27,13 +27,13 @@ func TestGenerateCSSConstantsAndRouteBundle(t *testing.T) {
 	require.Contains(t, helper, "PageActiveClass")
 	require.Contains(t, helper, "PageRootClass")
 	require.Contains(t, helper, `"n_`)
-	require.Equal(t, []string{"routes/index.css"}, plan.RouteAssets[""].Stylesheets)
+	require.Equal(t, []string{"routes/page.css"}, plan.RouteAssets[""].Stylesheets)
 
 	stageDir, cleanup, err := PrepareStaticSource(PrepareStaticSourceConfig{Layout: layout})
 	require.NoError(t, err)
 	defer func() { require.NoError(t, cleanup()) }()
 
-	css := readFile(t, filepath.Join(stageDir, "routes", "index.css"))
+	css := readFile(t, filepath.Join(stageDir, "routes", "page.css"))
 	require.Contains(t, css, ".n_")
 	require.NotContains(t, css, ".root")
 	require.NotContains(t, css, ".active")
@@ -92,7 +92,7 @@ func TestGenerateCSSConstantsWithComplexSelectors(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { require.NoError(t, cleanup()) }()
 
-	css := readFile(t, filepath.Join(stageDir, "routes", "index.css"))
+	css := readFile(t, filepath.Join(stageDir, "routes", "page.css"))
 	require.Contains(
 		t,
 		css,
@@ -179,7 +179,7 @@ import "example.com/client-assets/web/components/meter"
 	helper := readFile(t, filepath.Join(filepath.Dir(layout.RoutesDir), "components", "meter", "meter.tsx_gen.go"))
 	require.Contains(t, helper, "func MeterScript() templ.Component")
 	require.Contains(t, helper, `metagen.AssetURL(ctx, "components/meter/meter.js")`)
-	require.Equal(t, []string{"routes/index.js"}, plan.RouteAssets[""].ModuleScripts)
+	require.Equal(t, []string{"components/meter/meter.js"}, plan.RouteAssets[""].ModuleScripts)
 	require.Empty(t, plan.RouteAssets["about"].ModuleScripts)
 
 	stageDir, cleanup, err := PrepareStaticSource(PrepareStaticSourceConfig{Layout: layout})
@@ -187,8 +187,167 @@ import "example.com/client-assets/web/components/meter"
 	defer func() { require.NoError(t, cleanup()) }()
 
 	require.FileExists(t, filepath.Join(stageDir, "components", "meter", "meter.js"))
-	require.FileExists(t, filepath.Join(stageDir, "routes", "index.js"))
-	require.NoFileExists(t, filepath.Join(stageDir, "routes", "about.js"))
+	require.NoFileExists(t, filepath.Join(stageDir, "routes", "index.js"))
+	require.NoFileExists(t, filepath.Join(stageDir, "routes", "about", "page.js"))
+}
+
+func TestPrepareStaticSourceBuildsSharedSourceOwnerChunks(t *testing.T) {
+	t.Parallel()
+
+	layout := testLayout(t)
+	writeFile(t, filepath.Join(layout.RoutesDir, "root.templ"), "package routes\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "layout.templ"), "package routes\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "layout.css"), ".layout { color: red; }\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "layout.ts"), `import { shared } from "../lib/shared";
+console.log("layout", shared);
+`)
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "page.templ"), "package dashboard\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "page.css"), ".dashboard { color: blue; }\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "page.ts"), `import { shared } from "../../lib/shared";
+console.log("dashboard", shared);
+`)
+	writeFile(t, filepath.Join(layout.RoutesDir, "settings", "page.templ"), "package settings\n")
+	writeFile(t, filepath.Join(layout.RootDir, "web", "lib", "shared.ts"), `export const shared = "shared-client-asset";
+`)
+
+	plan, err := Generate(Config{Layout: layout})
+	require.NoError(t, err)
+	require.ElementsMatch(
+		t,
+		[]string{"routes/layout.css", "routes/dashboard/page.css"},
+		plan.RouteAssets["dashboard"].Stylesheets,
+	)
+	require.Equal(t, []string{"routes/layout.css"}, plan.RouteAssets["settings"].Stylesheets)
+	require.ElementsMatch(
+		t,
+		[]string{"routes/layout.js", "routes/dashboard/page.js"},
+		plan.RouteAssets["dashboard"].ModuleScripts,
+	)
+	require.Equal(t, []string{"routes/layout.js"}, plan.RouteAssets["settings"].ModuleScripts)
+
+	stageDir, cleanup, err := PrepareStaticSource(PrepareStaticSourceConfig{Layout: layout})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, cleanup()) }()
+	require.FileExists(t, filepath.Join(stageDir, "routes", "layout.css"))
+	require.FileExists(t, filepath.Join(stageDir, "routes", "dashboard", "page.css"))
+	require.FileExists(t, filepath.Join(stageDir, "routes", "layout.js"))
+	require.FileExists(t, filepath.Join(stageDir, "routes", "dashboard", "page.js"))
+	requireChunkFileExists(t, filepath.Join(stageDir, "chunks"))
+}
+
+func TestBuildPlanUsesLayoutSubtreeCSSBundles(t *testing.T) {
+	t.Parallel()
+
+	layout := testLayout(t)
+	writeFile(t, filepath.Join(layout.RoutesDir, "root.templ"), "package routes\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "root.css"), ":root { --root-css: 1; }\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "layout.templ"), "package dashboard\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "reports", "page.templ"), `package reports
+
+import "example.com/client-assets/web/components/meter"
+`)
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "reports", "page.css"), ":root { --reports-css: 1; }\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "settings", "page.templ"), "package settings\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "settings", "page.css"), ":root { --settings-css: 1; }\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "admin", "layout.templ"), "package admin\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "admin", "layout.css"), ":root { --admin-layout-css: 1; }\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "admin", "users", "page.templ"), "package users\n")
+	writeFile(
+		t,
+		filepath.Join(layout.RoutesDir, "dashboard", "admin", "users", "page.css"),
+		":root { --admin-page-css: 1; }\n",
+	)
+	writeFile(t, filepath.Join(layout.RoutesDir, "marketing", "layout.templ"), "package marketing\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "marketing", "page.templ"), "package marketing\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "marketing", "page.css"), ":root { --marketing-css: 1; }\n")
+	writeFile(t, filepath.Join(layout.RootDir, "web", "components", "meter", "meter.templ"), "package meter\n")
+	writeFile(t, filepath.Join(layout.RootDir, "web", "components", "meter", "meter.css"), ":root { --meter-css: 1; }\n")
+
+	plan, err := BuildPlan(Config{Layout: layout})
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		[]string{"routes/root.css", "routes/dashboard/layout.css"},
+		plan.RouteAssets["dashboard/reports"].Stylesheets,
+	)
+	require.Equal(
+		t,
+		[]string{"routes/root.css", "routes/dashboard/layout.css"},
+		plan.RouteAssets["dashboard/settings"].Stylesheets,
+	)
+	require.Equal(
+		t,
+		[]string{"routes/root.css", "routes/dashboard/layout.css", "routes/dashboard/admin/layout.css"},
+		plan.RouteAssets["dashboard/admin/users"].Stylesheets,
+	)
+	require.Equal(t, []string{"routes/root.css", "routes/marketing/layout.css"}, plan.RouteAssets["marketing"].Stylesheets)
+
+	stageDir, cleanup, err := PrepareStaticSource(PrepareStaticSourceConfig{Layout: layout})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, cleanup()) }()
+
+	rootCSS := readFile(t, filepath.Join(stageDir, "routes", "root.css"))
+	require.Contains(t, rootCSS, "--root-css")
+	require.NotContains(t, rootCSS, "--reports-css")
+
+	dashboardCSS := readFile(t, filepath.Join(stageDir, "routes", "dashboard", "layout.css"))
+	require.Contains(t, dashboardCSS, "--reports-css")
+	require.Contains(t, dashboardCSS, "--settings-css")
+	require.Contains(t, dashboardCSS, "--meter-css")
+	require.Equal(t, 1, strings.Count(dashboardCSS, "--meter-css"))
+	require.NotContains(t, dashboardCSS, "--admin-page-css")
+	require.NotContains(t, dashboardCSS, "--marketing-css")
+	require.NoFileExists(t, filepath.Join(stageDir, "components", "meter", "meter.css"))
+
+	adminCSS := readFile(t, filepath.Join(stageDir, "routes", "dashboard", "admin", "layout.css"))
+	require.Contains(t, adminCSS, "--admin-layout-css")
+	require.Contains(t, adminCSS, "--admin-page-css")
+	require.NotContains(t, adminCSS, "--reports-css")
+}
+
+func TestBuildPlanFoldsSlotCSSIntoOwnerLayoutBundle(t *testing.T) {
+	t.Parallel()
+
+	layout := testLayout(t)
+	writeFile(t, filepath.Join(layout.RoutesDir, "root.templ"), "package routes\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "layout.templ"), "package dashboard\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "page.templ"), "package dashboard\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "default.templ"), "package aside\n")
+	writeFile(
+		t,
+		filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "default.css"),
+		":root { --slot-default-css: 1; }\n",
+	)
+
+	plan, err := BuildPlan(Config{Layout: layout})
+	require.NoError(t, err)
+	require.Equal(t, []string{"routes/dashboard/layout.css"}, plan.RouteAssets["dashboard"].Stylesheets)
+
+	stageDir, cleanup, err := PrepareStaticSource(PrepareStaticSourceConfig{Layout: layout})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, cleanup()) }()
+
+	css := readFile(t, filepath.Join(stageDir, "routes", "dashboard", "layout.css"))
+	require.Contains(t, css, "--slot-default-css")
+	require.NoFileExists(t, filepath.Join(stageDir, "routes", "dashboard", "_slot__aside", "default.css"))
+}
+
+func TestGenerateDoesNotInjectEmptyCSSAssets(t *testing.T) {
+	t.Parallel()
+
+	layout := testLayout(t)
+	writeFile(t, filepath.Join(layout.RoutesDir, "root.templ"), "package routes\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "page.templ"), "package routes\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "page.css"), " \n\t \n")
+
+	plan, err := Generate(Config{Layout: layout})
+	require.NoError(t, err)
+	require.Empty(t, plan.RouteAssets[""].Stylesheets)
+
+	stageDir, cleanup, err := PrepareStaticSource(PrepareStaticSourceConfig{Layout: layout})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, cleanup()) }()
+	require.NoFileExists(t, filepath.Join(stageDir, "routes", "page.css"))
 }
 
 func testLayout(t *testing.T) projectlayout.ProjectLayout {
@@ -232,6 +391,18 @@ func generatedCSSClassValues(t *testing.T, filePath string) map[string]string {
 		values[match[1]] = match[2]
 	}
 	return values
+}
+
+func requireChunkFileExists(t *testing.T, dir string) {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	for _, entry := range entries {
+		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".js" {
+			return
+		}
+	}
+	t.Fatalf("expected at least one shared JS chunk in %s", dir)
 }
 
 func requireUniqueValues(t *testing.T, values map[string]string) {

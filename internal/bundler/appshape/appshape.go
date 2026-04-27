@@ -76,7 +76,7 @@ func validateRoutes(root string) error {
 		if !isAllowedRouteFile(relPath) {
 			return fmt.Errorf(
 				"unsupported file in web/routes: %q; route directories may only contain route templates, "+
-					"route convention Go files, and same-stem page/layout/404 Client Assets",
+					"route convention Go files, and same-stem root/page/layout/404 Client Assets",
 				relPath,
 			)
 		}
@@ -142,7 +142,7 @@ func validateRoutes(root string) error {
 			}
 			return fmt.Errorf(
 				"route Client Asset %q requires matching template %q in the same directory because "+
-					"route assets are attached to generated page, layout, or 404 endpoints",
+					"route assets are attached to generated root, page, layout, or 404 endpoints",
 				assetPath,
 				requiredPath,
 			)
@@ -191,6 +191,9 @@ func routeClientAssetStem(base string) (string, bool) {
 		return "", false
 	}
 	stem := strings.TrimSuffix(base, extension)
+	if stem == "root" {
+		return stem, strings.EqualFold(extension, clientassetext.CSSExtension)
+	}
 	_, ok := routeAssetStems[stem]
 	return stem, ok
 }
@@ -209,6 +212,9 @@ func isRouteClientAssetHelper(base string) bool {
 	stem, ok := clientassetext.GeneratedHelperStem(base)
 	if !ok {
 		return false
+	}
+	if stem == "root" {
+		return base == "root.css_gen.go"
 	}
 	_, ok = routeAssetStems[stem]
 	return ok

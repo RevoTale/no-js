@@ -75,8 +75,8 @@ policy.
 
 That includes:
 
-- route-level CSS generated from colocated `.css` files
-- route-level module scripts generated from colocated `.js` and `.ts` files
+- shell, layout-subtree, and page-fallback CSS generated from colocated `.css` files
+- owner module scripts generated from colocated `.js`, `.ts`, `.tsx`, `.mjs`, and `.mts` files
 - hashed asset stylesheets that you add to `metagen.Metadata.Stylesheets`
 - the global `styles/templ.css` stylesheet unless `assets.templ_css` is false
 
@@ -84,10 +84,10 @@ Managed stylesheets render before managed module scripts. Route generation
 resolves their hashed URLs at runtime, so app templates do not need global asset
 base-path state for generated Client Assets.
 
-Default templ CSS extraction is not route-level CSS. It collects registered
-templ `css {}` classes into one global stylesheet and injects that stylesheet
-on every page through the same managed head path. Set `assets.templ_css` to
-`false` to disable it.
+Default templ CSS extraction is separate from Client Asset CSS. It collects
+registered templ `css {}` classes into one global stylesheet and injects that
+stylesheet on every page through the same managed head path. Set
+`assets.templ_css` to `false` to disable it.
 
 Files under `web/assets` are not auto-injected. Add those URLs to metadata
 yourself when you intentionally want a global hashed asset on a page:
