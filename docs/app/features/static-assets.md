@@ -95,6 +95,7 @@ Use the exact owner stem in route and component Client Asset filenames:
 | Shell CSS for every page | `web/routes/root.css` beside `root.templ` |
 | CSS for a route page | `web/routes/dashboard/page.css` beside `page.templ` |
 | CSS for a layout | `web/routes/dashboard/layout.css` beside `layout.templ` |
+| CSS for a slot fallback | `web/routes/dashboard/_slot__aside/default.css` beside `default.templ` |
 | CSS for a 404 page | `web/routes/dashboard/404.css` beside `404.templ` |
 | CSS for a component | `web/components/meter/meter.css` beside `meter.templ` or `meter.go` |
 | JS/TS/TSX for a route page | `web/routes/dashboard/page.tsx` beside `page.templ` |
@@ -115,7 +116,8 @@ web/routes/dashboard/page.css
 ```
 
 Use the same file stem as the route template. For example, `page.templ` owns
-`page.css`, `layout.templ` owns `layout.css`, and `404.templ` owns `404.css`.
+`page.css`, `layout.templ` owns `layout.css`, slot-root `default.templ` owns
+`default.css`, and `404.templ` owns `404.css`.
 
 ```css
 /* web/routes/dashboard/page.css */

@@ -63,8 +63,9 @@ Use this mental model:
 
 - `web/routes` is only for endpoint, layout, 404, and composition inputs.
   `root.css` may sit beside `root.templ` as shell CSS. Other route assets must
-  match a same-directory `page.templ`, `layout.templ`, or `404.templ`, such as
-  `page.css` beside `page.templ`.
+  match a same-directory `page.templ`, `layout.templ`, slot-root
+  `default.templ`, or `404.templ`, such as `page.css` beside `page.templ` or
+  `default.css` beside `web/routes/dashboard/_slot__aside/default.templ`.
 - `web/components` is only for component packages. Each component lives under
   `web/components/<name>/` and must have `<name>.templ` or `<name>.go`.
   Component assets use the same stem, such as `card.css` or `card.tsx` inside

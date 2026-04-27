@@ -24,6 +24,11 @@ func TestValidateAllowsRouteAndComponentGenerationInputs(t *testing.T) {
 	writeFile(t, filepath.Join(layout.RoutesDir, "section", "layout.templ"), "package section\n")
 	writeFile(t, filepath.Join(layout.RoutesDir, "section", "layout.mts"), "console.log('layout')\n")
 	writeFile(t, filepath.Join(layout.RoutesDir, "section", "route.go"), "package section\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "section", "_slot__aside", "default.templ"), "package aside\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "section", "_slot__aside", "default.css"), ".aside {}\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "section", "_slot__aside", "default.ts"), "console.log('aside')\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "section", "_slot__aside", "default.css_gen.go"), "package aside\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "section", "_slot__aside", "default.ts_gen.go"), "package aside\n")
 	writeFile(t, filepath.Join(layout.RoutesDir, "robots.go"), "package routes\n")
 
 	componentDir := filepath.Join(root, "web", "components", "card")
@@ -90,6 +95,66 @@ func TestValidateRejectsRootScriptAsset(t *testing.T) {
 	err := Validate(layout)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `unsupported file in web/routes: "root.ts"`)
+}
+
+func TestValidateRejectsRouteFilesInInvalidPositions(t *testing.T) {
+	tests := map[string]struct {
+		path    string
+		message string
+	}{
+		"nested root template": {
+			path:    filepath.Join("admin", "root.templ"),
+			message: `root.templ must be defined at web/routes/root.templ`,
+		},
+		"default outside slot": {
+			path:    "default.templ",
+			message: `default.templ is only allowed inside slot directories`,
+		},
+		"default css outside slot": {
+			path:    "default.css",
+			message: `default Client Assets are only allowed inside slot directories`,
+		},
+		"default below slot root": {
+			path:    filepath.Join("dashboard", "_slot__aside", "nested", "default.templ"),
+			message: `default.templ is only allowed at the slot root`,
+		},
+		"default css below slot root": {
+			path:    filepath.Join("dashboard", "_slot__aside", "nested", "default.css"),
+			message: `default Client Assets are only allowed at the slot root`,
+		},
+		"default script helper below slot root": {
+			path:    filepath.Join("dashboard", "_slot__aside", "nested", "default.ts_gen.go"),
+			message: `default Client Assets are only allowed at the slot root`,
+		},
+		"404 inside slot": {
+			path:    filepath.Join("dashboard", "_slot__aside", "404.templ"),
+			message: `404.templ is not allowed inside slot directories`,
+		},
+		"route go inside slot": {
+			path:    filepath.Join("dashboard", "_slot__aside", "route.go"),
+			message: `route.go is not allowed inside slot directories`,
+		},
+		"nested root css": {
+			path:    filepath.Join("admin", "root.css"),
+			message: `root.css is only allowed at web/routes/root.css`,
+		},
+		"nested root css helper": {
+			path:    filepath.Join("admin", "root.css_gen.go"),
+			message: `root.css is only allowed at web/routes/root.css`,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			layout := testLayout(root)
+			writeFile(t, filepath.Join(layout.RoutesDir, tc.path), "package routes\n")
+
+			err := Validate(layout)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.message)
+		})
+	}
 }
 
 func TestValidateRejectsRouteAssetWithoutMatchingTemplate(t *testing.T) {

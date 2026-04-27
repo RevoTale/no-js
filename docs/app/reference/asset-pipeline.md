@@ -126,12 +126,15 @@ Only these stems are valid:
 root.templ   -> root.css
 page.templ   -> page.css   or page.{js,ts,tsx,mjs,mts}
 layout.templ -> layout.css or layout.{js,ts,tsx,mjs,mts}
+default.templ -> default.css or default.{js,ts,tsx,mjs,mts} # slot root only
 404.templ    -> 404.css    or 404.{js,ts,tsx,mjs,mts}
 ```
 
 A route asset is valid only when the matching template exists in the same
 directory. For example, `web/routes/dashboard/page.css` requires
-`web/routes/dashboard/page.templ`.
+`web/routes/dashboard/page.templ`, and
+`web/routes/dashboard/_slot__aside/default.css` requires the slot-root
+`default.templ` in that directory.
 
 Use route assets for CSS or scripts that belong to the app shell, endpoint,
 layout, or 404 page. Choose only one script source extension per route owner;

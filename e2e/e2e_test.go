@@ -1412,6 +1412,25 @@ func TestGenerationValidatorAllowsStrictRouteAndComponentShape(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestGenerationValidatorAllowsSlotFallbackClientAssets(t *testing.T) {
+	appDir := copyFixtureApp(t, "clientassetsapp")
+	slotDir := filepath.Join(appDir, "web", "routes", "section", "_slot__aside")
+	require.NoError(t, os.MkdirAll(slotDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(slotDir, "default.templ"), []byte("package aside\n"), 0o644))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(slotDir, "default.css"),
+		[]byte(".slot-fallback-e2e { --slot-default-fallback-e2e: 1; }\n"),
+		0o644,
+	))
+
+	runGo(t, appDir, "tool", "no-js", "gen", "assets", "-root", ".")
+
+	require.NoFileExists(t, filepath.Join(appDir, "web", "assets-build", "routes", "section", "_slot__aside", "default.css"))
+	sectionCSS, err := os.ReadFile(filepath.Join(appDir, "web", "assets-build", "routes", "section", "layout.css"))
+	require.NoError(t, err)
+	require.Contains(t, string(sectionCSS), "--slot-default-fallback-e2e")
+}
+
 func TestGenerationValidatorRejectsUnsupportedRouteFiles(t *testing.T) {
 	appDir := copyFixtureApp(t, "routepagecssapp")
 	require.NoError(t, os.WriteFile(
@@ -1436,6 +1455,24 @@ func TestGenerationValidatorRejectsRouteAssetWithoutMatchingTemplate(t *testing.
 		string(output),
 		`route Client Asset "orphan/page.css" requires matching template "orphan/page.templ"`,
 	)
+}
+
+func TestGenerationValidatorRejectsSlotFallbackAssetOutsideSlot(t *testing.T) {
+	appDir := copyFixtureApp(t, "routepagecssapp")
+	require.NoError(t, os.WriteFile(filepath.Join(appDir, "web", "routes", "default.css"), []byte(".fallback {}\n"), 0o644))
+
+	output := runNoJSError(t, appDir, "gen", "assets", "-root", ".")
+	require.Contains(t, string(output), `default Client Assets are only allowed inside slot directories`)
+}
+
+func TestGenerationValidatorRejectsSlotFallbackAssetBelowSlotRoot(t *testing.T) {
+	appDir := copyFixtureApp(t, "routepagecssapp")
+	slotNestedDir := filepath.Join(appDir, "web", "routes", "dashboard", "_slot__aside", "nested")
+	require.NoError(t, os.MkdirAll(slotNestedDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(slotNestedDir, "default.css"), []byte(".fallback {}\n"), 0o644))
+
+	output := runNoJSError(t, appDir, "gen", "assets", "-root", ".")
+	require.Contains(t, string(output), `default Client Assets are only allowed at the slot root`)
 }
 
 func TestGenerationValidatorRejectsMultipleRouteScriptSources(t *testing.T) {

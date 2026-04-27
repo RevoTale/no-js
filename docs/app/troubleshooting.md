@@ -49,7 +49,8 @@ Fix:
   directories
 - do not place `page.templ` and `route.go` at the same route
 - keep `page.css` with `page.templ`, `layout.css` with `layout.templ`,
-  and `404.css` with `404.templ`; use the same rule for JS/TS files
+  `default.css` with slot-root `default.templ`, and `404.css` with
+  `404.templ`; use the same rule for JS/TS files
 - move helper code to `web/resolvers`, `web/view`, or another app package
 - move static files to `web/assets` or `web/public`
 - delete `web/routes/error.templ` and configure custom 500 UI through

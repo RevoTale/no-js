@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	frameworkrouter "github.com/RevoTale/no-js/framework/router"
 	"github.com/RevoTale/no-js/internal/bundler/clientassetext"
 	"github.com/RevoTale/no-js/internal/projectlayout"
 )
@@ -30,12 +31,25 @@ var (
 		"feed.go":    {},
 		"sitemap.go": {},
 	}
-	routeAssetStems = map[string]struct{}{
-		"page":   {},
-		"layout": {},
-		"404":    {},
-	}
 )
+
+type routeAssetOwner string
+
+const (
+	routeAssetOwnerRoot    routeAssetOwner = "root"
+	routeAssetOwnerPage    routeAssetOwner = "page"
+	routeAssetOwnerLayout  routeAssetOwner = "layout"
+	routeAssetOwnerDefault routeAssetOwner = "default"
+	routeAssetOwner404     routeAssetOwner = "404"
+)
+
+var routeAssetOwners = map[string]routeAssetOwner{
+	"root":    routeAssetOwnerRoot,
+	"page":    routeAssetOwnerPage,
+	"layout":  routeAssetOwnerLayout,
+	"default": routeAssetOwnerDefault,
+	"404":     routeAssetOwner404,
+}
 
 // Validate checks the strict app-owned source directories that feed generation.
 func Validate(layout projectlayout.ProjectLayout) error {
@@ -73,24 +87,21 @@ func validateRoutes(root string) error {
 			return fmt.Errorf("resolve route file %q: %w", filepath.ToSlash(filePath), err)
 		}
 		relPath = filepath.ToSlash(relPath)
-		if !isAllowedRouteFile(relPath) {
-			return fmt.Errorf(
-				"unsupported file in web/routes: %q; route directories may only contain route templates, "+
-					"route convention Go files, and same-stem root/page/layout/404 Client Assets",
-				relPath,
-			)
+		routeFile, err := newRouteFile(relPath)
+		if err != nil {
+			return err
+		}
+		if err := validateRouteFile(routeFile); err != nil {
+			return err
 		}
 
-		dir := path.Dir(relPath)
-		if dir == "." {
-			dir = ""
-		}
+		dir := routeFile.Dir
 		meta := routeDirs[dir]
 		if meta == nil {
 			meta = &routeDir{templates: map[string]struct{}{}, assets: map[string][]string{}, scriptSources: map[string]string{}}
 			routeDirs[dir] = meta
 		}
-		base := path.Base(relPath)
+		base := routeFile.Base
 		if _, ok := routeTemplateNames[base]; ok {
 			meta.templates[base] = struct{}{}
 		}
@@ -142,7 +153,7 @@ func validateRoutes(root string) error {
 			}
 			return fmt.Errorf(
 				"route Client Asset %q requires matching template %q in the same directory because "+
-					"route assets are attached to generated root, page, layout, or 404 endpoints",
+					"route assets are attached to generated root, page, layout, slot fallback, or 404 endpoints",
 				assetPath,
 				requiredPath,
 			)
@@ -158,26 +169,124 @@ type routeDir struct {
 	scriptSources map[string]string
 }
 
-func isAllowedRouteFile(relPath string) bool {
-	base := path.Base(relPath)
+type routeFile struct {
+	RelPath  string
+	Dir      string
+	Base     string
+	Segments []frameworkrouter.Segment
+}
+
+func newRouteFile(relPath string) (routeFile, error) {
 	dir := path.Dir(relPath)
 	if dir == "." {
 		dir = ""
 	}
+	segments, err := frameworkrouter.ParseDirectorySegments(dir)
+	if err != nil {
+		return routeFile{}, fmt.Errorf("parse route directory for %q: %w", relPath, err)
+	}
+	return routeFile{
+		RelPath:  relPath,
+		Dir:      dir,
+		Base:     path.Base(relPath),
+		Segments: segments,
+	}, nil
+}
 
-	if _, ok := routeTemplateNames[base]; ok {
-		return true
+func validateRouteFile(file routeFile) error {
+	if _, ok := routeTemplateNames[file.Base]; ok {
+		return validateRouteTemplatePlacement(file)
 	}
-	if isRouteClientAsset(base) || isRouteClientAssetHelper(base) {
-		return true
+	if isRouteClientAsset(file.Base) || isRouteClientAssetHelper(file.Base) {
+		return validateRouteClientAssetPlacement(file)
 	}
-	if base == "robots.go" {
-		return dir == ""
+	if _, ok := routeGoNames[file.Base]; ok {
+		return validateRouteGoPlacement(file)
 	}
-	if _, ok := routeGoNames[base]; ok {
-		return true
+	return unsupportedRouteFileError(file.RelPath)
+}
+
+func validateRouteTemplatePlacement(file routeFile) error {
+	switch file.Base {
+	case "root.templ":
+		if file.Dir != "" {
+			return fmt.Errorf("root.templ must be defined at web/routes/root.templ, got %q", file.RelPath)
+		}
+	case "default.templ":
+		if !file.inSlot() {
+			return fmt.Errorf("default.templ is only allowed inside slot directories: %q", file.RelPath)
+		}
+		if !file.isSlotRoot() {
+			return fmt.Errorf("default.templ is only allowed at the slot root: %q", file.RelPath)
+		}
+	case "404.templ":
+		if file.inSlot() {
+			return fmt.Errorf("404.templ is not allowed inside slot directories: %q", file.RelPath)
+		}
+	}
+	return nil
+}
+
+func validateRouteClientAssetPlacement(file routeFile) error {
+	owner, ok := routeClientAssetOwner(file.Base)
+	if !ok {
+		owner, _ = routeClientAssetHelperOwner(file.Base)
+	}
+	if owner == "" {
+		return unsupportedRouteFileError(file.RelPath)
+	}
+	switch owner {
+	case routeAssetOwnerRoot:
+		if file.Dir != "" {
+			return fmt.Errorf("root.css is only allowed at web/routes/root.css, got %q", file.RelPath)
+		}
+	case routeAssetOwnerDefault:
+		if !file.inSlot() {
+			return fmt.Errorf("default Client Assets are only allowed inside slot directories: %q", file.RelPath)
+		}
+		if !file.isSlotRoot() {
+			return fmt.Errorf("default Client Assets are only allowed at the slot root: %q", file.RelPath)
+		}
+	case routeAssetOwner404:
+		if file.inSlot() {
+			return fmt.Errorf("404 Client Assets are not allowed inside slot directories: %q", file.RelPath)
+		}
+	}
+	return nil
+}
+
+func validateRouteGoPlacement(file routeFile) error {
+	if file.inSlot() {
+		return fmt.Errorf("%s is not allowed inside slot directories: %q", file.Base, file.RelPath)
+	}
+	if file.Base == "robots.go" && file.Dir != "" {
+		return fmt.Errorf("robots.go is only allowed at web/routes/robots.go, got %q", file.RelPath)
+	}
+	return nil
+}
+
+func unsupportedRouteFileError(relPath string) error {
+	return fmt.Errorf(
+		"unsupported file in web/routes: %q; route directories may only contain route templates, "+
+			"route convention Go files, and same-stem root/page/layout/default/404 Client Assets",
+		relPath,
+	)
+}
+
+func (file routeFile) inSlot() bool {
+	for _, segment := range file.Segments {
+		if segment.Kind == frameworkrouter.SegmentSlot {
+			return true
+		}
 	}
 	return false
+}
+
+func (file routeFile) isSlotRoot() bool {
+	if len(file.Segments) == 0 {
+		return false
+	}
+	return file.Segments[len(file.Segments)-1].Kind == frameworkrouter.SegmentSlot
 }
 
 func isRouteClientAsset(base string) bool {
@@ -186,16 +295,24 @@ func isRouteClientAsset(base string) bool {
 }
 
 func routeClientAssetStem(base string) (string, bool) {
+	owner, ok := routeClientAssetOwner(base)
+	return string(owner), ok
+}
+
+func routeClientAssetOwner(base string) (routeAssetOwner, bool) {
 	extension := path.Ext(base)
 	if !clientassetext.IsAssetExtension(extension) {
 		return "", false
 	}
 	stem := strings.TrimSuffix(base, extension)
-	if stem == "root" {
-		return stem, strings.EqualFold(extension, clientassetext.CSSExtension)
+	owner, ok := routeAssetOwners[stem]
+	if !ok {
+		return "", false
 	}
-	_, ok := routeAssetStems[stem]
-	return stem, ok
+	if owner == routeAssetOwnerRoot && extension != clientassetext.CSSExtension {
+		return "", false
+	}
+	return owner, true
 }
 
 func routeClientScriptStem(base string) (string, bool) {
@@ -204,20 +321,36 @@ func routeClientScriptStem(base string) (string, bool) {
 		return "", false
 	}
 	stem := strings.TrimSuffix(base, extension)
-	_, ok := routeAssetStems[stem]
-	return stem, ok
+	owner, ok := routeAssetOwners[stem]
+	if !ok || owner == routeAssetOwnerRoot {
+		return "", false
+	}
+	return string(owner), true
 }
 
 func isRouteClientAssetHelper(base string) bool {
+	_, ok := routeClientAssetHelperStem(base)
+	return ok
+}
+
+func routeClientAssetHelperStem(base string) (string, bool) {
+	owner, ok := routeClientAssetHelperOwner(base)
+	return string(owner), ok
+}
+
+func routeClientAssetHelperOwner(base string) (routeAssetOwner, bool) {
 	stem, ok := clientassetext.GeneratedHelperStem(base)
 	if !ok {
-		return false
+		return "", false
 	}
-	if stem == "root" {
-		return base == "root.css_gen.go"
+	owner, ok := routeAssetOwners[stem]
+	if !ok {
+		return "", false
 	}
-	_, ok = routeAssetStems[stem]
-	return ok
+	if owner == routeAssetOwnerRoot && base != "root.css_gen.go" {
+		return "", false
+	}
+	return owner, true
 }
 
 func displayRouteDir(dir string) string {

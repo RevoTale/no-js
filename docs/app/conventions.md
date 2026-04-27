@@ -135,15 +135,17 @@ root.css
 root.css_gen.go
 page.{css,js,ts,tsx,mjs,mts}
 layout.{css,js,ts,tsx,mjs,mts}
+default.{css,js,ts,tsx,mjs,mts}       # only beside slot-root default.templ
 404.{css,js,ts,tsx,mjs,mts}
 page.{css,js,ts,tsx,mjs,mts}_gen.go
 layout.{css,js,ts,tsx,mjs,mts}_gen.go
+default.{css,js,ts,tsx,mjs,mts}_gen.go
 404.{css,js,ts,tsx,mjs,mts}_gen.go
 ```
 
 Route Client Assets are valid only when the matching `root.templ`, `page.templ`,
-`layout.templ`, or `404.templ` exists in the same directory. `root.css` is shell
-CSS for generated pages. Page, layout, slot, and component CSS is folded into
+`layout.templ`, slot-root `default.templ`, or `404.templ` exists in the same
+directory. `root.css` is shell CSS for generated pages. Page, layout, slot, and component CSS is folded into
 the nearest non-root layout stylesheet, or into a page fallback stylesheet when
 there is no non-root layout. Each route owner may have at most one script source
 extension because `page.ts` and `page.tsx` both emit `page.js`.

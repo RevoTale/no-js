@@ -187,11 +187,12 @@ Any other `_...` route directory name is invalid.
 
 Generation fails when `web/routes` contains files that are not route inputs.
 Keep only route templates, route convention Go files, and same-stem
-root/page/layout/404 Client Assets there. `root.css` is valid beside
+root/page/layout/default/404 Client Assets there. `root.css` is valid beside
 `root.templ`; other route Client Assets must have the matching `page.templ`,
-`layout.templ`, or `404.templ` in the same directory. For example, `page.css`
-and `page.ts` are valid beside `page.templ`, but `helper.go`, `README.md`,
-`logo.svg`, `default.css`, and `error.templ` are rejected.
+`layout.templ`, slot-root `default.templ`, or `404.templ` in the same
+directory. For example, `page.css` and `page.ts` are valid beside
+`page.templ`, and `default.css` is valid beside a slot-root `default.templ`,
+but `helper.go`, `README.md`, `logo.svg`, and `error.templ` are rejected.
 
 Use `web/resolvers` and `web/view` for route logic, `web/components` for
 reusable components, and `web/assets` or `web/public` for static files.
