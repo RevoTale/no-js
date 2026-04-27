@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.0.0](https://github.com/RevoTale/no-js/compare/v1.3.0...v2.0.0) (2026-04-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* **appshape:** apps must move loose `web/components` files into `web/components/<name>/`, keep component assets same-stem with the package anchor, and move public component Go API into `<name>.go`.
+
+### Features
+
+* **app:** enforce strict app shape and route-static assets ([79dd63c](https://github.com/RevoTale/no-js/commit/79dd63cde1b012edee83a899055fa1694122ea86))
+* **app:** enforce strict shape and route-static assets ([b6d72b6](https://github.com/RevoTale/no-js/commit/b6d72b6ca9f278b5882cba2cb81094663bbb4580))
+* **appshape:** enforce strict app input shape ([8ed59cc](https://github.com/RevoTale/no-js/commit/8ed59ccc30daa9b5d82c5759afdf16cf80c40ad5))
+* **assets:** default templ CSS extraction from config ([557b272](https://github.com/RevoTale/no-js/commit/557b27291785a231904e91f6808a4153fcadcf60))
+* **client-assets:** add route-static CSS and script bundles ([3d460e7](https://github.com/RevoTale/no-js/commit/3d460e7020cc57d9024c4ef6796e99993d2437f9))
+* **client-assets:** fold CSS into layout subtree bundles ([deb57cd](https://github.com/RevoTale/no-js/commit/deb57cd1b0b568c7272f2b2a855ffc8a864a06e2))
+
+
+### Bug Fixes
+
+* **appshape:** allow slot fallback client assets ([98b330b](https://github.com/RevoTale/no-js/commit/98b330b82f06fbb1ccb59d9b96b2f8e6b11b6b0f))
+* **appshape:** reject invalid asset-only route shapes ([55a8ed2](https://github.com/RevoTale/no-js/commit/55a8ed2642835854ef7b9d48348dea169e023d67))
+* **client-assets:** include all slot assets for owning layouts ([4b30fe9](https://github.com/RevoTale/no-js/commit/4b30fe93954efe16f0f36ef37915458b47c21877))
+* **client-assets:** parse selectors before anonymizing classes ([8fb862d](https://github.com/RevoTale/no-js/commit/8fb862d9fd5d6702f235d5750413bd2f2fc2fd1a))
+* intoriduct a new mental model for the css composition ([de24750](https://github.com/RevoTale/no-js/commit/de24750c7d0d006109a7fabda83721fe6e7bce54))
+
 ## [1.3.0](https://github.com/RevoTale/no-js/compare/v1.2.0...v1.3.0) (2026-04-21)
 
 
