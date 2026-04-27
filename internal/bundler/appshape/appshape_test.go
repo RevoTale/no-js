@@ -126,6 +126,10 @@ func TestValidateRejectsRouteFilesInInvalidPositions(t *testing.T) {
 			path:    filepath.Join("dashboard", "_slot__aside", "nested", "default.ts_gen.go"),
 			message: `default Client Assets are only allowed at the slot root`,
 		},
+		"nested slot": {
+			path:    filepath.Join("dashboard", "_slot__aside", "_slot__promo", "default.templ"),
+			message: `nested slots are not allowed`,
+		},
 		"404 inside slot": {
 			path:    filepath.Join("dashboard", "_slot__aside", "404.templ"),
 			message: `404.templ is not allowed inside slot directories`,
@@ -149,6 +153,67 @@ func TestValidateRejectsRouteFilesInInvalidPositions(t *testing.T) {
 			root := t.TempDir()
 			layout := testLayout(root)
 			writeFile(t, filepath.Join(layout.RoutesDir, tc.path), "package routes\n")
+
+			err := Validate(layout)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.message)
+		})
+	}
+}
+
+func TestValidateAllowsSlotFallbackClientAssetWithOwnerLayout(t *testing.T) {
+	root := t.TempDir()
+	layout := testLayout(root)
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "layout.templ"), "package dashboard\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "default.templ"), "package aside\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "default.css"), ".fallback {}\n")
+
+	require.NoError(t, Validate(layout))
+}
+
+func TestValidateRejectsSlotRouteWithoutOwnerLayout(t *testing.T) {
+	root := t.TempDir()
+	layout := testLayout(root)
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "default.templ"), "package aside\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "default.css"), ".fallback {}\n")
+
+	err := Validate(layout)
+	require.Error(t, err)
+	require.Contains(
+		t,
+		err.Error(),
+		`requires owner layout "dashboard/layout.templ"`,
+	)
+}
+
+func TestValidateRejectsRouteEndpointConflicts(t *testing.T) {
+	tests := map[string]struct {
+		files   []string
+		message string
+	}{
+		"same directory page and route": {
+			files: []string{
+				filepath.Join("dashboard", "page.templ"),
+				filepath.Join("dashboard", "route.go"),
+			},
+			message: `route pattern conflict`,
+		},
+		"grouped public route conflict": {
+			files: []string{
+				filepath.Join("_group__a", "dashboard", "page.templ"),
+				filepath.Join("_group__b", "dashboard", "route.go"),
+			},
+			message: `both resolve to "/dashboard"`,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			layout := testLayout(root)
+			for _, file := range tc.files {
+				writeFile(t, filepath.Join(layout.RoutesDir, file), "package routes\n")
+			}
 
 			err := Validate(layout)
 			require.Error(t, err)

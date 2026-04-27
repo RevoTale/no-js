@@ -1475,6 +1475,26 @@ func TestGenerationValidatorRejectsSlotFallbackAssetBelowSlotRoot(t *testing.T) 
 	require.Contains(t, string(output), `default Client Assets are only allowed at the slot root`)
 }
 
+func TestGenerationValidatorRejectsSlotFallbackWithoutOwnerLayout(t *testing.T) {
+	appDir := copyFixtureApp(t, "routepagecssapp")
+	slotDir := filepath.Join(appDir, "web", "routes", "orphan", "_slot__aside")
+	require.NoError(t, os.MkdirAll(slotDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(slotDir, "default.templ"), []byte("package aside\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(slotDir, "default.css"), []byte(".fallback {}\n"), 0o644))
+
+	output := runNoJSError(t, appDir, "gen", "assets", "-root", ".")
+	require.Contains(t, string(output), `requires owner layout "orphan/layout.templ"`)
+}
+
+func TestGenerationValidatorRejectsPageAndMethodRouteConflict(t *testing.T) {
+	appDir := copyFixtureApp(t, "routepagecssapp")
+	require.NoError(t, os.WriteFile(filepath.Join(appDir, "web", "routes", "route.go"), []byte("package routes\n"), 0o644))
+
+	output := runNoJSError(t, appDir, "gen", "assets", "-root", ".")
+	require.Contains(t, string(output), `route pattern conflict`)
+	require.Contains(t, string(output), `both resolve to "/"`)
+}
+
 func TestGenerationValidatorRejectsMultipleRouteScriptSources(t *testing.T) {
 	appDir := copyFixtureApp(t, "routepagecssapp")
 	require.NoError(t, os.WriteFile(

@@ -73,7 +73,7 @@ func validateRoutes(root string) error {
 		return fmt.Errorf("stat route tree %q: %w", filepath.ToSlash(root), err)
 	}
 
-	routeDirs := map[string]*routeDir{}
+	shape := newRouteShape()
 	walkErr := filepath.WalkDir(root, func(filePath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -95,47 +95,119 @@ func validateRoutes(root string) error {
 			return err
 		}
 
-		dir := routeFile.Dir
-		meta := routeDirs[dir]
-		if meta == nil {
-			meta = &routeDir{templates: map[string]struct{}{}, assets: map[string][]string{}, scriptSources: map[string]string{}}
-			routeDirs[dir] = meta
-		}
-		base := routeFile.Base
-		if _, ok := routeTemplateNames[base]; ok {
-			meta.templates[base] = struct{}{}
-		}
-		if stem, ok := routeClientAssetStem(base); ok {
-			meta.assets[stem] = append(meta.assets[stem], relPath)
-		}
-		if stem, ok := routeClientScriptStem(base); ok {
-			if meta.scriptSources[stem] != "" {
-				return fmt.Errorf(
-					"route directory %s has multiple script sources for %q: %q and %q; choose one of %s "+
-						"because they all emit %q",
-					displayRouteDir(dir),
-					routeTemplatePath(dir, stem),
-					meta.scriptSources[stem],
-					relPath,
-					clientassetext.ScriptChoices(stem),
-					clientassetext.ScriptOutputName(stem),
-				)
-			}
-			meta.scriptSources[stem] = relPath
-		}
-		return nil
+		return shape.addFile(routeFile)
 	})
 	if walkErr != nil {
 		return walkErr
 	}
 
-	dirs := make([]string, 0, len(routeDirs))
-	for dir := range routeDirs {
+	return shape.validate()
+}
+
+type routeDir struct {
+	templates     map[string]struct{}
+	assets        map[string][]string
+	scriptSources map[string]string
+}
+
+type routeShape struct {
+	dirs             map[string]*routeDir
+	endpointPatterns map[string]string
+	slotOwnerFiles   map[string]string
+}
+
+type routeFile struct {
+	RelPath  string
+	Dir      string
+	Base     string
+	Segments []frameworkrouter.Segment
+}
+
+func newRouteShape() *routeShape {
+	return &routeShape{
+		dirs:             map[string]*routeDir{},
+		endpointPatterns: map[string]string{},
+		slotOwnerFiles:   map[string]string{},
+	}
+}
+
+func (shape *routeShape) addFile(file routeFile) error {
+	meta := shape.ensureDir(file.Dir)
+	if _, ok := routeTemplateNames[file.Base]; ok {
+		meta.templates[file.Base] = struct{}{}
+	}
+	if stem, ok := routeClientAssetStem(file.Base); ok {
+		meta.assets[stem] = append(meta.assets[stem], file.RelPath)
+	}
+	if stem, ok := routeClientScriptStem(file.Base); ok {
+		if meta.scriptSources[stem] != "" {
+			return fmt.Errorf(
+				"route directory %s has multiple script sources for %q: %q and %q; choose one of %s "+
+					"because they all emit %q",
+				displayRouteDir(file.Dir),
+				routeTemplatePath(file.Dir, stem),
+				meta.scriptSources[stem],
+				file.RelPath,
+				clientassetext.ScriptChoices(stem),
+				clientassetext.ScriptOutputName(stem),
+			)
+		}
+		meta.scriptSources[stem] = file.RelPath
+	}
+	if ownerDir, ok := file.slotOwnerDir(); ok {
+		if shape.slotOwnerFiles[ownerDir] == "" {
+			shape.slotOwnerFiles[ownerDir] = file.RelPath
+		}
+	}
+	if file.definesMainEndpoint() {
+		return shape.addEndpoint(file)
+	}
+	return nil
+}
+
+func (shape *routeShape) ensureDir(dir string) *routeDir {
+	meta := shape.dirs[dir]
+	if meta == nil {
+		meta = &routeDir{
+			templates:     map[string]struct{}{},
+			assets:        map[string][]string{},
+			scriptSources: map[string]string{},
+		}
+		shape.dirs[dir] = meta
+	}
+	return meta
+}
+
+func (shape *routeShape) addEndpoint(file routeFile) error {
+	key := routePatternKey(file.Segments)
+	if existing := shape.endpointPatterns[key]; existing != "" {
+		return fmt.Errorf(
+			"route pattern conflict: %q and %q both resolve to %q; do not define page.templ and route.go "+
+				"for the same public route",
+			existing,
+			file.RelPath,
+			key,
+		)
+	}
+	shape.endpointPatterns[key] = file.RelPath
+	return nil
+}
+
+func (shape *routeShape) validate() error {
+	if err := shape.validateMatchingRouteAssets(); err != nil {
+		return err
+	}
+	return shape.validateSlotOwnerLayouts()
+}
+
+func (shape *routeShape) validateMatchingRouteAssets() error {
+	dirs := make([]string, 0, len(shape.dirs))
+	for dir := range shape.dirs {
 		dirs = append(dirs, dir)
 	}
 	sort.Strings(dirs)
 	for _, dir := range dirs {
-		meta := routeDirs[dir]
+		meta := shape.dirs[dir]
 		stems := make([]string, 0, len(meta.assets))
 		for stem := range meta.assets {
 			stems = append(stems, stem)
@@ -143,7 +215,7 @@ func validateRoutes(root string) error {
 		sort.Strings(stems)
 		for _, stem := range stems {
 			templateName := stem + ".templ"
-			if _, ok := meta.templates[templateName]; ok {
+			if meta.hasTemplate(templateName) {
 				continue
 			}
 			assetPath := meta.assets[stem][0]
@@ -159,21 +231,36 @@ func validateRoutes(root string) error {
 			)
 		}
 	}
-
 	return nil
 }
 
-type routeDir struct {
-	templates     map[string]struct{}
-	assets        map[string][]string
-	scriptSources map[string]string
+func (shape *routeShape) validateSlotOwnerLayouts() error {
+	ownerDirs := make([]string, 0, len(shape.slotOwnerFiles))
+	for ownerDir := range shape.slotOwnerFiles {
+		ownerDirs = append(ownerDirs, ownerDir)
+	}
+	sort.Strings(ownerDirs)
+	for _, ownerDir := range ownerDirs {
+		meta := shape.dirs[ownerDir]
+		if meta != nil && meta.hasTemplate("layout.templ") {
+			continue
+		}
+		return fmt.Errorf(
+			"slot route file %q requires owner layout %q because slot content can only be rendered by "+
+				"a same-level layout.templ",
+			shape.slotOwnerFiles[ownerDir],
+			routeTemplatePath(ownerDir, "layout"),
+		)
+	}
+	return nil
 }
 
-type routeFile struct {
-	RelPath  string
-	Dir      string
-	Base     string
-	Segments []frameworkrouter.Segment
+func (meta *routeDir) hasTemplate(name string) bool {
+	if meta == nil {
+		return false
+	}
+	_, ok := meta.templates[name]
+	return ok
 }
 
 func newRouteFile(relPath string) (routeFile, error) {
@@ -194,6 +281,9 @@ func newRouteFile(relPath string) (routeFile, error) {
 }
 
 func validateRouteFile(file routeFile) error {
+	if file.slotCount() > 1 {
+		return fmt.Errorf("nested slots are not allowed in %q", file.RelPath)
+	}
 	if _, ok := routeTemplateNames[file.Base]; ok {
 		return validateRouteTemplatePlacement(file)
 	}
@@ -274,12 +364,17 @@ func unsupportedRouteFileError(relPath string) error {
 }
 
 func (file routeFile) inSlot() bool {
+	return file.slotCount() > 0
+}
+
+func (file routeFile) slotCount() int {
+	count := 0
 	for _, segment := range file.Segments {
 		if segment.Kind == frameworkrouter.SegmentSlot {
-			return true
+			count++
 		}
 	}
-	return false
+	return count
 }
 
 func (file routeFile) isSlotRoot() bool {
@@ -287,6 +382,42 @@ func (file routeFile) isSlotRoot() bool {
 		return false
 	}
 	return file.Segments[len(file.Segments)-1].Kind == frameworkrouter.SegmentSlot
+}
+
+func (file routeFile) slotOwnerDir() (string, bool) {
+	for idx, segment := range file.Segments {
+		if segment.Kind != frameworkrouter.SegmentSlot {
+			continue
+		}
+		if idx == 0 {
+			return "", true
+		}
+		parts := strings.Split(file.Dir, "/")
+		return strings.Join(parts[:idx], "/"), true
+	}
+	return "", false
+}
+
+func (file routeFile) definesMainEndpoint() bool {
+	if file.inSlot() {
+		return false
+	}
+	return file.Base == "page.templ" || file.Base == "route.go"
+}
+
+func routePatternKey(segments []frameworkrouter.Segment) string {
+	parts := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		part := segment.PatternKeyPart()
+		if part == "" {
+			continue
+		}
+		parts = append(parts, part)
+	}
+	if len(parts) == 0 {
+		return "/"
+	}
+	return "/" + strings.Join(parts, "/")
 }
 
 func isRouteClientAsset(base string) bool {
