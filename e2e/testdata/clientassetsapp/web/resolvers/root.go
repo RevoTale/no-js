@@ -10,7 +10,12 @@ import (
 )
 
 func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (metagen.Metadata, error) {
-	return metagen.Metadata{Description: "Client assets fixture"}, nil
+	return metagen.Metadata{
+		Description: "Client assets fixture",
+		Stylesheets: []string{
+			metagen.AssetURL(meta.Context(), "site.css"),
+		},
+	}, nil
 }
 
 func (Resolver) MetaGenRootPage(

@@ -235,6 +235,26 @@ console.log("dashboard", shared);
 	requireChunkFileExists(t, filepath.Join(stageDir, "chunks"))
 }
 
+func TestPrepareStaticSourceAppliesBrowserTargetsToScripts(t *testing.T) {
+	t.Parallel()
+
+	layout := testLayout(t)
+	layout.Assets.BrowserTargets = []string{"es2019"}
+	writeFile(t, filepath.Join(layout.RoutesDir, "root.templ"), "package routes\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "page.templ"), "package routes\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "page.js"), `const value = window.noJSClientAssets?.value;
+console.log(value);
+`)
+
+	stageDir, cleanup, err := PrepareStaticSource(PrepareStaticSourceConfig{Layout: layout})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, cleanup()) }()
+
+	js := readFile(t, filepath.Join(stageDir, "routes", "page.js"))
+	require.NotContains(t, js, "?.")
+	require.Contains(t, js, "==null")
+}
+
 func TestBuildPlanUsesLayoutSubtreeCSSBundles(t *testing.T) {
 	t.Parallel()
 

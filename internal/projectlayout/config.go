@@ -19,6 +19,7 @@ const (
 	defaultStaticManifestFileName = "manifest.json"
 	defaultStaticRuntimeURLPrefix = "/_assets/"
 	defaultTemplCSS               = true
+	defaultBrowserTarget          = "es2020"
 )
 
 type FeatureMode string
@@ -112,6 +113,9 @@ type StaticAssetsConfig struct {
 type AssetsConfig struct {
 	// TemplCSS controls whether templ css {} registrations are extracted into styles/templ.css.
 	TemplCSS *bool `yaml:"templ_css"`
+
+	// BrowserTargets controls esbuild target environments for generated and explicit assets.
+	BrowserTargets []string `yaml:"browser_targets"`
 }
 
 // Config defines build-time inputs for project layout resolution and code generation.
@@ -144,7 +148,8 @@ type StaticAssetsLayout struct {
 }
 
 type AssetsLayout struct {
-	TemplCSS bool
+	TemplCSS       bool
+	BrowserTargets []string
 }
 
 // ProjectLayout describes the resolved application layout on disk and in module space.

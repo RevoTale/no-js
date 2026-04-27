@@ -1,1 +1,3 @@
 :root { --client-assets-root-shell: 1; }
+
+.client-assets-browser-target { user-select: none; }

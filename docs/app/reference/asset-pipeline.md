@@ -14,7 +14,7 @@ examples, start with [Static Assets And Client Assets](../features/static-assets
 | Component CSS | `web/components/<name>/<name>.css` | folded into the matched layout-subtree or page-fallback stylesheet when imported |
 | Route, layout, or 404 JavaScript or TypeScript | `web/routes/**/page.{js,ts,tsx,mjs,mts}`, `layout.*`, or `404.*` | emitted as a shared owner module entry and injected into matched routes |
 | Component JavaScript or TypeScript | one of `web/components/<name>/<name>.{js,ts,tsx,mjs,mts}` | emitted once and injected into routes that import that component package |
-| Fingerprinted images, fonts, downloads, vendor files, or manual global files | `web/assets/**/*` | copied or minified into `web/assets-build` and manifest-addressed |
+| Fingerprinted images, fonts, downloads, vendor files, or manual global files | `web/assets/**/*` | copied, minified, or CSS-import bundled into `web/assets-build` and manifest-addressed |
 | Fixed paths such as `/favicon.ico` | `web/public/**/*` | served at the same request path |
 
 Most app pages should rely on generated route/component Client Assets and
@@ -26,6 +26,15 @@ shell CSS, non-root layouts own subtree stylesheets, and pages without a
 non-root layout get a page fallback stylesheet. JavaScript stays owner-based:
 matched routes inject the layout, page, 404, and imported component module
 entries they need, with shared imports emitted as esbuild chunks.
+
+Final browser assets pass through this build flow:
+
+```text
+templ global css -> staged styles/templ.css -> static esbuild build -> hashed CSS
+route/component css -> no-js ownership/class rewrite -> staged CSS -> static esbuild build -> hashed CSS
+client scripts -> esbuild owner entries/chunks -> static hash -> hashed JS
+web/assets css/js -> static esbuild build -> hashed asset
+```
 
 ## Commands
 
@@ -41,6 +50,37 @@ that the runtime serves. In normal app development, run the combined command:
 ```bash
 go tool no-js gen -root .
 ```
+
+## Browser Targets
+
+All esbuild-backed asset paths use `assets.browser_targets` from
+`no-js.bundle.yaml`:
+
+```yaml
+version: 1
+
+assets:
+  browser_targets:
+    - es2020
+    - chrome107
+    - firefox104
+    - safari16
+```
+
+Default: `es2020`.
+
+Use this when the app needs browser-specific JavaScript lowering or CSS vendor
+prefixes. The same target list is used for:
+
+- generated global templ CSS after it is staged as `styles/templ.css`
+- generated route/component Client Asset CSS after no-js resolves ownership and
+  rewrites classes
+- Client Asset scripts and their esbuild chunks
+- explicit `web/assets` CSS and JavaScript
+
+Entries must be non-empty. Keep `es2020` when you only need the default output.
+Add browser targets such as `safari13` only when the app needs that browser's
+syntax or prefix behavior.
 
 ## Source Rules
 
@@ -176,10 +216,11 @@ and does not write a browser file.
 
 After route ownership is resolved, `gen assets` stages those generated
 stylesheets and sends them through the same static asset builder as
-`web/assets/**/*.css`. The final browser files are esbuild-transformed and
-minified. This is a final CSS transform step; route/component CSS ownership is
-still decided by `no-js`, and CSS does not emit shared esbuild chunks like
-JavaScript.
+`web/assets/**/*.css`. The final browser files are esbuild-transformed,
+minified, and targeted with `assets.browser_targets`. This is a final CSS build
+step; route/component CSS ownership is still decided by `no-js`, CSS imports do
+not discover route/component dependencies, and CSS does not emit shared esbuild
+chunks like JavaScript.
 
 Use colocated `.css` files when you need normal stylesheet features:
 
@@ -252,11 +293,31 @@ Files under `web/assets`:
 - may be minified when they are `.css`, `.js`, `.mjs`, or `.cjs`
 - are not auto-injected into pages
 - do not get generated CSS constants or script helpers
-- are not bundled as an import graph
+- do not participate in route/component asset discovery
 
-Package imports from `node_modules` are not supported in `web/assets` CSS or
-JavaScript. Browser-resolvable relative imports can work when the imported file
-is also present under `web/assets`, but `no-js` does not rewrite import paths.
+CSS files under `web/assets` are built with esbuild in bundle mode, so
+browser-resolvable relative CSS imports are folded into the importing file in
+import order. Relative `url(...)` references inside imported CSS are rebased to
+stay correct from the final bundled CSS file:
+
+```text
+web/assets/site.css
+web/assets/shared/reset.css
+```
+
+```css
+/* web/assets/site.css */
+@import "./shared/reset.css";
+
+.site-shell {
+	color: #2563eb;
+}
+```
+
+JavaScript files under `web/assets` are minified as standalone files. They are
+not bundled as a module graph, and package imports from `node_modules` are not
+supported there. Use Client Asset scripts for package imports, TypeScript, TSX,
+and shared JS chunks.
 
 Reference a hashed asset intentionally from app code:
 

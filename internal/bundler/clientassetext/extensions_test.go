@@ -13,6 +13,13 @@ func TestScriptExtensionsIncludeTSX(t *testing.T) {
 	require.Equal(t, "page.js", ScriptOutputName("page"))
 }
 
+func TestAssetExtensionsRequireLowercase(t *testing.T) {
+	require.False(t, IsCSSFile("web/routes/page.CSS"))
+	require.False(t, IsAssetExtension(".CSS"))
+	require.False(t, IsScriptFile("web/routes/page.TSX"))
+	require.False(t, IsScriptExtension(".TSX"))
+}
+
 func TestGeneratedHelpers(t *testing.T) {
 	require.True(t, IsGeneratedHelperName("page.tsx_gen.go"))
 	require.True(t, IsGeneratedHelperFor("page", "page.tsx_gen.go"))

@@ -41,6 +41,7 @@ func TestResolveProjectLayoutDefaults(t *testing.T) {
 	)
 	require.Equal(t, expectedManifestPath, filepath.ToSlash(layout.StaticAssets.ManifestPath))
 	require.True(t, layout.Assets.TemplCSS)
+	require.Equal(t, []string{"es2020"}, layout.Assets.BrowserTargets)
 	require.True(t, layout.ServerFeatures.I18nRouting)
 	require.True(t, layout.ServerFeatures.StaticAssets)
 	require.True(t, layout.ServerFeatures.HealthEndpoint)
@@ -55,6 +56,21 @@ func TestResolveProjectLayoutRejectsMissingAppDir(t *testing.T) {
 	_, err := ResolveProjectLayout(rootDir, Config{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "strict routes root missing")
+}
+
+func TestResolveProjectLayoutRejectsEmptyBrowserTarget(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	writeBundlerTestFile(t, filepath.Join(rootDir, "go.mod"), "module example.com/app\n\ngo 1.25.0\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "routes", "page.templ"), "package appsrc\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package view\n")
+
+	_, err := ResolveProjectLayout(rootDir, Config{
+		Assets: AssetsConfig{BrowserTargets: []string{"es2020", " "}},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "browser target cannot be empty")
 }
 
 func TestResolveProjectLayoutRejectsEscapeDir(t *testing.T) {

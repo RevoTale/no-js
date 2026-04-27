@@ -152,14 +152,19 @@ rules.
 Cause:
 
 - Client Asset CSS does not use CSS `@import` as a dependency graph
-- `web/assets` CSS imports are not bundled or rewritten
+- explicit `web/assets` CSS only bundles browser-resolvable relative CSS imports
+- package imports such as `@import "package/styles.css"` are not resolved from
+  `node_modules`
 
 Fix:
 
-- put route/component CSS beside the route or component that owns it
-- put explicit third-party CSS files under `web/assets`
-- include global CSS intentionally from metadata or app-owned head code
-- do not expect `@import "package/styles.css"` to resolve from `node_modules`
+- put route/component CSS beside the route, layout, 404 page, or component that
+  owns it
+- put manual global CSS under `web/assets` and include it intentionally from
+  metadata or app-owned head code
+- keep relative CSS imports inside `web/assets`, such as `@import "./reset.css"`
+- vendor third-party CSS into `web/assets` instead of importing it from
+  `node_modules`
 
 See [Asset Pipeline Reference](reference/asset-pipeline.md) for the compile and
 bundle split.

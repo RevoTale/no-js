@@ -37,6 +37,7 @@ type clientAssetsFixture struct {
 	SectionAdminCSS        responseSnapshot
 	ComplexCSS             responseSnapshot
 	NotFoundCSS            responseSnapshot
+	SiteCSS                responseSnapshot
 	RootCSSURL             string
 	RouteCSSURL            string
 	RouteScriptURL         string
@@ -47,6 +48,7 @@ type clientAssetsFixture struct {
 	SectionAdminCSSURL     string
 	ComplexCSSURL          string
 	NotFoundCSSURL         string
+	SiteCSSURL             string
 }
 
 type templCSSFixture struct {
@@ -195,6 +197,7 @@ type templRulesFixture struct {
 
 var stylesheetPattern = regexp.MustCompile(`href="([^"]+/styles/templ\.css)"`)
 var routeRootCSSPattern = regexp.MustCompile(`href="([^"]+/routes/root\.css)"`)
+var clientAssetsSiteCSSPattern = regexp.MustCompile(`href="([^"]+/site\.css)"`)
 var routePageCSSPattern = regexp.MustCompile(`href="([^"]+/routes/page\.css)"`)
 var routePageScriptPattern = regexp.MustCompile(`src="([^"]+/routes/page\.js)"`)
 var routeMeterScriptPattern = regexp.MustCompile(`src="([^"]+/components/meter/meter\.js)"`)
@@ -241,6 +244,7 @@ func loadClientAssetsFixture(t *testing.T) clientAssetsFixture {
 	notFound := requestFixture(t, server, http.MethodGet, "/missing", nil, requestOptions{})
 
 	rootCSSURL := extractPatternURL(t, routeRootCSSPattern, home.Body, "root stylesheet")
+	siteCSSURL := extractPatternURL(t, clientAssetsSiteCSSPattern, home.Body, "site stylesheet")
 	routeCSSURL := extractPatternURL(t, routePageCSSPattern, home.Body, "route stylesheet")
 	routeScriptURL := extractPatternURL(t, routePageScriptPattern, home.Body, "route script")
 	meterScriptURL := extractPatternURL(t, routeMeterScriptPattern, home.Body, "meter script")
@@ -270,6 +274,7 @@ func loadClientAssetsFixture(t *testing.T) clientAssetsFixture {
 		SectionAdminCSS:        requestFixture(t, server, http.MethodGet, sectionAdminCSSURL, nil, requestOptions{}),
 		ComplexCSS:             requestFixture(t, server, http.MethodGet, complexCSSURL, nil, requestOptions{}),
 		NotFoundCSS:            requestFixture(t, server, http.MethodGet, notFoundCSSURL, nil, requestOptions{}),
+		SiteCSS:                requestFixture(t, server, http.MethodGet, siteCSSURL, nil, requestOptions{}),
 		RootCSSURL:             rootCSSURL,
 		RouteCSSURL:            routeCSSURL,
 		RouteScriptURL:         routeScriptURL,
@@ -280,6 +285,7 @@ func loadClientAssetsFixture(t *testing.T) clientAssetsFixture {
 		SectionAdminCSSURL:     sectionAdminCSSURL,
 		ComplexCSSURL:          complexCSSURL,
 		NotFoundCSSURL:         notFoundCSSURL,
+		SiteCSSURL:             siteCSSURL,
 	}
 }
 

@@ -87,6 +87,24 @@ func TestLoadConfigFileAcceptsDisabledTemplCSSAssetToggle(t *testing.T) {
 	require.False(t, *cfg.Assets.TemplCSS)
 }
 
+func TestLoadConfigFileAcceptsBrowserTargets(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "no-js.bundle.yaml")
+	writeBundlerTestFile(t, configPath, strings.Join([]string{
+		"version: 1",
+		"assets:",
+		"  browser_targets:",
+		"    - es2020",
+		"    - safari13",
+		"",
+	}, "\n"))
+
+	cfg, err := LoadConfigFile(configPath)
+	require.NoError(t, err)
+	require.Equal(t, []string{"es2020", "safari13"}, cfg.Assets.BrowserTargets)
+}
+
 func TestResolveProjectLayoutFromRootUsesConfigOverrides(t *testing.T) {
 	t.Parallel()
 
@@ -111,6 +129,9 @@ func TestResolveProjectLayoutFromRootUsesConfigOverrides(t *testing.T) {
 			"  assets_build_dir: web-static-build",
 			"assets:",
 			"  templ_css: true",
+			"  browser_targets:",
+			"    - es2020",
+			"    - safari13",
 			"static_assets:",
 			"  manifest_path: web-static-build/manifest.json",
 			"",
@@ -128,4 +149,5 @@ func TestResolveProjectLayoutFromRootUsesConfigOverrides(t *testing.T) {
 	expectedStaticOutDir := filepath.ToSlash(filepath.Join(rootDir, "web-static-build"))
 	require.Equal(t, expectedStaticOutDir, filepath.ToSlash(layout.StaticAssets.OutDir))
 	require.True(t, layout.Assets.TemplCSS)
+	require.Equal(t, []string{"es2020", "safari13"}, layout.Assets.BrowserTargets)
 }

@@ -121,6 +121,18 @@ func TestValidateRejectsMultipleRouteScriptSources(t *testing.T) {
 	require.Contains(t, err.Error(), `choose one of page.js, page.ts, page.tsx, page.mjs, or page.mts`)
 }
 
+func TestValidateRejectsMixedCaseRouteAssetExtension(t *testing.T) {
+	root := t.TempDir()
+	layout := testLayout(root)
+	writeFile(t, filepath.Join(layout.RoutesDir, "root.templ"), "package routes\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "page.templ"), "package routes\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "page.CSS"), ".shell {}\n")
+
+	err := Validate(layout)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `unsupported file in web/routes: "page.CSS"`)
+}
+
 func TestValidateRejectsLooseRootComponentFile(t *testing.T) {
 	root := t.TempDir()
 	layout := testLayout(root)
@@ -178,6 +190,17 @@ func TestValidateRejectsMultipleComponentScriptSources(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `component package web/components/card has multiple script sources`)
 	require.Contains(t, err.Error(), `choose one of card.js, card.ts, card.tsx, card.mjs, or card.mts`)
+}
+
+func TestValidateRejectsMixedCaseComponentAssetExtension(t *testing.T) {
+	root := t.TempDir()
+	layout := testLayout(root)
+	writeFile(t, filepath.Join(root, "web", "components", "card", "card.templ"), "package card\n")
+	writeFile(t, filepath.Join(root, "web", "components", "card", "card.TSX"), "console.log('card')\n")
+
+	err := Validate(layout)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `unsupported file in web/components: "card/card.TSX"`)
 }
 
 func TestValidateRejectsUnsupportedComponentFile(t *testing.T) {

@@ -33,9 +33,31 @@ stylesheets, and explicit `web/assets/**/*.css` files are transformed and
 minified by esbuild before the browser receives them. Dynamic templ `css {}`
 that stays local to rendering is not part of that global asset build.
 
+The final asset pipeline is:
+
+```text
+templ global css -> staged styles/templ.css -> static esbuild build -> hashed CSS
+route/component css -> no-js ownership/class rewrite -> staged CSS -> static esbuild build -> hashed CSS
+client scripts -> esbuild owner entries/chunks -> static hash -> hashed JS
+web/assets css/js -> static esbuild build -> hashed asset
+```
+
+All esbuild paths use `assets.browser_targets`. The default is `es2020`. Add
+browser-specific targets only when the app needs older syntax output or CSS
+vendor prefixes:
+
+```yaml
+version: 1
+
+assets:
+  browser_targets:
+    - es2020
+    - safari13
+```
+
 You do not need `no-js.bundle.yaml` for the default templ CSS behavior. Add the
 file only when you need to change a default, such as disabling global templ CSS
-extraction.
+extraction or changing browser targets.
 
 ## Choose Templ CSS Or CSS Files
 
@@ -230,12 +252,22 @@ Do not use CSS `@import` as a route/component dependency system:
 @import "some-package/styles.css";
 ```
 
-Client Asset CSS is discovered from route files and imported Go component
-packages, not from CSS imports. Put CSS beside the route or component that owns
-it.
+Client Asset CSS is discovered from route templates and imported Go component
+packages, not from CSS imports. Put CSS beside the route, layout, 404 page, or
+component that owns it.
 
-If you need a third-party CSS file as an independent hashed file, put it under
-`web/assets` and include it intentionally.
+Explicit `web/assets` CSS is different. A CSS file under `web/assets` can import
+another browser-resolvable CSS file with a relative path, and asset generation
+bundles it into the importing CSS file:
+
+```css
+@import "./reset.css";
+```
+
+Use that for manual global files you include intentionally from metadata or
+app-owned head code. Package imports from `node_modules` are not supported in
+CSS; vendor the CSS under `web/assets` or use the package from a Client Asset
+script when the dependency is JavaScript.
 
 ## Use `web/assets` For Explicit Hashed Files
 
@@ -255,7 +287,24 @@ Example:
 ```text
 web/assets/embed.js
 web/assets/fonts/brand.woff2
+web/assets/site.css
+web/assets/shared/reset.css
 ```
+
+A manual stylesheet can import another CSS file under `web/assets`:
+
+```css
+/* web/assets/site.css */
+@import "./shared/reset.css";
+
+.site-shell {
+	color: #2563eb;
+}
+```
+
+The generated `site.css` URL points to one hashed CSS file that already contains
+`shared/reset.css` before `.site-shell`. Include it intentionally from metadata
+or app-owned head code; it is not attached to routes automatically.
 
 Run:
 
@@ -270,8 +319,10 @@ The files are written under `web/assets-build` and served from:
 /_assets/<hash>/fonts/brand.woff2
 ```
 
-`web/assets` files are not scoped, do not get generated class constants, are not
-auto-injected into pages, and are not bundled as a module graph.
+`web/assets` files are not scoped, do not get generated class constants, and are
+not auto-injected into pages. CSS files may bundle browser-resolvable relative
+`@import` files; JavaScript files are minified as standalone files, not bundled
+as a module graph.
 
 If you need to add one to a page, add the URL yourself. Metadata resolvers can
 use the request context to resolve hashed asset URLs:
@@ -291,18 +342,20 @@ func (Resolver) MetaGenRootPage(
 
 ## `web/assets` Imports
 
-CSS and JavaScript files in `web/assets` may be minified and fingerprinted, but
-imports are not resolved or rewritten.
-
-Browser-resolvable relative imports can work when the imported file is also
-present under `web/assets`:
+CSS files in `web/assets` are built with esbuild in bundle mode. Relative CSS
+imports are bundled into the importing file when the browser path can be
+resolved from `web/assets`. Relative `url(...)` references inside imported CSS
+are rebased so they still point at the correct copied asset from the final
+bundled CSS file:
 
 ```css
 @import "./reset.css";
 ```
 
-Package imports from `node_modules` are not supported in `web/assets` CSS or
-JavaScript. Use Client Asset scripts when you need esbuild package resolution.
+JavaScript files in `web/assets` are minified and fingerprinted as standalone
+files. They are not bundled as a module graph, and package imports from
+`node_modules` are not supported there. Use Client Asset scripts when you need
+esbuild package resolution, TypeScript, TSX, or shared JS chunks.
 
 ## Use `web/public` For Fixed Paths
 

@@ -128,6 +128,7 @@ func TestClientAssetsFixtureApp(t *testing.T) {
 	report := loadClientAssetsFixture(t)
 
 	require.Regexp(t, regexp.MustCompile(`^/_assets/[0-9a-f]{16}/routes/root\.css$`), report.RootCSSURL)
+	require.Regexp(t, regexp.MustCompile(`^/_assets/[0-9a-f]{16}/site\.css$`), report.SiteCSSURL)
 	require.Regexp(t, regexp.MustCompile(`^/_assets/[0-9a-f]{16}/routes/page\.css$`), report.RouteCSSURL)
 	require.Regexp(t, regexp.MustCompile(`^/_assets/[0-9a-f]{16}/routes/page\.js$`), report.RouteScriptURL)
 	require.Regexp(t, regexp.MustCompile(`^/_assets/[0-9a-f]{16}/components/meter/meter\.js$`), report.MeterScriptURL)
@@ -149,10 +150,12 @@ func TestClientAssetsFixtureApp(t *testing.T) {
 	require.Equal(t, 200, report.Home.Status)
 	require.Contains(t, report.Home.Body, `data-route-page="home"`)
 	require.Contains(t, report.Home.Body, report.RootCSSURL)
+	require.Contains(t, report.Home.Body, report.SiteCSSURL)
 	require.Contains(t, report.Home.Body, report.RouteCSSURL)
 	require.Contains(t, report.Home.Body, report.RouteScriptURL)
 	require.Contains(t, report.Home.Body, report.MeterScriptURL)
 	require.Equal(t, 1, strings.Count(report.Home.Body, report.RootCSSURL))
+	require.Equal(t, 1, strings.Count(report.Home.Body, report.SiteCSSURL))
 	require.Equal(t, 1, strings.Count(report.Home.Body, report.RouteCSSURL))
 	require.Equal(t, 1, strings.Count(report.Home.Body, report.RouteScriptURL))
 	require.Equal(t, 1, strings.Count(report.Home.Body, report.MeterScriptURL))
@@ -185,6 +188,20 @@ func TestClientAssetsFixtureApp(t *testing.T) {
 		t,
 		mustMatchString(t, `<span[^>]*data-hard-case="muted"[^>]*>`, report.Home.Body),
 	)
+
+	require.Equal(t, 200, report.SiteCSS.Status)
+	require.Contains(t, report.SiteCSS.ContentType, "text/css")
+	require.Contains(t, report.SiteCSS.Body, ".client-assets-imported-reset")
+	require.Contains(t, report.SiteCSS.Body, "--client-assets-imported-reset")
+	require.Contains(t, report.SiteCSS.Body, ".client-assets-imported-icon")
+	require.Contains(t, report.SiteCSS.Body, "url(./icons/mark.svg)")
+	require.Contains(t, report.SiteCSS.Body, ".client-assets-site")
+	require.Less(
+		t,
+		strings.Index(report.SiteCSS.Body, ".client-assets-imported-reset"),
+		strings.Index(report.SiteCSS.Body, ".client-assets-site"),
+	)
+	require.NotContains(t, report.SiteCSS.Body, "@import")
 
 	require.Equal(t, 200, report.RouteCSS.Status)
 	require.Contains(t, report.RouteCSS.ContentType, "text/css")
@@ -238,6 +255,8 @@ func TestClientAssetsFixtureApp(t *testing.T) {
 	require.Equal(t, 200, report.RootCSS.Status)
 	require.Contains(t, report.RootCSS.ContentType, "text/css")
 	require.Contains(t, report.RootCSS.Body, "--client-assets-root-shell")
+	require.Contains(t, report.RootCSS.Body, "-webkit-user-select:none")
+	require.Contains(t, report.RootCSS.Body, "user-select:none")
 	require.NotContains(t, report.RootCSS.Body, "padding:18px")
 	require.NotContains(t, report.RootCSS.Body, "--section-summary-page")
 
@@ -1394,24 +1413,24 @@ func TestGenerationValidatorAllowsStrictRouteAndComponentShape(t *testing.T) {
 }
 
 func TestGenerationValidatorRejectsUnsupportedRouteFiles(t *testing.T) {
-	appDir := prepareFixtureAppWithNoJSGen(t, "routepagecssapp")
+	appDir := copyFixtureApp(t, "routepagecssapp")
 	require.NoError(t, os.WriteFile(
 		filepath.Join(appDir, "web", "routes", "helper.go"),
 		[]byte("package routes\n"),
 		0o644,
 	))
 
-	output := runGoError(t, appDir, "tool", "no-js", "gen", "routes", "-root", ".")
+	output := runNoJSError(t, appDir, "gen", "routes", "-root", ".")
 	require.Contains(t, string(output), `validate app shape: unsupported file in web/routes: "helper.go"`)
 }
 
 func TestGenerationValidatorRejectsRouteAssetWithoutMatchingTemplate(t *testing.T) {
-	appDir := prepareFixtureAppWithNoJSGen(t, "routepagecssapp")
+	appDir := copyFixtureApp(t, "routepagecssapp")
 	orphanDir := filepath.Join(appDir, "web", "routes", "orphan")
 	require.NoError(t, os.MkdirAll(orphanDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(orphanDir, "page.css"), []byte(".orphan {}\n"), 0o644))
 
-	output := runGoError(t, appDir, "tool", "no-js", "gen", "routes", "-root", ".")
+	output := runNoJSError(t, appDir, "gen", "routes", "-root", ".")
 	require.Contains(
 		t,
 		string(output),
@@ -1420,7 +1439,7 @@ func TestGenerationValidatorRejectsRouteAssetWithoutMatchingTemplate(t *testing.
 }
 
 func TestGenerationValidatorRejectsMultipleRouteScriptSources(t *testing.T) {
-	appDir := prepareFixtureAppWithNoJSGen(t, "routepagecssapp")
+	appDir := copyFixtureApp(t, "routepagecssapp")
 	require.NoError(t, os.WriteFile(
 		filepath.Join(appDir, "web", "routes", "page.ts"),
 		[]byte("console.log('page')\n"),
@@ -1432,63 +1451,63 @@ func TestGenerationValidatorRejectsMultipleRouteScriptSources(t *testing.T) {
 		0o644,
 	))
 
-	output := runGoError(t, appDir, "tool", "no-js", "gen", "routes", "-root", ".")
+	output := runNoJSError(t, appDir, "gen", "routes", "-root", ".")
 	require.Contains(t, string(output), `route directory web/routes has multiple script sources for "page.templ"`)
 	require.Contains(t, string(output), `choose one of page.js, page.ts, page.tsx, page.mjs, or page.mts`)
 }
 
 func TestGenerationValidatorRejectsUnsupportedComponentFiles(t *testing.T) {
-	appDir := prepareFixtureAppWithNoJSGen(t, "clientassetsapp")
+	appDir := copyFixtureApp(t, "clientassetsapp")
 	require.NoError(t, os.WriteFile(
 		filepath.Join(appDir, "web", "components", "meter", "logo.svg"),
 		[]byte("<svg/>\n"),
 		0o644,
 	))
 
-	output := runGoError(t, appDir, "tool", "no-js", "gen", "routes", "-root", ".")
+	output := runNoJSError(t, appDir, "gen", "routes", "-root", ".")
 	require.Contains(t, string(output), `validate app shape: unsupported file in web/components: "meter/logo.svg"`)
 }
 
 func TestGenerationValidatorRejectsLooseComponentRootFile(t *testing.T) {
-	appDir := prepareFixtureAppWithNoJSGen(t, "clientassetsapp")
+	appDir := copyFixtureApp(t, "clientassetsapp")
 	require.NoError(t, os.WriteFile(
 		filepath.Join(appDir, "web", "components", "badge.templ"),
 		[]byte("package components\n"),
 		0o644,
 	))
 
-	output := runGoError(t, appDir, "tool", "no-js", "gen", "routes", "-root", ".")
+	output := runNoJSError(t, appDir, "gen", "routes", "-root", ".")
 	require.Contains(t, string(output), `validate app shape: unsupported file in web/components: "badge.templ"`)
 	require.Contains(t, string(output), `web/components/badge/badge.templ`)
 }
 
 func TestGenerationValidatorRejectsExtraComponentTemplate(t *testing.T) {
-	appDir := prepareFixtureAppWithNoJSGen(t, "clientassetsapp")
+	appDir := copyFixtureApp(t, "clientassetsapp")
 	cardDir := filepath.Join(appDir, "web", "components", "card")
 	require.NoError(t, os.MkdirAll(cardDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(cardDir, "card.templ"), []byte("package card\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(cardDir, "variants.templ"), []byte("package card\n"), 0o644))
 
-	output := runGoError(t, appDir, "tool", "no-js", "gen", "routes", "-root", ".")
+	output := runNoJSError(t, appDir, "gen", "routes", "-root", ".")
 	require.Contains(t, string(output), `validate app shape: unsupported component template "card/variants.templ"`)
 	require.Contains(t, string(output), `card.templ`)
 }
 
 func TestGenerationValidatorRejectsMultipleComponentScriptSources(t *testing.T) {
-	appDir := prepareFixtureAppWithNoJSGen(t, "clientassetsapp")
+	appDir := copyFixtureApp(t, "clientassetsapp")
 	cardDir := filepath.Join(appDir, "web", "components", "card")
 	require.NoError(t, os.MkdirAll(cardDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(cardDir, "card.templ"), []byte("package card\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(cardDir, "card.ts"), []byte("console.log('card')\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(cardDir, "card.tsx"), []byte("console.log('card')\n"), 0o644))
 
-	output := runGoError(t, appDir, "tool", "no-js", "gen", "routes", "-root", ".")
+	output := runNoJSError(t, appDir, "gen", "routes", "-root", ".")
 	require.Contains(t, string(output), `component package web/components/card has multiple script sources`)
 	require.Contains(t, string(output), `choose one of card.js, card.ts, card.tsx, card.mjs, or card.mts`)
 }
 
 func TestGenerationValidatorRejectsExportedComponentSupportGo(t *testing.T) {
-	appDir := prepareFixtureAppWithNoJSGen(t, "clientassetsapp")
+	appDir := copyFixtureApp(t, "clientassetsapp")
 	cardDir := filepath.Join(appDir, "web", "components", "card")
 	require.NoError(t, os.MkdirAll(cardDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(cardDir, "card.templ"), []byte("package card\n"), 0o644))
@@ -1498,17 +1517,17 @@ func TestGenerationValidatorRejectsExportedComponentSupportGo(t *testing.T) {
 		0o644,
 	))
 
-	output := runGoError(t, appDir, "tool", "no-js", "gen", "routes", "-root", ".")
+	output := runNoJSError(t, appDir, "gen", "routes", "-root", ".")
 	require.Contains(t, string(output), `exported declaration "Helper" in web/components/card/helper.go`)
 	require.Contains(t, string(output), `must move to "card.go" or be made private`)
 }
 
 func TestGenerationValidatorRejectsComponentAssetFolders(t *testing.T) {
-	appDir := prepareFixtureAppWithNoJSGen(t, "clientassetsapp")
+	appDir := copyFixtureApp(t, "clientassetsapp")
 	themeDir := filepath.Join(appDir, "web", "components", "theme")
 	require.NoError(t, os.MkdirAll(themeDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(themeDir, "theme.css"), []byte(".theme {}\n"), 0o644))
 
-	output := runGoError(t, appDir, "tool", "no-js", "gen", "routes", "-root", ".")
+	output := runNoJSError(t, appDir, "gen", "routes", "-root", ".")
 	require.Contains(t, string(output), `component package web/components/theme must contain "theme.templ" or "theme.go"`)
 }

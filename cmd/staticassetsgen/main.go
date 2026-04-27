@@ -76,6 +76,10 @@ func main() {
 	manifestPath = resolvePath(rootDir, manifestPath)
 
 	buildSourceDir := sourceDir
+	browserTargets := []string(nil)
+	if layoutResolved {
+		browserTargets = layout.Assets.BrowserTargets
+	}
 	cleanupSource := func() error { return nil }
 	if templCSSHasRegistrations {
 		stageDir, cleanup, err := templcssgen.PrepareStaticSource(templcssgen.PrepareStaticSourceConfig{
@@ -95,8 +99,9 @@ func main() {
 	}()
 
 	bundle, err := staticassets.Build(staticassets.BuildConfig{
-		SourceDir: buildSourceDir,
-		URLPrefix: urlPrefix,
+		SourceDir:      buildSourceDir,
+		URLPrefix:      urlPrefix,
+		BrowserTargets: browserTargets,
 	})
 	if err != nil {
 		exitf("build static bundle: %v", err)

@@ -61,6 +61,11 @@ pages, and route-owned Client Assets. `web/components` is a component package
 tree: no root files, one component per directory, same-stem assets, and public
 Go API only in the same-stem anchor file.
 
+Generated and explicit CSS/JS use `assets.browser_targets` from
+`no-js.bundle.yaml`. The default is `es2020`. Route/component CSS discovery is
+not CSS-import based; explicit CSS under `web/assets` may bundle relative CSS
+`@import` files because it is a manual hashed asset lane.
+
 ## Route Files And Directories
 
 Reserved route template names:

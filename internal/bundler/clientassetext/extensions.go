@@ -18,7 +18,7 @@ func AssetExtensions() []string {
 }
 
 func IsCSSFile(filePath string) bool {
-	return strings.EqualFold(filepath.Ext(filePath), CSSExtension)
+	return filepath.Ext(filePath) == CSSExtension
 }
 
 func IsScriptFile(filePath string) bool {
@@ -26,7 +26,7 @@ func IsScriptFile(filePath string) bool {
 }
 
 func IsAssetExtension(extension string) bool {
-	if strings.EqualFold(extension, CSSExtension) {
+	if extension == CSSExtension {
 		return true
 	}
 	return IsScriptExtension(extension)
@@ -34,7 +34,7 @@ func IsAssetExtension(extension string) bool {
 
 func IsScriptExtension(extension string) bool {
 	for _, candidate := range scriptExtensions {
-		if strings.EqualFold(extension, candidate) {
+		if extension == candidate {
 			return true
 		}
 	}

@@ -32,6 +32,8 @@ i18n:
 
 assets:
   templ_css: true
+  browser_targets:
+    - es2020
 
 static_assets:
   manifest_path: web/assets-build/manifest.json
@@ -107,6 +109,27 @@ assets:
   templ_css: false
 ```
 
+- `assets.browser_targets`
+  esbuild browser targets for generated and explicit assets. Default:
+  `["es2020"]`.
+
+  The same ordered target list is used for Client Asset scripts, generated
+  global templ CSS after staging, generated route/component CSS after staging,
+  and explicit `web/assets` CSS and JavaScript. Use esbuild target names such
+  as `es2020`, `chrome107`, `firefox104`, or `safari16`. Empty entries are
+  rejected.
+
+```yaml
+version: 1
+
+assets:
+  browser_targets:
+    - es2020
+    - chrome107
+    - firefox104
+    - safari16
+```
+
 ## `static_assets`
 
 - `static_assets.manifest_path`
@@ -122,6 +145,7 @@ This path controls where the asset pipeline writes the manifest that
 - unknown YAML fields are rejected
 - configured paths must be relative and stay inside the app root
 - `assets.templ_css` must be `true` or `false`
+- `assets.browser_targets` entries must be non-empty esbuild targets
 - `go.mod`, the configured route root, and the configured view root must exist
 - if i18n routing is enabled, the configured i18n root must exist
 - if built-in i18n is enabled, the configured messages directory must exist

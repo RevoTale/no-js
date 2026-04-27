@@ -65,8 +65,9 @@ shape. Think of `routes` as the generation step that writes Go code, and
 - the static asset manifest, by default `web/assets-build/manifest.json`
 
 Client Asset scripts are bundled with esbuild and can use JavaScript or
-TypeScript imports. `web/assets` files are path-managed: they may be minified
-and fingerprinted, but imports are not resolved or bundled.
+TypeScript imports. `web/assets` files are path-managed: CSS may bundle relative
+CSS imports, while JavaScript is minified as a standalone file. All esbuild
+paths use `assets.browser_targets` from bundle config.
 
 See [Asset Pipeline Reference](asset-pipeline.md) for the compile, bundle, and
 fingerprint split.

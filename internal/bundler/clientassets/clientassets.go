@@ -20,6 +20,7 @@ import (
 	"github.com/RevoTale/no-js/framework/metagen"
 	frameworkrouter "github.com/RevoTale/no-js/framework/router"
 	"github.com/RevoTale/no-js/internal/bundler/clientassetext"
+	"github.com/RevoTale/no-js/internal/bundler/esbuildtarget"
 	"github.com/RevoTale/no-js/internal/filesystem"
 	"github.com/RevoTale/no-js/internal/projectlayout"
 	"github.com/evanw/esbuild/pkg/api"
@@ -1219,6 +1220,11 @@ func writeScriptBundles(stageDir string, layout projectlayout.ProjectLayout, fil
 		return nil
 	}
 
+	target, engines, err := esbuildtarget.Parse(layout.Assets.BrowserTargets)
+	if err != nil {
+		return fmt.Errorf("parse browser targets: %w", err)
+	}
+
 	webRoot := filepath.Dir(layout.RoutesDir)
 	result := api.Build(api.BuildOptions{
 		EntryPoints:       entryPoints,
@@ -1232,7 +1238,8 @@ func writeScriptBundles(stageDir string, layout projectlayout.ProjectLayout, fil
 		Format:            api.FormatESModule,
 		Splitting:         true,
 		Platform:          api.PlatformBrowser,
-		Target:            api.ES2020,
+		Target:            target,
+		Engines:           engines,
 		MinifyWhitespace:  true,
 		MinifySyntax:      true,
 		MinifyIdentifiers: true,

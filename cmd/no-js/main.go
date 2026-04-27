@@ -206,7 +206,8 @@ func generateAssets(layout projectlayout.ProjectLayout) error {
 	}
 
 	bundle, err := bundlerstaticassets.Build(bundlerstaticassets.BuildConfig{
-		SourceDir: buildSourceDir,
+		SourceDir:      buildSourceDir,
+		BrowserTargets: layout.Assets.BrowserTargets,
 	})
 	if err != nil {
 		return fmt.Errorf("build static bundle: %w", err)

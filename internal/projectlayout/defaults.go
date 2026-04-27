@@ -96,6 +96,10 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 	if err != nil {
 		return ProjectLayout{}, err
 	}
+	browserTargets, err := resolveBrowserTargets(cfg.Assets.BrowserTargets)
+	if err != nil {
+		return ProjectLayout{}, fmt.Errorf("resolve browser targets: %w", err)
+	}
 
 	return ProjectLayout{
 		RootDir: resolvedRoot,
@@ -112,7 +116,8 @@ func ResolveProjectLayout(rootDir string, cfg Config) (ProjectLayout, error) {
 		I18nImport:      i18nImport,
 		BuiltInI18n:     builtInI18n,
 		Assets: AssetsLayout{
-			TemplCSS: resolveTemplCSS(cfg.Assets.TemplCSS),
+			TemplCSS:       resolveTemplCSS(cfg.Assets.TemplCSS),
+			BrowserTargets: browserTargets,
 		},
 		StaticAssets: StaticAssetsLayout{
 			SourceDir:    staticSourceDir,
@@ -148,6 +153,21 @@ func resolveTemplCSS(value *bool) bool {
 		return defaultTemplCSS
 	}
 	return *value
+}
+
+func resolveBrowserTargets(values []string) ([]string, error) {
+	if len(values) == 0 {
+		return []string{defaultBrowserTarget}, nil
+	}
+	targets := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return nil, fmt.Errorf("browser target cannot be empty")
+		}
+		targets = append(targets, trimmed)
+	}
+	return targets, nil
 }
 
 func normalizeRelativePath(value string, defaultValue string) (string, error) {

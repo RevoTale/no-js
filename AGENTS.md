@@ -64,8 +64,10 @@ If a task affects the consuming-app contract, also inspect:
     instead of adding `variants.templ`, `header.templ`, or similar files.
   * Optional component assets must be same-stem: `<name>.css` and at most one
     `<name>.{js,ts,tsx,mjs,mts}`.
-  * Public handwritten Go API belongs only in `<name>.go`; other handwritten non-test `.go` files in the same component directory are support
-    files and must not declare exported funcs, methods, types, vars, or consts.
+  * File extensions are case-sensitive and must be lower-case. For example, `card.css` and `card.tsx` are valid;
+    `card.CSS` and `card.TSX` are rejected.
+  * Public handwritten Go API belongs only in `<name>.go`; other handwritten non-test `.go` files in the same
+    component directory are support files and must not declare exported funcs, methods, types, vars, or consts.
 - MUST keep e2e fixture apps under `e2e/testdata` valid on disk. Tests for invalid app shapes must copy a valid
   fixture to a temp directory and break only that temp copy before asserting generation failure.
 - MUST treat route-control directories under `web/routes` as routing syntax, not mandatory Go package names.
@@ -85,6 +87,11 @@ If a task affects the consuming-app contract, also inspect:
   component CSS, reused by every dashboard page. Page-level CSS is only standalone when there is no non-root layout
   owner that should own that subtree. Final generated CSS files still pass through the static asset builder's esbuild
   CSS transform before reaching the browser; do not treat the pre-static-build staging files as final output.
+- MUST keep browser target configuration unified. `assets.browser_targets` defaults to `es2020` and must apply to
+  every esbuild-backed path: Client Asset scripts, generated global templ CSS after staging, generated
+  route/component CSS after staging, and explicit `web/assets` CSS/JS. Explicit `web/assets` CSS may bundle relative
+  CSS `@import` files. Route/component CSS imports must not become dependency discovery; ownership stays based on
+  route templates and reachable Go component imports.
 - MUST keep JavaScript as shared owner entries plus esbuild chunks. For example, `web/routes/dashboard/page.tsx`
   emits `routes/dashboard/page.js`, component scripts emit under `components/<name>/`, and shared JS imports are
   emitted under `chunks/`. Generated routes inject the ordered owner files they need through `@metagen.Head(meta)`.
@@ -98,12 +105,14 @@ If a task affects the consuming-app contract, also inspect:
 - MUST name app migration docs by source and target version, for example
   `docs/app/migrations/v1.3.0-to-v1.4.0.md`. Use `next` only before the target
   release version exists, and rename it to the concrete higher version after release.
-- MUST keep the migration versions linking in the `docs/app/migrations.md` file with higher version on the top. 
-- MUST keep the migration guide related only to the `docs/app/migrations` directory and `docs/app/migrations.md`. Only `docs/app/migrations.md` file can point to the cocrete migrations.
+- MUST keep the migration versions linking in the `docs/app/migrations.md` file with the higher version at the top.
+- MUST keep the migration guide related only to the `docs/app/migrations` directory and `docs/app/migrations.md`.
+  Only `docs/app/migrations.md` file can point to the concrete migrations.
 - MUST make migration guide titles include both the version range and migration topic.
 - MUST make migration guides list concrete refactors: affected symbols/files, old code shape, new code shape, and
   verification commands. Prefer examples over plain text.
-- MUST learn the `https://templ.guide/llms.md` before dicussing the new features related to the Go Templ, or if eny knowledge is missing regarding Go Templ.
+- MUST learn the `https://templ.guide/llms.md` before discussing new features related to Go Templ, or if any
+  knowledge is missing regarding Go Templ.
 
 ## Working Agreements
 - Keep changes scoped to the framework and its tooling.
