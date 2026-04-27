@@ -1,0 +1,27 @@
+package progress
+
+import "fmt"
+
+css ProgressBar(percent int) {
+	width: { fmt.Sprintf("%d%%", percent) };
+	background: #17324d;
+	color: white;
+	padding: 4px;
+}
+
+css inspectorShell() {
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+templ ProgressMeter(percent int) {
+	<div data-progress={ fmt.Sprintf("%d", percent) } class={ ProgressBar(percent) }>
+		{ fmt.Sprintf("%d%%", percent) }
+	</div>
+}
+
+templ InspectorPanel() {
+	<aside data-slot="inspector" class={ inspectorShell() }>
+		Inspector ready
+	</aside>
+}

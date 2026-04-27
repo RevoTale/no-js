@@ -8,7 +8,7 @@ css blogShell() {
 	background: #f4f7fb;
 }
 
-templ Layout(view runtime.RootLayoutView, child templ.Component) {
+templ Layout(model view.RootLayoutView, child templ.Component) {
 	<section data-layout="blog-discover" class={ blogShell() }>
 		<header>Blog Discover</header>
 		@child

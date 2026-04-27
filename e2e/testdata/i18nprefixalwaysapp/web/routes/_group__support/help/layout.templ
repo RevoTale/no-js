@@ -1,0 +1,10 @@
+package help
+
+import "example.com/no-js-e2e/i18nprefixalwaysapp/web/view"
+
+templ Layout(model view.RootLayoutView, child templ.Component) {
+	<section data-layout="support-help" data-layout-locale={ model.SystemLocale }>
+		<header>Support Help</header>
+		@child
+	</section>
+}

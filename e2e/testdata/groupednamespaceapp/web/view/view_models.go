@@ -1,7 +1,7 @@
-package runtime
+package view
 
 import (
-	"example.com/no-js-e2e/groupednamespaceapp/web/components"
+	"example.com/no-js-e2e/groupednamespaceapp/web/components/discovercard"
 	"github.com/a-h/templ"
 )
 
@@ -20,17 +20,9 @@ type DiscoverPageView struct {
 	Progress int
 }
 
-func NewNotFoundView(messages *Messages) RootLayoutView {
-	return RootLayoutView{PageTitle: "Not Found"}
-}
-
-func NewErrorView(messages *Messages) RootLayoutView {
-	return RootLayoutView{PageTitle: "Error"}
-}
-
 func TemplCSSVariants() []templ.CSSClass {
 	return []templ.CSSClass{
-		components.ProgressBar(64),
-		components.ProgressBar(80),
+		discovercard.ProgressBar(64),
+		discovercard.ProgressBar(80),
 	}
 }

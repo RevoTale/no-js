@@ -1,0 +1,9 @@
+package reports
+
+import "example.com/no-js-e2e/clientassetsslotgroupapp/web/view"
+
+templ Layout(model view.OpsPanelReportsLayoutView, child templ.Component) {
+	<section data-slot-layout="ops-panel-reports" class={ LayoutShellClass }>
+		@child
+	</section>
+}

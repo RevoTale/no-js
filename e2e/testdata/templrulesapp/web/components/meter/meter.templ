@@ -1,0 +1,30 @@
+package meter
+
+var meterScript = templ.NewOnceHandle()
+
+func meterStyle(progress string, accent string) []any {
+	return []any{
+		templ.KV("--meter-progress", progress),
+		templ.KV("--meter-accent", accent),
+	}
+}
+
+templ MeterDeps() {
+	@meterScript.Once() {
+		<script type="module" src="/meter.js"></script>
+	}
+}
+
+css meterRoot() {
+	inline-size: var(--meter-progress);
+	background: var(--meter-accent);
+	color: white;
+	padding: 4px;
+}
+
+templ Meter(progress string, accent string) {
+	@MeterDeps()
+	<div data-meter class={ meterRoot() } style={ meterStyle(progress, accent) }>
+		{ progress }
+	</div>
+}

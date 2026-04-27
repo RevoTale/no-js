@@ -198,8 +198,8 @@ func TestHTTPServerCachePoliciesAndHTMX(t *testing.T) {
 			Health:         "health-cache",
 			Error:          "error-cache",
 		},
-		NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) templ.Component {
-			return textComponent("not-found")
+		NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) (templ.Component, error) {
+			return textComponent("not-found"), nil
 		},
 	})
 	require.NoError(t, err)
@@ -445,8 +445,8 @@ func TestHTTPServerCanDisableHealthEndpoint(t *testing.T) {
 	handler, err := New(Config[*struct{}]{
 		AppContext:    &struct{}{},
 		DisableHealth: true,
-		NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) templ.Component {
-			return textComponent("not-found")
+		NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) (templ.Component, error) {
+			return textComponent("not-found"), nil
 		},
 		CachePolicies:  DefaultCachePolicies(),
 		LogServerError: func(error) {},
@@ -458,6 +458,95 @@ func TestHTTPServerCanDisableHealthEndpoint(t *testing.T) {
 
 	require.Equal(t, http.StatusNotFound, rec.Code)
 	require.Equal(t, "not-found", strings.TrimSpace(rec.Body.String()))
+}
+
+func TestHTTPServerUsesCustomServerErrorPage(t *testing.T) {
+	t.Parallel()
+
+	var loggedErr error
+	handler, err := New(Config[*struct{}]{
+		AppContext: &struct{}{},
+		Handlers: []framework.RouteHandler[*struct{}]{
+			framework.PageOnlyRouteHandler[*struct{}, framework.EmptyParams, string]{
+				Page: framework.PageModule[*struct{}, framework.EmptyParams, string]{
+					Pattern: "/boom",
+					ParseParams: func(path string) (framework.EmptyParams, bool) {
+						return framework.EmptyParams{}, path == "/boom"
+					},
+					Load: func(context.Context, *struct{}, *http.Request, framework.EmptyParams) (string, error) {
+						return "", errors.New("boom")
+					},
+					Render: func(view string) templ.Component { return textComponent(view) },
+				},
+			},
+		},
+		ServerErrorPage: func(err error) templ.Component {
+			require.ErrorContains(t, err, "boom")
+			return textComponent("custom server error")
+		},
+		LogServerError: func(err error) {
+			loggedErr = err
+		},
+		CachePolicies: CachePolicies{
+			Error: "error-cache",
+		},
+	})
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/boom", nil))
+
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Equal(t, "error-cache", rec.Header().Get("Cache-Control"))
+	require.Contains(t, rec.Header().Get("Content-Type"), "text/html")
+	require.Equal(t, "custom server error", strings.TrimSpace(rec.Body.String()))
+	require.ErrorContains(t, loggedErr, "boom")
+}
+
+func TestHTTPServerLogsServerErrorEventWithRequestInfo(t *testing.T) {
+	t.Parallel()
+
+	var loggedEvent ServerErrorEvent
+	handler, err := New(Config[*struct{}]{
+		AppContext: &struct{}{},
+		Handlers: []framework.RouteHandler[*struct{}]{
+			framework.PageOnlyRouteHandler[*struct{}, framework.EmptyParams, string]{
+				Page: framework.PageModule[*struct{}, framework.EmptyParams, string]{
+					Pattern: "/boom",
+					ParseParams: func(path string) (framework.EmptyParams, bool) {
+						return framework.EmptyParams{}, path == "/boom"
+					},
+					Load: func(context.Context, *struct{}, *http.Request, framework.EmptyParams) (string, error) {
+						return "", errors.New("boom")
+					},
+					Render: func(view string) templ.Component { return textComponent(view) },
+				},
+			},
+		},
+		LogServerErrorEvent: func(event ServerErrorEvent) {
+			loggedEvent = event
+		},
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "https://example.com/boom?debug=1", nil)
+	req.Header.Set("User-Agent", "test-agent")
+	req.Header.Set("X-Request-ID", "req-123")
+	req.RemoteAddr = "203.0.113.10:12345"
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.ErrorContains(t, loggedEvent.Err, "boom")
+	require.Same(t, req, loggedEvent.Request)
+	require.Equal(t, http.MethodPost, loggedEvent.Method)
+	require.Equal(t, "/boom", loggedEvent.Path)
+	require.Equal(t, "debug=1", loggedEvent.RawQuery)
+	require.Equal(t, "example.com", loggedEvent.Host)
+	require.Equal(t, "203.0.113.10:12345", loggedEvent.RemoteAddr)
+	require.Equal(t, "test-agent", loggedEvent.UserAgent)
+	require.Equal(t, "req-123", loggedEvent.RequestID)
 }
 
 func TestHTTPServerDoesNotCompressWithoutGzipAcceptEncoding(t *testing.T) {
@@ -518,9 +607,21 @@ func TestNewAppUsesBundleAndCustomConfig(t *testing.T) {
 						Render: func(view string) templ.Component { return textComponent(view) },
 					},
 				},
+				framework.PageOnlyRouteHandler[*struct{}, framework.EmptyParams, string]{
+					Page: framework.PageModule[*struct{}, framework.EmptyParams, string]{
+						Pattern: "/boom",
+						ParseParams: func(path string) (framework.EmptyParams, bool) {
+							return framework.EmptyParams{}, path == "/boom"
+						},
+						Load: func(context.Context, *struct{}, *http.Request, framework.EmptyParams) (string, error) {
+							return "", errors.New("boom")
+						},
+						Render: func(view string) templ.Component { return textComponent(view) },
+					},
+				},
 			},
-			NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) templ.Component {
-				return textComponent("not-found")
+			NotFoundPage: func(_ *struct{}, _ *http.Request, _ framework.NotFoundContext) (templ.Component, error) {
+				return textComponent("not-found"), nil
 			},
 			OnStaticAssetBasePathResolved: func(prefix string) {
 				staticBasePath = prefix
@@ -534,6 +635,10 @@ func TestNewAppUsesBundleAndCustomConfig(t *testing.T) {
 			PublicFiles: &PublicFilesConfig{
 				Dir: publicDir,
 			},
+			ServerErrorPage: func(error) templ.Component {
+				return textComponent("app server error")
+			},
+			LogServerError: func(error) {},
 		},
 	})
 	require.NoError(t, err)
@@ -552,6 +657,11 @@ func TestNewAppUsesBundleAndCustomConfig(t *testing.T) {
 	handler.ServeHTTP(recPublic, httptest.NewRequest(http.MethodGet, "/favicon.txt", nil))
 	require.Equal(t, http.StatusOK, recPublic.Code)
 	require.Equal(t, "icon", strings.TrimSpace(recPublic.Body.String()))
+
+	recServerError := httptest.NewRecorder()
+	handler.ServeHTTP(recServerError, httptest.NewRequest(http.MethodGet, "/boom", nil))
+	require.Equal(t, http.StatusInternalServerError, recServerError.Code)
+	require.Equal(t, "app server error", strings.TrimSpace(recServerError.Body.String()))
 
 	require.Equal(t, "/assets/abc123/", staticBasePath)
 }
@@ -721,9 +831,9 @@ func TestHTTPServerNotFoundContextForLoadAndUnmatched(t *testing.T) {
 				},
 			},
 		},
-		NotFoundPage: func(_ *struct{}, _ *http.Request, notFoundContext framework.NotFoundContext) templ.Component {
+		NotFoundPage: func(_ *struct{}, _ *http.Request, notFoundContext framework.NotFoundContext) (templ.Component, error) {
 			ctxs = append(ctxs, notFoundContext)
-			return textComponent("missing")
+			return textComponent("missing"), nil
 		},
 		CachePolicies: CachePolicies{
 			Error: "error-cache",

@@ -8,7 +8,7 @@ import (
 templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) {
 	<html lang={ locale }>
 		<head>
-			<link id="site-css" rel="stylesheet" href={ runtime.StaticAssetURL("site.css") }>
+			<link id="site-css" rel="stylesheet" href={ view.StaticAssetURL("site.css") }>
 			<link id="favicon-link" rel="icon" href="/favicon.ico">
 			@metagen.Head(meta)
 		</head>

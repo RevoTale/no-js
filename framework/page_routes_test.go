@@ -38,9 +38,9 @@ func (runtime *testPageRuntime) RenderPage(
 func (runtime *testPageRuntime) RespondNotFound(_ http.ResponseWriter, _ *http.Request, notFound NotFoundContext) {
 	runtime.notFoundContext = notFound
 }
-func (runtime *testPageRuntime) RespondServerError(http.ResponseWriter, error) {}
-func (runtime *testPageRuntime) LogServerError(error)                          {}
-func (runtime *testPageRuntime) LogResolverTiming(ResolverTiming)              {}
+func (runtime *testPageRuntime) RespondServerError(http.ResponseWriter, *http.Request, error) {}
+func (runtime *testPageRuntime) LogServerError(error)                                         {}
+func (runtime *testPageRuntime) LogResolverTiming(ResolverTiming)                             {}
 
 func exactEmptyParams(pattern string) ParamsParser[EmptyParams] {
 	return func(requestPath string) (EmptyParams, bool) {

@@ -30,7 +30,7 @@ type AppBundle[C any] struct {
 		appCtx C,
 		r *http.Request,
 		notFoundContext framework.NotFoundContext,
-	) templ.Component
+	) (templ.Component, error)
 	TemplCSSClasses               func() []templ.CSSClass
 	OnStaticAssetBasePathResolved func(prefix string)
 }
@@ -46,7 +46,9 @@ type CustomConfig struct {
 	CachePolicies       CachePolicies
 	StaticAssets        *StaticAssetsConfig
 	PublicFiles         *PublicFilesConfig
+	ServerErrorPage     func(err error) templ.Component
 	LogServerError      func(err error)
+	LogServerErrorEvent func(event ServerErrorEvent)
 	LogResolverTiming   func(event framework.ResolverTiming)
 	EnableResolverDebug bool
 	DisableHealth       bool
@@ -111,7 +113,9 @@ func NewApp[C any](cfg Config[C]) (http.Handler, error) {
 		TemplCSS:            templCSSCfg,
 		CachePolicies:       custom.CachePolicies,
 		NotFoundPage:        app.NotFoundPage,
+		ServerErrorPage:     custom.ServerErrorPage,
 		LogServerError:      custom.LogServerError,
+		LogServerErrorEvent: custom.LogServerErrorEvent,
 		LogResolverTiming:   custom.LogResolverTiming,
 		EnableResolverDebug: custom.EnableResolverDebug,
 		DisableHealth:       custom.DisableHealth,

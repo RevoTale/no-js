@@ -1,4 +1,4 @@
-package runtime
+package view
 
 import (
 	"net/http"
@@ -7,8 +7,6 @@ import (
 	"strings"
 )
 
-type Messages struct{}
-
 type Context struct{}
 
 var staticAssetBasePath string
@@ -16,10 +14,6 @@ var staticAssetBasePath string
 func (c *Context) ResolveRoot(r *http.Request) *url.URL {
 	root, _ := url.Parse("https://custom.example.test")
 	return root
-}
-
-func (c *Context) I18n(r *http.Request) *Messages {
-	return nil
 }
 
 func SetStaticAssetBasePath(prefix string) {

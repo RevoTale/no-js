@@ -1,6 +1,6 @@
 package tags
 
-import "example.com/no-js-e2e/groupednamespaceapp/web/components"
+import "example.com/no-js-e2e/groupednamespaceapp/web/components/discovercard"
 import "example.com/no-js-e2e/groupednamespaceapp/web/view"
 
 css tagsPage() {
@@ -8,8 +8,8 @@ css tagsPage() {
 	padding: 10px;
 }
 
-templ Page(view runtime.RootLayoutView) {
+templ Page(model view.RootLayoutView) {
 	<main id="discover-tags" class={ tagsPage() }>
-		@components.DiscoverCard("Shop", "Tags", 80)
+		@discovercard.DiscoverCard("Shop", "Tags", 80)
 	</main>
 }

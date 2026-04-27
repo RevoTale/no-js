@@ -1,0 +1,13 @@
+package section
+
+import (
+	"example.com/no-js-e2e/clientassetsapp/web/components/meter"
+	"example.com/no-js-e2e/clientassetsapp/web/view"
+)
+
+templ Page(model view.SectionPageView) {
+	<article data-route-page="section" class={ PagePanelClass }>
+		<h1>{ model.Heading }</h1>
+		@meter.Meter("Section page meter")
+	</article>
+}

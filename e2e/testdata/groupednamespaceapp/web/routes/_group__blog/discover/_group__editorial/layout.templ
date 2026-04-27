@@ -8,7 +8,7 @@ css editorialShell() {
 	background: #effcf6;
 }
 
-templ Layout(view runtime.RootLayoutView, child templ.Component) {
+templ Layout(model view.RootLayoutView, child templ.Component) {
 	<section data-layout="editorial-discover" class={ editorialShell() }>
 		<header>Editorial Discover</header>
 		@child

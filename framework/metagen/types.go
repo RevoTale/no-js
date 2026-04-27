@@ -5,12 +5,14 @@ type Metadata struct {
 	Description string
 	Alternates  Alternates
 	Stylesheets []string
-	Robots      *Robots
-	OpenGraph   *OpenGraph
-	Twitter     *Twitter
-	Authors     []Author
-	Publisher   string
-	Pinterest   *Pinterest
+	// ModuleScripts are JavaScript module URLs rendered after managed stylesheets.
+	ModuleScripts []string
+	Robots        *Robots
+	OpenGraph     *OpenGraph
+	Twitter       *Twitter
+	Authors       []Author
+	Publisher     string
+	Pinterest     *Pinterest
 	// DangerRawHead contains trusted raw HTML snippets rendered into <head>.
 	// Never populate this field from third-party or user-controlled input.
 	DangerRawHead []string
@@ -63,6 +65,11 @@ type Author struct {
 
 type Pinterest struct {
 	RichPin *bool
+}
+
+type ClientAssets struct {
+	Stylesheets   []string
+	ModuleScripts []string
 }
 
 type Patch struct {

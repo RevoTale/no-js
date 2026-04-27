@@ -63,13 +63,55 @@ func TestLoadConfigFileAcceptsBuiltInI18nMode(t *testing.T) {
 	require.Equal(t, FeatureDisabled, cfg.I18n.Mode)
 }
 
+func TestLoadConfigFileAcceptsTemplCSSAssetToggle(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "no-js.bundle.yaml")
+	writeBundlerTestFile(t, configPath, "version: 1\nassets:\n  templ_css: true\n")
+
+	cfg, err := LoadConfigFile(configPath)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Assets.TemplCSS)
+	require.True(t, *cfg.Assets.TemplCSS)
+}
+
+func TestLoadConfigFileAcceptsDisabledTemplCSSAssetToggle(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "no-js.bundle.yaml")
+	writeBundlerTestFile(t, configPath, "version: 1\nassets:\n  templ_css: false\n")
+
+	cfg, err := LoadConfigFile(configPath)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Assets.TemplCSS)
+	require.False(t, *cfg.Assets.TemplCSS)
+}
+
+func TestLoadConfigFileAcceptsBrowserTargets(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "no-js.bundle.yaml")
+	writeBundlerTestFile(t, configPath, strings.Join([]string{
+		"version: 1",
+		"assets:",
+		"  browser_targets:",
+		"    - es2020",
+		"    - safari13",
+		"",
+	}, "\n"))
+
+	cfg, err := LoadConfigFile(configPath)
+	require.NoError(t, err)
+	require.Equal(t, []string{"es2020", "safari13"}, cfg.Assets.BrowserTargets)
+}
+
 func TestResolveProjectLayoutFromRootUsesConfigOverrides(t *testing.T) {
 	t.Parallel()
 
 	rootDir := t.TempDir()
 	writeBundlerTestFile(t, filepath.Join(rootDir, "go.mod"), "module example.com/app\n\ngo 1.25.0\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "src", "web", "routes", "page.templ"), "package appsrc\n")
-	writeBundlerTestFile(t, filepath.Join(rootDir, "src", "web", "view", "context.go"), "package runtime\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "src", "web", "view", "context.go"), "package view\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "src", "web", "i18n", "doc.go"), "package i18n\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web-static", "app.js"), "console.log('x')\n")
 	writeBundlerTestFile(
@@ -85,6 +127,11 @@ func TestResolveProjectLayoutFromRootUsesConfigOverrides(t *testing.T) {
 			"  i18n_dir: src/web/i18n",
 			"  assets_dir: web-static",
 			"  assets_build_dir: web-static-build",
+			"assets:",
+			"  templ_css: true",
+			"  browser_targets:",
+			"    - es2020",
+			"    - safari13",
 			"static_assets:",
 			"  manifest_path: web-static-build/manifest.json",
 			"",
@@ -101,4 +148,6 @@ func TestResolveProjectLayoutFromRootUsesConfigOverrides(t *testing.T) {
 	require.Equal(t, expectedStaticSourceDir, filepath.ToSlash(layout.StaticAssets.SourceDir))
 	expectedStaticOutDir := filepath.ToSlash(filepath.Join(rootDir, "web-static-build"))
 	require.Equal(t, expectedStaticOutDir, filepath.ToSlash(layout.StaticAssets.OutDir))
+	require.True(t, layout.Assets.TemplCSS)
+	require.Equal(t, []string{"es2020", "safari13"}, layout.Assets.BrowserTargets)
 }

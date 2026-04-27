@@ -7,7 +7,7 @@ css shell() {
 	padding: 18px;
 }
 
-templ Layout(view runtime.RootLayoutView, child templ.Component, analytics templ.Component) {
+templ Layout(model view.RootLayoutView, child templ.Component, analytics templ.Component) {
 	<section class={ shell() } data-layout="dashboard">
 		@child
 		@analytics

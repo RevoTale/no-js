@@ -1,22 +1,19 @@
-# HTTP Server and Runtime
+# HTTP Server And Runtime
+
+Use this guide when you are wiring the generated app into an HTTP server or
+deciding whether you need `Custom Config`.
 
 ## What This Feature Does
 
 `httpserver.NewApp(...)` is the default runtime entrypoint. It mounts the
-generated `App Bundle`, applies i18n middleware when configured, serves static
-assets and public files by convention, exposes the health endpoint, and routes
-discovery endpoints.
-
-## Modules
-
-- `framework/httpserver`
+generated `App Bundle`, applies built-in i18n middleware when configured, serves
+static assets and public files by convention, exposes the health endpoint, and
+routes discovery endpoints.
 
 ## Happy Path
 
-The normal server setup is:
-
 ```go
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
+handler, err := httpserver.NewApp(httpserver.Config[*view.Context]{
 	App: generated.Bundle(appContext),
 })
 if err != nil {
@@ -24,20 +21,29 @@ if err != nil {
 }
 ```
 
-Convention defaults:
+This is the preferred path for normal apps. It keeps the app contract short:
+
+- your app constructs `appContext`
+- generation constructs the `App Bundle`
+- `httpserver.NewApp(...)` assembles the runtime
+
+## Runtime Defaults
 
 - static manifest: `web/assets-build/manifest.json`
-- static prefix: `/_assets/`
-- public files: `web/public`
+- static base prefix: `/_assets/`
+- public files: `web/public` when the directory exists
 - health endpoint: `/healthz`
+- health body: `ok`
+- gzip compression: enabled
+- server errors: log through the configured/default logger and return plain
+  `Internal Server Error`
 
-## Focused Example
+## Use `Custom Config` For App-Owned Hooks
 
-Use `Custom Config` only when you need app-owned hooks around the default
-runtime:
+Add `Custom Config` only when the default path is not enough:
 
 ```go
-handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
+handler, err := httpserver.NewApp(httpserver.Config[*view.Context]{
 	App: generated.Bundle(appContext),
 	Custom: httpserver.CustomConfig{
 		MainMiddlewares: []func(http.Handler) http.Handler{
@@ -45,28 +51,31 @@ handler, err := httpserver.NewApp(httpserver.Config[*runtime.Context]{
 		},
 	},
 })
-if err != nil {
-	return err
-}
 ```
 
-`Custom Config` is the right place for middleware, cache-policy overrides,
-public-file overrides, or extra routes. It is not where you replace the
-generated `App Bundle`.
+Good fits for `Custom Config`:
 
-## When To Use `Custom Config` Or Advanced Composition
+- middleware
+- extra routes
+- cache-policy overrides
+- static asset overrides
+- public-file overrides
+- generic custom 500 page through `ServerErrorPage`
+- request-aware server error logging through `LogServerErrorEvent`
+- health endpoint overrides
+- resolver debug logging
 
-Stay on the default path if convention behavior is enough.
+## When To Use Advanced Composition
 
-Use `Custom Config` for middleware, cache headers, extra routes, or static/public
-overrides.
+Stay on `NewApp(...)` when you can.
 
-Use `Advanced composition` only when you need app-owned runtime packages that do
-not fit the default wiring surface.
+Use `Advanced composition` only when your runtime shape cannot be expressed with
+the generated bundle plus `Custom Config`. Most apps do not need to build the
+runtime from lower-level pieces.
 
 ## Related Docs
 
-- [Getting Started](../getting-started.md)
-- [Routing and Generation](routing-and-generation.md)
+- [HTTP Server Reference](../reference/httpserver.md)
 - [Static Assets](static-assets.md)
+- [Asset Pipeline Reference](../reference/asset-pipeline.md)
 - [Request Cache and Partials](request-cache-and-partials.md)

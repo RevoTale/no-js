@@ -1,0 +1,13 @@
+package shell
+
+css shellRoot() {
+	background: #f5f7fb;
+	padding: 14px;
+	border: 1px solid #224;
+}
+
+templ Shell(heading string) {
+	<section id="runtime-shell" data-component="shell" class={ shellRoot() }>
+		<h1>{ heading }</h1>
+	</section>
+}

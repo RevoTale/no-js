@@ -3,6 +3,7 @@ package e2e
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -43,6 +45,12 @@ type fixtureServer struct {
 	stderr  bytes.Buffer
 }
 
+var (
+	noJSToolOnce sync.Once
+	noJSToolPath string
+	noJSToolErr  error
+)
+
 func existingTemplgenPaths(t *testing.T, appDir string, paths ...string) []string {
 	t.Helper()
 
@@ -63,14 +71,7 @@ func existingTemplgenPaths(t *testing.T, appDir string, paths ...string) []strin
 func prepareFixtureApp(t *testing.T, fixtureName string) string {
 	t.Helper()
 
-	repoRoot := repoRootPath(t)
-	appDir := filepath.Join(t.TempDir(), fixtureName)
-
-	require.NoError(
-		t,
-		filesystem.CopyTree(filepath.Join(repoRoot, "e2e", "testdata", fixtureName), appDir),
-	)
-	writeFixtureModuleFiles(t, repoRoot, appDir)
+	appDir := copyFixtureApp(t, fixtureName)
 
 	runGo(t, appDir, "tool", "no-js", "gen", "routes", "-root", ".")
 	templgenArgs := []string{
@@ -83,12 +84,30 @@ func prepareFixtureApp(t *testing.T, fixtureName string) string {
 		templgenArgs = append(templgenArgs, "-path", path)
 	}
 	runGo(t, appDir, templgenArgs...)
-	runGo(t, appDir, "tool", "no-js", "gen", "assets", "-root", ".", "-templ-css")
+	runGo(t, appDir, "tool", "no-js", "gen", "assets", "-root", ".")
 
 	return appDir
 }
 
 func prepareFixtureAppWithNoJSGen(t *testing.T, fixtureName string) string {
+	t.Helper()
+
+	return prepareFixtureAppWithNoJSGenConfig(t, fixtureName, "")
+}
+
+func prepareFixtureAppWithNoJSGenConfig(t *testing.T, fixtureName string, bundleConfig string) string {
+	t.Helper()
+
+	appDir := copyFixtureApp(t, fixtureName)
+	if strings.TrimSpace(bundleConfig) != "" {
+		require.NoError(t, os.WriteFile(filepath.Join(appDir, "no-js.bundle.yaml"), []byte(bundleConfig), 0o644))
+	}
+	runGo(t, appDir, "tool", "no-js", "gen", "-root", ".")
+
+	return appDir
+}
+
+func copyFixtureApp(t *testing.T, fixtureName string) string {
 	t.Helper()
 
 	repoRoot := repoRootPath(t)
@@ -99,7 +118,6 @@ func prepareFixtureAppWithNoJSGen(t *testing.T, fixtureName string) string {
 		filesystem.CopyTree(filepath.Join(repoRoot, "e2e", "testdata", fixtureName), appDir),
 	)
 	writeFixtureModuleFiles(t, repoRoot, appDir)
-	runGo(t, appDir, "tool", "no-js", "gen", "-root", ".", "-templ-css")
 
 	return appDir
 }
@@ -115,6 +133,17 @@ func startPreparedFixtureWithNoJSGen(t *testing.T, fixtureName string) (string, 
 	t.Helper()
 
 	appDir := prepareFixtureAppWithNoJSGen(t, fixtureName)
+	return appDir, startBuiltFixtureServer(t, appDir)
+}
+
+func startPreparedFixtureWithNoJSGenConfig(
+	t *testing.T,
+	fixtureName string,
+	bundleConfig string,
+) (string, *fixtureServer) {
+	t.Helper()
+
+	appDir := prepareFixtureAppWithNoJSGenConfig(t, fixtureName, bundleConfig)
 	return appDir, startBuiltFixtureServer(t, appDir)
 }
 
@@ -371,6 +400,48 @@ func runGo(t *testing.T, dir string, args ...string) []byte {
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "%s", strings.TrimSpace(string(output)))
 	return output
+}
+
+func runNoJSError(t *testing.T, dir string, args ...string) []byte {
+	t.Helper()
+
+	cmd := exec.Command(noJSToolBinary(t), args...)
+	cmd.Dir = dir
+	output, err := cmd.CombinedOutput()
+	require.Error(t, err, "command unexpectedly succeeded: no-js %s", strings.Join(args, " "))
+	return output
+}
+
+func noJSToolBinary(t *testing.T) string {
+	t.Helper()
+
+	noJSToolOnce.Do(func() {
+		repoRoot := repoRootPath(t)
+		outDir, err := os.MkdirTemp("", "no-js-e2e-tool-*")
+		if err != nil {
+			noJSToolErr = fmt.Errorf("create no-js tool temp dir: %w", err)
+			return
+		}
+		goCacheDir := filepath.Join(outDir, "go-build")
+		if err := os.MkdirAll(goCacheDir, 0o755); err != nil {
+			noJSToolErr = fmt.Errorf("create no-js tool build cache: %w", err)
+			return
+		}
+		noJSToolPath = filepath.Join(outDir, "no-js")
+		cmd := exec.Command("go", "build", "-o", noJSToolPath, "./cmd/no-js")
+		cmd.Dir = repoRoot
+		cmd.Env = append(
+			os.Environ(),
+			"GOWORK=off",
+			"GOCACHE="+goCacheDir,
+		)
+		output, buildErr := cmd.CombinedOutput()
+		if buildErr != nil {
+			noJSToolErr = fmt.Errorf("build no-js tool: %w: %s", buildErr, strings.TrimSpace(string(output)))
+		}
+	})
+	require.NoError(t, noJSToolErr)
+	return noJSToolPath
 }
 
 func repoRootPath(t *testing.T) string {

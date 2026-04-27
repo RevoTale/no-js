@@ -42,7 +42,7 @@ func (testRuntime[C]) RenderPage(*http.Request, http.ResponseWriter, templ.Compo
 func (testRuntime[C]) RespondNotFound(http.ResponseWriter, *http.Request, framework.NotFoundContext) {
 }
 
-func (testRuntime[C]) RespondServerError(http.ResponseWriter, error) {}
+func (testRuntime[C]) RespondServerError(http.ResponseWriter, *http.Request, error) {}
 
 func (testRuntime[C]) LogServerError(error) {}
 

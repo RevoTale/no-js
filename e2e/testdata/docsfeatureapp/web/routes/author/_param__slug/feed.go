@@ -5,12 +5,12 @@ import (
 	"strings"
 	"time"
 
-	runtime "example.com/no-js-e2e/docsfeatureapp/web/view"
+	"example.com/no-js-e2e/docsfeatureapp/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/discovery"
 )
 
-func Feed(runtimeCtx framework.RuntimeContext[*runtime.Context], r *http.Request) (discovery.FeedDocument, error) {
+func Feed(runtimeCtx framework.RuntimeContext[*view.Context], r *http.Request) (discovery.FeedDocument, error) {
 	slug := strings.TrimPrefix(r.URL.Path, "/author/")
 	slug = strings.TrimSuffix(slug, "/feed.xml")
 	root := runtimeCtx.ResolveRoot(r)
@@ -18,14 +18,14 @@ func Feed(runtimeCtx framework.RuntimeContext[*runtime.Context], r *http.Request
 
 	return discovery.FeedDocument{
 		Title:       "Feed for " + slug,
-		Link:        runtime.AbsoluteURL(root, "/author/"+slug),
+		Link:        view.AbsoluteURL(root, "/author/"+slug),
 		Description: "Latest author updates",
 		Language:    "en",
-		SelfURL:     runtime.AbsoluteURL(root, "/author/"+slug+"/feed.xml"),
+		SelfURL:     view.AbsoluteURL(root, "/author/"+slug+"/feed.xml"),
 		Items: []discovery.FeedItem{
 			{
 				Title:       "Profile " + slug,
-				Link:        runtime.AbsoluteURL(root, "/author/"+slug),
+				Link:        view.AbsoluteURL(root, "/author/"+slug),
 				GUID:        "author-" + slug,
 				Description: "Author profile",
 				PublishedAt: &publishedAt,

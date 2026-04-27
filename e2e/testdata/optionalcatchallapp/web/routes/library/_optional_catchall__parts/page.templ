@@ -7,9 +7,9 @@ css libraryPage() {
 	padding: 12px;
 }
 
-templ Page(view runtime.OptionalCatchAllPageView) {
+templ Page(model view.OptionalCatchAllPageView) {
 	<main id="library-page" class={ libraryPage() }>
-		<p data-joined>{ view.Joined }</p>
-		<p data-depth>{ view.Depth }</p>
+		<p data-joined>{ model.Joined }</p>
+		<p data-depth>{ model.Depth }</p>
 	</main>
 }

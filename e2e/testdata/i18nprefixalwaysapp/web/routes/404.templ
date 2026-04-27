@@ -2,8 +2,13 @@ package routes
 
 import "example.com/no-js-e2e/i18nprefixalwaysapp/web/view"
 
-templ NotFound(view runtime.RootLayoutView, path string) {
-	<main id="not-found">
-		Missing { path }
+templ NotFound(model view.RootLayoutView, path string) {
+	<main
+		id="not-found"
+		data-locale={ model.SystemLocale }
+		data-request-path={ model.SystemRequestPath }
+		data-not-found-source={ model.NotFoundSource }
+	>
+		{ model.NotFoundHeading } { path }
 	</main>
 }

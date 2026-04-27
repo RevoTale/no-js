@@ -18,6 +18,39 @@ type routePageCSSFixture struct {
 	StylesheetURL string
 }
 
+type clientAssetsFixture struct {
+	AppDir                 string
+	Home                   responseSnapshot
+	About                  responseSnapshot
+	Section                responseSnapshot
+	SectionSummary         responseSnapshot
+	SectionAdmin           responseSnapshot
+	Complex                responseSnapshot
+	NotFound               responseSnapshot
+	RootCSS                responseSnapshot
+	RouteCSS               responseSnapshot
+	RouteScript            responseSnapshot
+	MeterScript            responseSnapshot
+	SectionCSS             responseSnapshot
+	SectionLayoutScript    responseSnapshot
+	SectionPageScript      responseSnapshot
+	SectionAdminCSS        responseSnapshot
+	ComplexCSS             responseSnapshot
+	NotFoundCSS            responseSnapshot
+	SiteCSS                responseSnapshot
+	RootCSSURL             string
+	RouteCSSURL            string
+	RouteScriptURL         string
+	MeterScriptURL         string
+	SectionCSSURL          string
+	SectionLayoutScriptURL string
+	SectionPageScriptURL   string
+	SectionAdminCSSURL     string
+	ComplexCSSURL          string
+	NotFoundCSSURL         string
+	SiteCSSURL             string
+}
+
 type templCSSFixture struct {
 	Home          responseSnapshot
 	Partial       responseSnapshot
@@ -101,15 +134,21 @@ type methodMatrixFixture struct {
 }
 
 type prefixAlwaysFixture struct {
-	RootRedirect  responseSnapshot
-	HomeEN        responseSnapshot
-	HomeDE        responseSnapshot
-	GreetRedirect responseSnapshot
-	GreetEN       responseSnapshot
-	GreetDE       responseSnapshot
-	GreetPartial  responseSnapshot
-	Stylesheet    responseSnapshot
-	StylesheetURL string
+	RootRedirect       responseSnapshot
+	HomeEN             responseSnapshot
+	HomeDE             responseSnapshot
+	NotFoundEN         responseSnapshot
+	NotFoundDE         responseSnapshot
+	PageLoadNotFoundEN responseSnapshot
+	PageLoadNotFoundDE responseSnapshot
+	HelpNotFoundEN     responseSnapshot
+	HelpNotFoundDE     responseSnapshot
+	GreetRedirect      responseSnapshot
+	GreetEN            responseSnapshot
+	GreetDE            responseSnapshot
+	GreetPartial       responseSnapshot
+	Stylesheet         responseSnapshot
+	StylesheetURL      string
 }
 
 type customRuntimeFixture struct {
@@ -122,6 +161,12 @@ type customRuntimeFixture struct {
 	TemplCSS      responseSnapshot
 	SiteCSSURL    string
 	TemplCSSURL   string
+}
+
+type typedModelsFixture struct {
+	Home      responseSnapshot
+	Marketing responseSnapshot
+	NotFound  responseSnapshot
 }
 
 type streamSnapshot struct {
@@ -151,6 +196,17 @@ type templRulesFixture struct {
 }
 
 var stylesheetPattern = regexp.MustCompile(`href="([^"]+/styles/templ\.css)"`)
+var routeRootCSSPattern = regexp.MustCompile(`href="([^"]+/routes/root\.css)"`)
+var clientAssetsSiteCSSPattern = regexp.MustCompile(`href="([^"]+/site\.css)"`)
+var routePageCSSPattern = regexp.MustCompile(`href="([^"]+/routes/page\.css)"`)
+var routePageScriptPattern = regexp.MustCompile(`src="([^"]+/routes/page\.js)"`)
+var routeMeterScriptPattern = regexp.MustCompile(`src="([^"]+/components/meter/meter\.js)"`)
+var routeSectionCSSPattern = regexp.MustCompile(`href="([^"]+/routes/section/layout\.css)"`)
+var routeSectionLayoutScriptPattern = regexp.MustCompile(`src="([^"]+/routes/section/layout\.js)"`)
+var routeSectionPageScriptPattern = regexp.MustCompile(`src="([^"]+/routes/section/page\.js)"`)
+var routeSectionAdminCSSPattern = regexp.MustCompile(`href="([^"]+/routes/section/admin/layout\.css)"`)
+var routeComplexCSSPattern = regexp.MustCompile(`href="([^"]+/routes/complex/page\.css)"`)
+var routeNotFoundCSSPattern = regexp.MustCompile(`href="([^"]+/routes/404\.css)"`)
 var siteCSSPattern = regexp.MustCompile(`id="site-css"[^>]*href="([^"]+/site\.css)"`)
 var expensiveCountPattern = regexp.MustCompile(`<div id="expensive-count">([^<]+)</div>`)
 
@@ -171,6 +227,65 @@ func loadRoutePageCSSFixture(t *testing.T) (string, routePageCSSFixture) {
 		NotFound:      notFound,
 		Stylesheet:    stylesheet,
 		StylesheetURL: stylesheetURL,
+	}
+}
+
+func loadClientAssetsFixture(t *testing.T) clientAssetsFixture {
+	t.Helper()
+
+	appDir, server := startPreparedFixture(t, "clientassetsapp")
+
+	home := requestFixture(t, server, http.MethodGet, "/", nil, requestOptions{})
+	about := requestFixture(t, server, http.MethodGet, "/about", nil, requestOptions{})
+	section := requestFixture(t, server, http.MethodGet, "/section", nil, requestOptions{})
+	sectionSummary := requestFixture(t, server, http.MethodGet, "/section/summary", nil, requestOptions{})
+	sectionAdmin := requestFixture(t, server, http.MethodGet, "/section/admin", nil, requestOptions{})
+	complex := requestFixture(t, server, http.MethodGet, "/complex", nil, requestOptions{})
+	notFound := requestFixture(t, server, http.MethodGet, "/missing", nil, requestOptions{})
+
+	rootCSSURL := extractPatternURL(t, routeRootCSSPattern, home.Body, "root stylesheet")
+	siteCSSURL := extractPatternURL(t, clientAssetsSiteCSSPattern, home.Body, "site stylesheet")
+	routeCSSURL := extractPatternURL(t, routePageCSSPattern, home.Body, "route stylesheet")
+	routeScriptURL := extractPatternURL(t, routePageScriptPattern, home.Body, "route script")
+	meterScriptURL := extractPatternURL(t, routeMeterScriptPattern, home.Body, "meter script")
+	sectionCSSURL := extractPatternURL(t, routeSectionCSSPattern, section.Body, "section stylesheet")
+	sectionLayoutScriptURL := extractPatternURL(t, routeSectionLayoutScriptPattern, section.Body, "section layout script")
+	sectionPageScriptURL := extractPatternURL(t, routeSectionPageScriptPattern, section.Body, "section page script")
+	sectionAdminCSSURL := extractPatternURL(t, routeSectionAdminCSSPattern, sectionAdmin.Body, "section admin stylesheet")
+	complexCSSURL := extractPatternURL(t, routeComplexCSSPattern, complex.Body, "complex stylesheet")
+	notFoundCSSURL := extractPatternURL(t, routeNotFoundCSSPattern, notFound.Body, "404 stylesheet")
+
+	return clientAssetsFixture{
+		AppDir:                 appDir,
+		Home:                   home,
+		About:                  about,
+		Section:                section,
+		SectionSummary:         sectionSummary,
+		SectionAdmin:           sectionAdmin,
+		Complex:                complex,
+		NotFound:               notFound,
+		RootCSS:                requestFixture(t, server, http.MethodGet, rootCSSURL, nil, requestOptions{}),
+		RouteCSS:               requestFixture(t, server, http.MethodGet, routeCSSURL, nil, requestOptions{}),
+		RouteScript:            requestFixture(t, server, http.MethodGet, routeScriptURL, nil, requestOptions{}),
+		MeterScript:            requestFixture(t, server, http.MethodGet, meterScriptURL, nil, requestOptions{}),
+		SectionCSS:             requestFixture(t, server, http.MethodGet, sectionCSSURL, nil, requestOptions{}),
+		SectionLayoutScript:    requestFixture(t, server, http.MethodGet, sectionLayoutScriptURL, nil, requestOptions{}),
+		SectionPageScript:      requestFixture(t, server, http.MethodGet, sectionPageScriptURL, nil, requestOptions{}),
+		SectionAdminCSS:        requestFixture(t, server, http.MethodGet, sectionAdminCSSURL, nil, requestOptions{}),
+		ComplexCSS:             requestFixture(t, server, http.MethodGet, complexCSSURL, nil, requestOptions{}),
+		NotFoundCSS:            requestFixture(t, server, http.MethodGet, notFoundCSSURL, nil, requestOptions{}),
+		SiteCSS:                requestFixture(t, server, http.MethodGet, siteCSSURL, nil, requestOptions{}),
+		RootCSSURL:             rootCSSURL,
+		RouteCSSURL:            routeCSSURL,
+		RouteScriptURL:         routeScriptURL,
+		MeterScriptURL:         meterScriptURL,
+		SectionCSSURL:          sectionCSSURL,
+		SectionLayoutScriptURL: sectionLayoutScriptURL,
+		SectionPageScriptURL:   sectionPageScriptURL,
+		SectionAdminCSSURL:     sectionAdminCSSURL,
+		ComplexCSSURL:          complexCSSURL,
+		NotFoundCSSURL:         notFoundCSSURL,
+		SiteCSSURL:             siteCSSURL,
 	}
 }
 
@@ -369,12 +484,18 @@ func loadPrefixAlwaysFixture(t *testing.T) prefixAlwaysFixture {
 	stylesheetURL := extractStylesheetURL(t, homeEN.Body)
 
 	return prefixAlwaysFixture{
-		RootRedirect:  requestFixture(t, server, http.MethodGet, "/", nil, opts),
-		HomeEN:        homeEN,
-		HomeDE:        requestFixture(t, server, http.MethodGet, "/de", nil, opts),
-		GreetRedirect: requestFixture(t, server, http.MethodGet, "/greet/ada", nil, opts),
-		GreetEN:       requestFixture(t, server, http.MethodGet, "/en/greet/ada", nil, opts),
-		GreetDE:       requestFixture(t, server, http.MethodGet, "/de/greet/ada", nil, opts),
+		RootRedirect:       requestFixture(t, server, http.MethodGet, "/", nil, opts),
+		HomeEN:             homeEN,
+		HomeDE:             requestFixture(t, server, http.MethodGet, "/de", nil, opts),
+		NotFoundEN:         requestFixture(t, server, http.MethodGet, "/en/missing", nil, opts),
+		NotFoundDE:         requestFixture(t, server, http.MethodGet, "/de/missing", nil, opts),
+		PageLoadNotFoundEN: requestFixture(t, server, http.MethodGet, "/en/fail", nil, opts),
+		PageLoadNotFoundDE: requestFixture(t, server, http.MethodGet, "/de/fail", nil, opts),
+		HelpNotFoundEN:     requestFixture(t, server, http.MethodGet, "/en/help/fail", nil, opts),
+		HelpNotFoundDE:     requestFixture(t, server, http.MethodGet, "/de/help/fail", nil, opts),
+		GreetRedirect:      requestFixture(t, server, http.MethodGet, "/greet/ada", nil, opts),
+		GreetEN:            requestFixture(t, server, http.MethodGet, "/en/greet/ada", nil, opts),
+		GreetDE:            requestFixture(t, server, http.MethodGet, "/de/greet/ada", nil, opts),
 		GreetPartial: requestFixture(
 			t,
 			server,
@@ -407,6 +528,18 @@ func loadCustomRuntimeFixture(t *testing.T) customRuntimeFixture {
 		TemplCSS:      requestFixture(t, server, http.MethodGet, templCSSURL, nil, requestOptions{}),
 		SiteCSSURL:    siteCSSURL,
 		TemplCSSURL:   templCSSURL,
+	}
+}
+
+func loadTypedModelsFixture(t *testing.T) typedModelsFixture {
+	t.Helper()
+
+	_, server := startPreparedFixture(t, "typedmodelsapp")
+
+	return typedModelsFixture{
+		Home:      requestFixture(t, server, http.MethodGet, "/", nil, requestOptions{}),
+		Marketing: requestFixture(t, server, http.MethodGet, "/marketing", nil, requestOptions{}),
+		NotFound:  requestFixture(t, server, http.MethodGet, "/missing", nil, requestOptions{}),
 	}
 }
 
@@ -475,8 +608,14 @@ func mergeOptions(base requestOptions, extra requestOptions) requestOptions {
 func extractStylesheetURL(t *testing.T, html string) string {
 	t.Helper()
 
-	matches := stylesheetPattern.FindStringSubmatch(html)
-	require.Len(t, matches, 2, "stylesheet href not found")
+	return extractPatternURL(t, stylesheetPattern, html, "stylesheet href")
+}
+
+func extractPatternURL(t *testing.T, pattern *regexp.Regexp, html string, label string) string {
+	t.Helper()
+
+	matches := pattern.FindStringSubmatch(html)
+	require.Len(t, matches, 2, "%s not found", label)
 	return normalizeFixtureURL(matches[1])
 }
 

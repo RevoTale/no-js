@@ -1,0 +1,10 @@
+package filterpanel
+
+templ FilterPanel() {
+	<aside data-component="filter-panel" data-density="compact" class={ FilterpanelPanelClass }>
+		<ul data-filter-cluster="primary" class={ FilterpanelClusterClass, FilterpanelExpandedClass }>
+			<li data-filter-token="fast" class={ FilterpanelTokenClass, FilterpanelActiveClass }>Fast</li>
+			<li data-filter-token="risk" class={ FilterpanelTokenClass, FilterpanelDangerClass }>Risk</li>
+		</ul>
+	</aside>
+}

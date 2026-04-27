@@ -4,19 +4,19 @@ import (
 	"context"
 	"net/http"
 
-	runtime "example.com/no-js-e2e/namespacedtemplcssapp/web/view"
+	"example.com/no-js-e2e/namespacedtemplcssapp/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/metagen"
 )
 
-func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*runtime.Context]) (metagen.Metadata, error) {
+func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (metagen.Metadata, error) {
 	return metagen.Metadata{
 		Description: "Namespaced fixture layout metadata",
 	}, nil
 }
 
 func (Resolver) MetaGenGroupMarketingDashboardLayout(
-	meta framework.MetaContext[*runtime.Context],
+	meta framework.MetaContext[*view.Context],
 	params GroupMarketingDashboardParams,
 ) (metagen.Metadata, error) {
 	return metagen.Metadata{
@@ -25,7 +25,7 @@ func (Resolver) MetaGenGroupMarketingDashboardLayout(
 }
 
 func (Resolver) MetaGenGroupMarketingDashboardPage(
-	meta framework.MetaContext[*runtime.Context],
+	meta framework.MetaContext[*view.Context],
 	params GroupMarketingDashboardParams,
 ) (metagen.Metadata, error) {
 	return metagen.Metadata{
@@ -36,9 +36,9 @@ func (Resolver) MetaGenGroupMarketingDashboardPage(
 
 func (Resolver) ResolveGroupMarketingDashboardPage(
 	ctx context.Context,
-	appCtx *runtime.Context,
+	appCtx *view.Context,
 	r *http.Request,
 	params GroupMarketingDashboardParams,
-) (runtime.RootLayoutView, error) {
-	return runtime.RootLayoutView{PageTitle: "Marketing Dashboard"}, nil
+) (view.RootLayoutView, error) {
+	return view.RootLayoutView{PageTitle: "Marketing Dashboard"}, nil
 }

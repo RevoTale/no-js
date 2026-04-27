@@ -18,6 +18,8 @@ const (
 	defaultAssetsBuildDir         = "web/assets-build"
 	defaultStaticManifestFileName = "manifest.json"
 	defaultStaticRuntimeURLPrefix = "/_assets/"
+	defaultTemplCSS               = true
+	defaultBrowserTarget          = "es2020"
 )
 
 type FeatureMode string
@@ -108,6 +110,14 @@ type StaticAssetsConfig struct {
 	ManifestPath string `yaml:"manifest_path"`
 }
 
+type AssetsConfig struct {
+	// TemplCSS controls whether templ css {} registrations are extracted into styles/templ.css.
+	TemplCSS *bool `yaml:"templ_css"`
+
+	// BrowserTargets controls esbuild target environments for generated and explicit assets.
+	BrowserTargets []string `yaml:"browser_targets"`
+}
+
 // Config defines build-time inputs for project layout resolution and code generation.
 // It must not be used as application runtime configuration.
 type Config struct {
@@ -115,6 +125,7 @@ type Config struct {
 
 	Project      ProjectConfig      `yaml:"project"`
 	Server       ServerConfig       `yaml:"server"`
+	Assets       AssetsConfig       `yaml:"assets"`
 	I18n         BuiltInI18nConfig  `yaml:"i18n"`
 	StaticAssets StaticAssetsConfig `yaml:"static_assets"`
 }
@@ -134,6 +145,11 @@ type StaticAssetsLayout struct {
 	SourceDir    string
 	OutDir       string
 	ManifestPath string
+}
+
+type AssetsLayout struct {
+	TemplCSS       bool
+	BrowserTargets []string
 }
 
 // ProjectLayout describes the resolved application layout on disk and in module space.
@@ -176,6 +192,7 @@ type ProjectLayout struct {
 	I18nImport string
 
 	BuiltInI18n    BuiltInI18nLayout
+	Assets         AssetsLayout
 	StaticAssets   StaticAssetsLayout
 	ServerFeatures ServerFeatures
 

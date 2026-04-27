@@ -20,7 +20,7 @@ func TestRunGeneratesWorkspaceAndRegistryWithoutSourcePollution(t *testing.T) {
 	require.NoError(t, os.MkdirAll(layout.GeneratedDir, 0o755))
 
 	require.NoError(t, os.WriteFile(filepath.Join(layout.RootDir, "go.mod"), []byte("module example.com/app\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(layout.ViewDir, "variants.go"), []byte("package runtime\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(layout.ViewDir, "variants.go"), []byte("package view\n"), 0o644))
 
 	require.NoError(t, os.WriteFile(filepath.Join(layout.RoutesDir, "notes", "page.templ"), []byte(`
 package notes
@@ -77,10 +77,44 @@ css panel() {
 
 	registry, err := os.ReadFile(filepath.Join(layout.GeneratedDir, registryFileName))
 	require.NoError(t, err)
-	require.Contains(t, string(registry), `runtime "example.com/app/web/view"`)
-	require.Contains(t, string(registry), `runtime.TemplCSSVariants()`)
+	require.NotContains(t, string(registry), `"example.com/app/web/view"`)
+	require.NotContains(t, string(registry), `view.TemplCSSVariants()`)
 	require.Contains(t, string(registry), `example.com/app/web/generated/templcss/components/card`)
 	require.Contains(t, string(registry), `example.com/app/web/generated/templcss/routes/notes`)
+}
+
+func TestRunIncludesTemplCSSVariantsHookWhenPresent(t *testing.T) {
+	t.Parallel()
+
+	layout := newTemplCSSLayout(t)
+
+	require.NoError(t, os.MkdirAll(filepath.Join(layout.RoutesDir, "notes"), 0o755))
+	require.NoError(t, os.MkdirAll(layout.ViewDir, 0o755))
+	require.NoError(t, os.MkdirAll(layout.GeneratedDir, 0o755))
+
+	require.NoError(t, os.WriteFile(filepath.Join(layout.RootDir, "go.mod"), []byte("module example.com/app\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(layout.ViewDir, "variants.go"), []byte(`
+package view
+
+import "github.com/a-h/templ"
+
+func TemplCSSVariants() []templ.CSSClass { return nil }
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(layout.RoutesDir, "notes", "page.templ"), []byte(`
+package notes
+
+css button() {
+	color: white;
+}
+`), 0o644))
+
+	require.NoError(t, Run(Config{Layout: layout}))
+
+	registry, err := os.ReadFile(filepath.Join(layout.GeneratedDir, registryFileName))
+	require.NoError(t, err)
+	require.Contains(t, string(registry), `"example.com/app/web/view"`)
+	require.NotContains(t, string(registry), `view "example.com/app/web/view"`)
+	require.Contains(t, string(registry), `view.TemplCSSVariants()`)
 }
 
 func TestRunRemovesStalePackageExport(t *testing.T) {
@@ -88,6 +122,7 @@ func TestRunRemovesStalePackageExport(t *testing.T) {
 
 	layout := newTemplCSSLayout(t)
 	require.NoError(t, os.MkdirAll(filepath.Join(layout.RoutesDir, "notes"), 0o755))
+	require.NoError(t, os.MkdirAll(layout.ViewDir, 0o755))
 	staleFile := filepath.Join(layout.RoutesDir, "notes", packageExportFileName)
 	require.NoError(t, os.WriteFile(staleFile, []byte("stale"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(layout.RootDir, "go.mod"), []byte("module example.com/app\n"), 0o644))
@@ -101,6 +136,68 @@ templ Page() {}
 
 	_, err := os.Stat(staleFile)
 	require.ErrorIs(t, err, os.ErrNotExist)
+}
+
+func TestCleanupRemovesGeneratedRegistry(t *testing.T) {
+	t.Parallel()
+
+	layout := newTemplCSSLayout(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(layout.GeneratedDir, generatedWorkspaceDirName), 0o755))
+	require.NoError(t, os.MkdirAll(layout.RoutesDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(layout.GeneratedDir, registryFileName), []byte("stale"), 0o644))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(layout.GeneratedDir, generatedWorkspaceDirName, "stale.go"), []byte("stale"), 0o644),
+	)
+
+	require.NoError(t, Cleanup(Config{Layout: layout}))
+
+	_, err := os.Stat(filepath.Join(layout.GeneratedDir, registryFileName))
+	require.ErrorIs(t, err, os.ErrNotExist)
+	_, err = os.Stat(filepath.Join(layout.GeneratedDir, generatedWorkspaceDirName))
+	require.ErrorIs(t, err, os.ErrNotExist)
+}
+
+func TestInspectReportsNoRegistrationsForParameterizedCSSOnly(t *testing.T) {
+	t.Parallel()
+
+	layout := newTemplCSSLayout(t)
+
+	require.NoError(t, os.MkdirAll(layout.RoutesDir, 0o755))
+	require.NoError(t, os.MkdirAll(layout.ViewDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(layout.ViewDir, "doc.go"), []byte("package view\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(layout.RoutesDir, "page.templ"), []byte(`
+package routes
+
+css loading(percent int) {
+	width: { percent };
+}
+`), 0o644))
+
+	inspection, err := Inspect(Config{Layout: layout})
+	require.NoError(t, err)
+	require.False(t, inspection.HasRegistrations)
+}
+
+func TestInspectReportsRegistrationsForZeroArgCSS(t *testing.T) {
+	t.Parallel()
+
+	layout := newTemplCSSLayout(t)
+
+	require.NoError(t, os.MkdirAll(layout.RoutesDir, 0o755))
+	require.NoError(t, os.MkdirAll(layout.ViewDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(layout.ViewDir, "doc.go"), []byte("package view\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(layout.RoutesDir, "page.templ"), []byte(`
+package routes
+
+css pageShell() {
+	padding: 1rem;
+}
+`), 0o644))
+
+	inspection, err := Inspect(Config{Layout: layout})
+	require.NoError(t, err)
+	require.True(t, inspection.HasRegistrations)
 }
 
 func newTemplCSSLayout(t *testing.T) projectlayout.ProjectLayout {

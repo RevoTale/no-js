@@ -7,8 +7,8 @@ css pageShell() {
 	border: 1px solid #123;
 }
 
-templ Page(view runtime.RootPageView) {
+templ Page(model view.RootPageView) {
 	<main data-route-page="home" class={ pageShell() }>
-		<h1>{ view.Heading }</h1>
+		<h1>{ model.Heading }</h1>
 	</main>
 }

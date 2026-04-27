@@ -20,41 +20,68 @@ func main() {
 	var urlPrefix string
 	var rootDir string
 	var configPath string
-	var templCSS bool
 
+	flag.Usage = func() {
+		_, _ = fmt.Fprintf(flag.CommandLine.Output(), "usage: staticassetsgen [flags]\n\n")
+		_, _ = fmt.Fprintln(
+			flag.CommandLine.Output(),
+			"internal helper; app projects should use `go tool no-js gen assets -root .`",
+		)
+		_, _ = fmt.Fprintln(flag.CommandLine.Output())
+		flag.PrintDefaults()
+	}
 	flag.StringVar(&sourceDir, "source", "web/assets", "source static directory")
 	flag.StringVar(&outDir, "out", "web/assets-build", "output static directory")
 	flag.StringVar(&manifestPath, "manifest", "web/assets-build/manifest.json", "manifest output path")
 	flag.StringVar(&urlPrefix, "url-prefix", "/_assets/", "base static URL prefix")
 	flag.StringVar(&rootDir, "root", ".", "application root directory")
 	flag.StringVar(&configPath, "config", "", "bundle config path")
-	flag.BoolVar(&templCSS, "templ-css", false, "generate styles/templ.css before bundling")
 	flag.Parse()
 
 	var layout projectlayout.ProjectLayout
-	if templCSS {
+	layoutResolved := false
+	if shouldResolveLayout(rootDir, configPath, sourceDir, outDir, manifestPath) {
 		var err error
 		layout, err = resolveLayout(rootDir, configPath)
 		if err != nil {
-			exitf("%v", err)
-		}
-		if sourceDir == "web/assets" {
-			sourceDir = layout.StaticAssets.SourceDir
-		}
-		if outDir == "web/assets-build" {
-			outDir = layout.StaticAssets.OutDir
-		}
-		if manifestPath == "web/assets-build/manifest.json" {
-			manifestPath = layout.StaticAssets.ManifestPath
+			if strings.TrimSpace(configPath) != "" ||
+				filesystem.PathExists(projectlayout.DefaultConfigPath(rootDir)) {
+				exitf("%v", err)
+			}
+		} else {
+			layoutResolved = true
+			if sourceDir == "web/assets" {
+				sourceDir = layout.StaticAssets.SourceDir
+			}
+			if outDir == "web/assets-build" {
+				outDir = layout.StaticAssets.OutDir
+			}
+			if manifestPath == "web/assets-build/manifest.json" {
+				manifestPath = layout.StaticAssets.ManifestPath
+			}
 		}
 	}
+
+	templCSSHasRegistrations := false
+	if layoutResolved && layout.Assets.TemplCSS {
+		var err error
+		templCSSHasRegistrations, err = templcssgen.HasRegistrations(templcssgen.Config{Layout: layout})
+		if err != nil {
+			exitf("inspect templ css registrations: %v", err)
+		}
+	}
+
 	sourceDir = resolvePath(rootDir, sourceDir)
 	outDir = resolvePath(rootDir, outDir)
 	manifestPath = resolvePath(rootDir, manifestPath)
 
 	buildSourceDir := sourceDir
+	browserTargets := []string(nil)
+	if layoutResolved {
+		browserTargets = layout.Assets.BrowserTargets
+	}
 	cleanupSource := func() error { return nil }
-	if templCSS {
+	if templCSSHasRegistrations {
 		stageDir, cleanup, err := templcssgen.PrepareStaticSource(templcssgen.PrepareStaticSourceConfig{
 			Layout:    layout,
 			SourceDir: sourceDir,
@@ -72,8 +99,9 @@ func main() {
 	}()
 
 	bundle, err := staticassets.Build(staticassets.BuildConfig{
-		SourceDir: buildSourceDir,
-		URLPrefix: urlPrefix,
+		SourceDir:      buildSourceDir,
+		URLPrefix:      urlPrefix,
+		BrowserTargets: browserTargets,
 	})
 	if err != nil {
 		exitf("build static bundle: %v", err)
@@ -97,6 +125,24 @@ func main() {
 	if err := staticassets.WriteManifest(manifestPath, bundle.Manifest()); err != nil {
 		exitf("write manifest %q: %v", manifestPath, err)
 	}
+}
+
+func shouldResolveLayout(
+	rootDir string,
+	configPath string,
+	sourceDir string,
+	outDir string,
+	manifestPath string,
+) bool {
+	if strings.TrimSpace(configPath) != "" {
+		return true
+	}
+	if filesystem.PathExists(projectlayout.DefaultConfigPath(rootDir)) {
+		return true
+	}
+	return sourceDir == "web/assets" &&
+		outDir == "web/assets-build" &&
+		manifestPath == "web/assets-build/manifest.json"
 }
 
 func resolveLayout(rootDir string, configPath string) (projectlayout.ProjectLayout, error) {

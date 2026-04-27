@@ -1,55 +1,67 @@
-# Request Cache and Partials
+# Request Cache And Partials
+
+Use this guide when you want to reuse loader work inside one request or support
+HTMX partial refreshes without changing your loader contract.
 
 ## What This Feature Does
 
 `no-js` gives page loaders a request-scoped cache and handles HTMX partial
-requests without changing your page loader contract.
+requests automatically.
 
-The request cache deduplicates repeated work inside one request. Partial request
-handling lets the framework skip the root layout and send metadata patches when a
-page is refreshed through HTMX.
+That means:
 
-## Modules
+- repeated work inside one request can be deduplicated
+- HTMX partial requests can reuse the same loader and metadata path
+- the framework decides when to skip the root layout and emit metadata patches
 
-- `framework` (`request_cache.go`)
-- `framework/metagen`
-- `framework/httpserver`
-
-## Happy Path
+## Request Cache
 
 Every page request is wrapped with `framework.WithRequestCache(...)` before
-loaders run. Use `framework.CachedCall(...)` inside loaders to share results
-within the same request.
-
-## Focused Example
+loaders run. Use `framework.CachedCall(...)` inside a loader to share work:
 
 ```go
-func LoadAuthorPage(
+func (Resolver) ResolveAuthorParamSlugPage(
 	ctx context.Context,
-	appCtx *runtime.Context,
+	appCtx *view.Context,
 	r *http.Request,
-	params framework.SlugParams,
-) (runtime.AuthorPageView, error) {
-	cacheKey := "LoadAuthorPage:" + params.Slug
+	params AuthorParamSlugParams,
+) (view.AuthorPageView, error) {
+	cacheKey := "author:" + params.Slug
 
-	return framework.CachedCall(ctx, cacheKey, func(runCtx context.Context) (runtime.AuthorPageView, error) {
-		return loadAuthorPage(runCtx, appCtx, r, params.Slug)
+	shared, err := framework.CachedCall(ctx, cacheKey, func(runCtx context.Context) (string, error) {
+		return loadAuthor(runCtx, appCtx, params.Slug)
 	})
+	if err != nil {
+		return view.AuthorPageView{}, err
+	}
+
+	return view.AuthorPageView{
+		Heading: shared,
+	}, nil
 }
 ```
 
 The cache key is app-defined. The sharing scope is one request only.
 
-## HTMX Partials
+## HTMX Partial Requests
 
 When the request includes `HX-Request`, the framework:
 
 - renders the page component without the root layout
-- keeps running the same metadata resolver
-- sends the metadata patch in HTMX response headers
+- keeps using the same metadata resolver
+- sends the metadata patch in response headers
 
-That behavior is automatic. Most apps do not need to branch on partial requests
-unless they want different caching or transport behavior.
+Most apps do not need special branching for partial requests unless they want
+different caching or transport behavior.
+
+## What Stays The Same
+
+- the generated route contract
+- page loaders
+- metadata resolvers
+- app context usage
+
+The framework changes the render behavior, not the app-facing route API.
 
 ## Related Docs
 

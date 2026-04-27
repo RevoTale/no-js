@@ -1,0 +1,21 @@
+package complex
+
+import (
+	"example.com/no-js-e2e/clientassetsapp/web/components/filterpanel"
+	"example.com/no-js-e2e/clientassetsapp/web/view"
+)
+
+templ Page(model view.ComplexPageView) {
+	<main data-route-page="complex" data-theme=".ghost" class={ PageDashboardClass }>
+		<h1>{ model.Heading }</h1>
+		<nav data-complex="rail" class={ PageRailClass }>Route rail</nav>
+		<article data-complex="card" data-state=".hot" class={ PageCardClass, PagePrimaryClass }>
+			<span data-complex="status" class={ PageStatusClass }>Stable</span>
+			<span data-complex="meta" data-state=".hot" class={ PageMetaClass }>Hot path</span>
+			<a data-complex="link" href="/complex" class={ PageLinkClass }>Open route</a>
+		</article>
+		<span data-complex="ghost" class={ PageGhostClass } hidden>Ghost token</span>
+		<span data-complex="disabled" class={ PageDisabledClass } hidden>Disabled token</span>
+		@filterpanel.FilterPanel()
+	</main>
+}

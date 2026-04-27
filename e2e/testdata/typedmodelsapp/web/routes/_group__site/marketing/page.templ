@@ -1,0 +1,9 @@
+package marketing
+
+import "example.com/no-js-e2e/typedmodelsapp/web/view"
+
+templ Page(model view.MarketingPageView) {
+	<main id="marketing-page" data-heading={ model.Heading }>
+		{ model.Heading }
+	</main>
+}

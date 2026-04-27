@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	frameworkstaticassets "github.com/RevoTale/no-js/framework/staticassets"
+	"github.com/RevoTale/no-js/internal/bundler/esbuildtarget"
 	"github.com/evanw/esbuild/pkg/api"
 )
 
@@ -21,8 +22,9 @@ const (
 )
 
 type BuildConfig struct {
-	SourceDir string
-	URLPrefix string
+	SourceDir      string
+	URLPrefix      string
+	BrowserTargets []string
 }
 
 type Bundle struct {
@@ -49,6 +51,10 @@ func Build(cfg BuildConfig) (*Bundle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("collect source files: %w", err)
 	}
+	target, engines, err := esbuildtarget.Parse(cfg.BrowserTargets)
+	if err != nil {
+		return nil, fmt.Errorf("parse browser targets: %w", err)
+	}
 
 	outDir, err := os.MkdirTemp("", "no-js-static-assets-*")
 	if err != nil {
@@ -64,7 +70,7 @@ func Build(cfg BuildConfig) (*Bundle, error) {
 			return nil, fmt.Errorf("read source file %q: %w", sourcePath, readErr)
 		}
 
-		processed, processErr := processContent(relativePath, content)
+		processed, processErr := processContent(sourceDir, relativePath, content, target, engines)
 		if processErr != nil {
 			_ = os.RemoveAll(outDir)
 			return nil, processErr
@@ -209,13 +215,19 @@ func collectFiles(root string) ([]string, error) {
 	return files, nil
 }
 
-func processContent(relativePath string, content []byte) ([]byte, error) {
+func processContent(
+	sourceDir string,
+	relativePath string,
+	content []byte,
+	target api.Target,
+	engines []api.Engine,
+) ([]byte, error) {
 	extension := strings.ToLower(filepath.Ext(relativePath))
 	switch extension {
 	case ".js", ".mjs", ".cjs":
-		return transformWithEsbuild(relativePath, content, api.LoaderJS)
+		return transformWithEsbuild(relativePath, content, api.LoaderJS, target, engines)
 	case ".css":
-		return transformWithEsbuild(relativePath, content, api.LoaderCSS)
+		return buildCSSWithEsbuild(sourceDir, relativePath, content, target, engines)
 	default:
 		copied := make([]byte, len(content))
 		copy(copied, content)
@@ -223,10 +235,18 @@ func processContent(relativePath string, content []byte) ([]byte, error) {
 	}
 }
 
-func transformWithEsbuild(relativePath string, content []byte, loader api.Loader) ([]byte, error) {
+func transformWithEsbuild(
+	relativePath string,
+	content []byte,
+	loader api.Loader,
+	target api.Target,
+	engines []api.Engine,
+) ([]byte, error) {
 	result := api.Transform(string(content), api.TransformOptions{
 		Loader:            loader,
 		Sourcefile:        relativePath,
+		Target:            target,
+		Engines:           engines,
 		MinifyWhitespace:  true,
 		MinifySyntax:      true,
 		MinifyIdentifiers: true,
@@ -237,6 +257,114 @@ func transformWithEsbuild(relativePath string, content []byte, loader api.Loader
 	}
 
 	return result.Code, nil
+}
+
+func buildCSSWithEsbuild(
+	sourceDir string,
+	relativePath string,
+	content []byte,
+	target api.Target,
+	engines []api.Engine,
+) ([]byte, error) {
+	sourcePath := filepath.Join(sourceDir, filepath.FromSlash(relativePath))
+	result := api.Build(api.BuildOptions{
+		Stdin: &api.StdinOptions{
+			Contents:   string(content),
+			ResolveDir: filepath.Dir(sourcePath),
+			Sourcefile: relativePath,
+			Loader:     api.LoaderCSS,
+		},
+		Bundle:            true,
+		Write:             false,
+		Platform:          api.PlatformBrowser,
+		Target:            target,
+		Engines:           engines,
+		MinifyWhitespace:  true,
+		MinifySyntax:      true,
+		MinifyIdentifiers: true,
+		Plugins:           []api.Plugin{externalCSSURLTokenPlugin(sourceDir, relativePath)},
+	})
+	if len(result.Errors) > 0 {
+		return nil, fmt.Errorf("bundle css %q: %s", relativePath, result.Errors[0].Text)
+	}
+	for _, output := range result.OutputFiles {
+		if filepath.Ext(output.Path) == ".css" || output.Path == "<stdout>" {
+			return output.Contents, nil
+		}
+	}
+	return nil, fmt.Errorf("bundle css %q: no css output", relativePath)
+}
+
+func externalCSSURLTokenPlugin(sourceDir string, relativePath string) api.Plugin {
+	entryDir := filepath.Dir(filepath.Join(sourceDir, filepath.FromSlash(relativePath)))
+	return api.Plugin{
+		Name: "no-js-static-css-url-token-external",
+		Setup: func(build api.PluginBuild) {
+			build.OnResolve(api.OnResolveOptions{Filter: ".*"}, func(args api.OnResolveArgs) (api.OnResolveResult, error) {
+				if args.Kind != api.ResolveCSSURLToken {
+					return api.OnResolveResult{}, nil
+				}
+				rebasedPath, err := rebaseCSSURLToken(entryDir, args.ResolveDir, args.Path)
+				if err != nil {
+					return api.OnResolveResult{}, err
+				}
+				return api.OnResolveResult{Path: rebasedPath, External: true}, nil
+			})
+		},
+	}
+}
+
+func rebaseCSSURLToken(entryDir string, resolveDir string, token string) (string, error) {
+	pathPart, suffix := splitCSSURLToken(token)
+	if pathPart == "" || strings.HasPrefix(pathPart, "/") || hasURLScheme(pathPart) {
+		return token, nil
+	}
+
+	resolvedPath := filepath.Clean(filepath.Join(resolveDir, filepath.FromSlash(pathPart)))
+	relativePath, err := filepath.Rel(entryDir, resolvedPath)
+	if err != nil {
+		return "", fmt.Errorf("rebase css url %q: %w", token, err)
+	}
+	normalized := filepath.ToSlash(relativePath)
+	if normalized == "." {
+		normalized = filepath.ToSlash(filepath.Base(resolvedPath))
+	}
+	if !strings.HasPrefix(normalized, ".") {
+		normalized = "./" + normalized
+	}
+	return normalized + suffix, nil
+}
+
+func splitCSSURLToken(token string) (string, string) {
+	queryIndex := strings.Index(token, "?")
+	hashIndex := strings.Index(token, "#")
+	cut := -1
+	if queryIndex >= 0 {
+		cut = queryIndex
+	}
+	if hashIndex >= 0 && (cut == -1 || hashIndex < cut) {
+		cut = hashIndex
+	}
+	if cut == -1 {
+		return token, ""
+	}
+	return token[:cut], token[cut:]
+}
+
+func hasURLScheme(value string) bool {
+	for i, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= 'A' && r <= 'Z':
+		case r >= '0' && r <= '9' && i > 0:
+		case r == '+' || r == '-' || r == '.':
+		case r == ':' && i > 0:
+			return true
+		default:
+			return false
+		}
+	}
+	return false
 }
 
 func normalizeManifestForWrite(manifest frameworkstaticassets.Manifest) (frameworkstaticassets.Manifest, error) {

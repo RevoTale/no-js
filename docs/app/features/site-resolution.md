@@ -1,55 +1,76 @@
 # Site Resolution
 
+Use this guide when your app needs absolute canonical URLs for metadata, feeds,
+sitemaps, or localized links.
+
 ## What This Feature Does
 
-A `Site Resolver` gives `no-js` the absolute site root for canonical URLs,
-alternates, feeds, sitemaps, and other metadata that must leave the current page
-as an absolute URL.
+A `Site Resolver` gives `no-js` the absolute site root for features that need
+to leave the current request path as an absolute URL.
 
-If your app only has one canonical root, use a static resolver. If the public
-host depends on the request, implement the URL-aware resolver methods.
+That includes:
 
-## Modules
+- canonical URLs
+- alternate language URLs
+- feed links
+- sitemap entries
+- request-scoped i18n URL helpers
 
-- `framework/site`
-- `framework/metadata_context`
+## Pick The Right Resolver Shape
 
-## Happy Path
-
-`framework/site` supports two levels:
+`framework/site` exposes two levels:
 
 - `site.Resolver`
-  string-based canonical and resolved URL methods
+  String-based canonical and resolved URL methods.
 - `site.URLResolver`
-  parsed `*url.URL` methods for safer URL composition
+  Parsed `*url.URL` methods for safer URL composition.
 
 The URL-aware form is the better default for new code.
 
-## Focused Example
-
-Static resolver:
+## Static Resolver Example
 
 ```go
 type StaticResolver struct {
 	root *url.URL
 }
 
-func (r StaticResolver) CanonicalURL() string          { return r.root.String() }
-func (r StaticResolver) Resolve(*http.Request) string  { return r.root.String() }
-func (r StaticResolver) CanonicalRoot() *url.URL       { clone := *r.root; return &clone }
-func (r StaticResolver) ResolveRoot(*http.Request) *url.URL { return r.CanonicalRoot() }
+func (r StaticResolver) CanonicalURL() string {
+	return r.root.String()
+}
+
+func (r StaticResolver) Resolve(*http.Request) string {
+	return r.root.String()
+}
+
+func (r StaticResolver) CanonicalRoot() *url.URL {
+	clone := *r.root
+	return &clone
+}
+
+func (r StaticResolver) ResolveRoot(*http.Request) *url.URL {
+	return r.CanonicalRoot()
+}
 ```
 
-Request-aware resolver:
+## Request-Aware Resolver Example
 
 ```go
 type RequestResolver struct {
 	root *url.URL
 }
 
-func (r RequestResolver) CanonicalURL() string         { return r.root.String() }
-func (r RequestResolver) Resolve(*http.Request) string { return r.CanonicalURL() }
-func (r RequestResolver) CanonicalRoot() *url.URL      { clone := *r.root; return &clone }
+func (r RequestResolver) CanonicalURL() string {
+	return r.root.String()
+}
+
+func (r RequestResolver) Resolve(*http.Request) string {
+	return r.CanonicalURL()
+}
+
+func (r RequestResolver) CanonicalRoot() *url.URL {
+	clone := *r.root
+	return &clone
+}
 
 func (r RequestResolver) ResolveRoot(req *http.Request) *url.URL {
 	root := r.CanonicalRoot()
@@ -68,17 +89,13 @@ func (r RequestResolver) ResolveRoot(req *http.Request) *url.URL {
 }
 ```
 
-Pass it into your app context once, then the same root flows into
-`MetaContext.Root()`, `MetaContext.LocalizedURL(...)`, discovery builders, and
-request-scoped i18n URL helpers.
+## Where It Belongs
 
-## When To Use `Custom Config` Or Advanced Composition
+`Site Resolver` is an app-owned dependency. Put it in your runtime wiring, not
+in `Custom Config`.
 
-`Site Resolver` is an app-owned dependency, not a `Custom Config` hook.
-
-Put the resolver in app runtime wiring and keep its policy centralized there. If
-you need tenant-aware or proxy-aware logic, that is still the same `Site Resolver`
-contract, just with app-owned implementation.
+Keep site-root policy centralized there, whether the policy is static,
+proxy-aware, or tenant-aware.
 
 ## Related Docs
 

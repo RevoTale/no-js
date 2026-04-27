@@ -18,5 +18,21 @@
   {
     "id": "ui.switch.german",
     "translation": "Deutsch"
+  },
+  {
+    "id": "ui.not_found.title",
+    "translation": "Seite nicht gefunden"
+  },
+  {
+    "id": "ui.not_found.heading",
+    "translation": "Seite nicht gefunden"
+  },
+  {
+    "id": "ui.error.title",
+    "translation": "Fehler"
+  },
+  {
+    "id": "ui.error.heading",
+    "translation": "Etwas ist schiefgelaufen"
   }
 ]

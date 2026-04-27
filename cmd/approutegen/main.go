@@ -14,6 +14,15 @@ import (
 func main() {
 	var rootDir string
 
+	flag.Usage = func() {
+		_, _ = fmt.Fprintf(flag.CommandLine.Output(), "usage: approutegen [-root .]\n\n")
+		_, _ = fmt.Fprintln(
+			flag.CommandLine.Output(),
+			"internal helper; app projects should use `go tool no-js gen routes -root .`",
+		)
+		_, _ = fmt.Fprintln(flag.CommandLine.Output())
+		flag.PrintDefaults()
+	}
 	flag.StringVar(&rootDir, "root", ".", "application root directory")
 	flag.Parse()
 
@@ -27,8 +36,13 @@ func main() {
 		_, _ = fmt.Fprintf(os.Stderr, "approutegen: %v\n", err)
 		os.Exit(1)
 	}
-	if err := templcssgen.Run(templcssgen.Config{Layout: layout}); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "approutegen: generate templ css registry: %v\n", err)
+	if layout.Assets.TemplCSS {
+		if err := templcssgen.Run(templcssgen.Config{Layout: layout}); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "approutegen: generate templ css registry: %v\n", err)
+			os.Exit(1)
+		}
+	} else if err := templcssgen.Cleanup(templcssgen.Config{Layout: layout}); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "approutegen: clean templ css registry: %v\n", err)
 		os.Exit(1)
 	}
 	if err := bundlertemplgen.Run(bundlertemplgen.Config{

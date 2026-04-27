@@ -4,17 +4,17 @@ import (
 	"context"
 	"net/http"
 
-	runtime "example.com/no-js-e2e/methodmatrixapp/web/view"
+	"example.com/no-js-e2e/methodmatrixapp/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/metagen"
 )
 
-func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*runtime.Context]) (metagen.Metadata, error) {
+func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (metagen.Metadata, error) {
 	return metagen.Metadata{Description: "method matrix fixture"}, nil
 }
 
 func (Resolver) MetaGenRootPage(
-	meta framework.MetaContext[*runtime.Context],
+	meta framework.MetaContext[*view.Context],
 	params RootParams,
 ) (metagen.Metadata, error) {
 	return metagen.Metadata{Title: "Method Matrix"}, nil
@@ -22,12 +22,12 @@ func (Resolver) MetaGenRootPage(
 
 func (Resolver) ResolveRootPage(
 	ctx context.Context,
-	appCtx *runtime.Context,
+	appCtx *view.Context,
 	r *http.Request,
 	params RootParams,
-) (runtime.RootPageView, error) {
-	return runtime.RootPageView{
-		RootLayoutView: runtime.RootLayoutView{PageTitle: "Method Matrix"},
+) (view.RootPageView, error) {
+	return view.RootPageView{
+		RootLayoutView: view.RootLayoutView{PageTitle: "Method Matrix"},
 		SummarySlug:    "ada",
 	}, nil
 }

@@ -1,0 +1,9 @@
+package routes
+
+import "example.com/no-js-e2e/typedmodelsapp/web/view"
+
+templ NotFound(model view.RootNotFoundView, path string) {
+	<main id="typed-not-found" data-message={ model.Message } data-path={ path }>
+		{ model.Message } { path }
+	</main>
+}

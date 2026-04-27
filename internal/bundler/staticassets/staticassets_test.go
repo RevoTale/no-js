@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	frameworkstaticassets "github.com/RevoTale/no-js/framework/staticassets"
@@ -48,6 +49,52 @@ func TestBuild_MinifiesAndCopiesAssets(t *testing.T) {
 	copiedSVG := mustReadFile(t, filepath.Join(bundle.Dir(), "logo.svg"))
 	originalSVG := mustReadFile(t, filepath.Join(sourceDir, "logo.svg"))
 	require.Equal(t, string(originalSVG), string(copiedSVG))
+}
+
+func TestBuildBundlesCSSImports(t *testing.T) {
+	t.Parallel()
+
+	sourceDir := t.TempDir()
+	writeTestFile(t, filepath.Join(sourceDir, "site.css"), `@import "./shared/reset.css";
+.site { color: blue; }
+`)
+	writeTestFile(t, filepath.Join(sourceDir, "shared", "reset.css"), `.reset { margin: 0; }
+.icon { background-image: url("../icons/mark.svg"); }
+`)
+	writeTestFile(t, filepath.Join(sourceDir, "icons", "mark.svg"), `<svg xmlns="http://www.w3.org/2000/svg"></svg>`)
+
+	bundle, err := Build(BuildConfig{SourceDir: sourceDir})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, bundle.Cleanup())
+	})
+
+	builtCSS := string(mustReadFile(t, filepath.Join(bundle.Dir(), "site.css")))
+	require.Contains(t, builtCSS, ".reset{margin:0}")
+	require.Contains(t, builtCSS, ".icon{background-image:url(./icons/mark.svg)}")
+	require.Contains(t, builtCSS, ".site{color:#00f}")
+	require.Less(t, indexRequired(t, builtCSS, ".reset{margin:0}"), indexRequired(t, builtCSS, ".site{color:#00f}"))
+	require.NotContains(t, builtCSS, "@import")
+}
+
+func TestBuildAppliesBrowserTargetsToCSS(t *testing.T) {
+	t.Parallel()
+
+	sourceDir := t.TempDir()
+	writeTestFile(t, filepath.Join(sourceDir, "styles.css"), ".field { user-select: none; }\n")
+
+	bundle, err := Build(BuildConfig{
+		SourceDir:      sourceDir,
+		BrowserTargets: []string{"safari13"},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, bundle.Cleanup())
+	})
+
+	builtCSS := string(mustReadFile(t, filepath.Join(bundle.Dir(), "styles.css")))
+	require.Contains(t, builtCSS, "-webkit-user-select:none")
+	require.Contains(t, builtCSS, "user-select:none")
 }
 
 func TestBuild_HashDeterministicForSameSource(t *testing.T) {
@@ -153,6 +200,14 @@ func TestWriteManifest(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expected.Hash, actual.Hash)
 	require.Equal(t, expected.Version, actual.Version)
+}
+
+func indexRequired(t *testing.T, value string, needle string) int {
+	t.Helper()
+
+	index := strings.Index(value, needle)
+	require.NotEqual(t, -1, index, "expected %q in %q", needle, value)
+	return index
 }
 
 func writeTestFile(t *testing.T, path string, content string) {

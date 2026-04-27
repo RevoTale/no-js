@@ -1,13 +1,12 @@
-package runtime
-
-import (
-	i18n "example.com/no-js-e2e/i18nprefixalwaysapp/web/generated/i18n"
-	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
-	"github.com/a-h/templ"
-)
+package view
 
 type RootLayoutView struct {
-	PageTitle string
+	PageTitle         string
+	NotFoundHeading   string
+	ErrorHeading      string
+	SystemLocale      string
+	SystemRequestPath string
+	NotFoundSource    string
 }
 
 func (view RootLayoutView) LayoutPageTitle() string {
@@ -32,14 +31,6 @@ type GreetPageView struct {
 	SwitchToGerman  string
 }
 
-func NewNotFoundView(messages frameworki18n.Context[i18n.Key]) RootLayoutView {
-	return RootLayoutView{PageTitle: "Not Found"}
-}
-
-func NewErrorView(messages frameworki18n.Context[i18n.Key]) RootLayoutView {
-	return RootLayoutView{PageTitle: "Error"}
-}
-
-func TemplCSSVariants() []templ.CSSClass {
-	return nil
+type FailPageView struct {
+	RootLayoutView
 }

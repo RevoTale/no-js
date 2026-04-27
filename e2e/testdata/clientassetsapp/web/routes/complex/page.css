@@ -1,0 +1,78 @@
+.dashboard {
+	container-type: inline-size;
+	color: #111827;
+}
+
+.rail {
+	order: 1;
+}
+
+.card {
+	border: 4px solid #0284c7;
+}
+
+.primary {
+	background: #e0f2fe;
+}
+
+.secondary {
+	background: #fef9c3;
+}
+
+.disabled {
+	opacity: .44;
+}
+
+.status {
+	font-weight: 700;
+}
+
+.meta {
+	color: #7c2d12;
+}
+
+.link {
+	text-decoration-thickness: 3px;
+}
+
+.ghost {
+	visibility: hidden;
+}
+
+.dashboard[data-theme=".ghost"] > .rail + .card:is(.primary, .secondary):not(.disabled) .status::before {
+	content: ".dashboard.primary";
+	box-shadow: 0 0 0 3px #0ea5e9;
+}
+
+@media (min-width: 42rem) {
+	.dashboard > .rail ~ .card:has(> .status + .meta[data-state~=".hot"]) > .link:any-link::after {
+		content: " route";
+		border-block-end: 5px solid #db2777;
+	}
+}
+
+@supports selector(.dashboard:has(> .card .status)) {
+	.dashboard:where(.enabled, :not(.disabled)) .card > .status:nth-child(1 of .status)::first-letter {
+		color: #9333ea;
+	}
+}
+
+@container (min-width: 45rem) {
+	.dashboard:has(> .card.primary) > .card .meta::after {
+		content: " container";
+		background: #f59e0b;
+	}
+}
+
+@scope (.dashboard) to (.ghost) {
+	.card > .status {
+		text-shadow: 0 1px #111827;
+	}
+}
+
+@layer clientassets.e2e {
+	.dashboard > .card::before {
+		content: "layer";
+		outline: 6px solid #14b8a6;
+	}
+}

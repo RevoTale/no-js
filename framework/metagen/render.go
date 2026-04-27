@@ -44,6 +44,7 @@ func renderManagedHead(meta Metadata, includeTitle bool) (string, string, error)
 
 	writeAlternates(&builder, meta.Alternates)
 	writeStylesheets(&builder, meta.Stylesheets)
+	writeModuleScripts(&builder, meta.ModuleScripts)
 	writeRobots(&builder, meta.Robots)
 	writeAuthors(&builder, meta.Authors)
 
@@ -67,6 +68,18 @@ func writeStylesheets(builder *strings.Builder, stylesheets []string) {
 		writeTag(
 			builder,
 			`<link `+managedHeadAttribute+` rel="stylesheet" href="`+escapeAttr(href)+`">`,
+		)
+	}
+}
+
+func writeModuleScripts(builder *strings.Builder, scripts []string) {
+	for _, src := range scripts {
+		if strings.TrimSpace(src) == "" {
+			continue
+		}
+		writeTag(
+			builder,
+			`<script `+managedHeadAttribute+` type="module" src="`+escapeAttr(src)+`"></script>`,
 		)
 	}
 }

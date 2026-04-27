@@ -3,7 +3,7 @@ package metagen
 import "strings"
 
 // Merge combines parent and child metadata.
-// Child values override parent values when non-zero, and Stylesheets/DangerRawHead append.
+// Child values override parent values when non-zero, and managed asset/raw head fields append.
 func Merge(parent Metadata, child Metadata) Metadata {
 	merged := Normalize(parent)
 	child = Normalize(child)
@@ -36,6 +36,9 @@ func Merge(parent Metadata, child Metadata) Metadata {
 	}
 	if len(child.Stylesheets) > 0 {
 		merged.Stylesheets = append(merged.Stylesheets, child.Stylesheets...)
+	}
+	if len(child.ModuleScripts) > 0 {
+		merged.ModuleScripts = append(merged.ModuleScripts, child.ModuleScripts...)
 	}
 	if child.Pinterest != nil {
 		merged.Pinterest = child.Pinterest

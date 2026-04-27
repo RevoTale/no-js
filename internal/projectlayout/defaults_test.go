@@ -14,7 +14,7 @@ func TestResolveProjectLayoutDefaults(t *testing.T) {
 	rootDir := t.TempDir()
 	writeBundlerTestFile(t, filepath.Join(rootDir, "go.mod"), "module example.com/app\n\ngo 1.25.0\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "routes", "page.templ"), "package appsrc\n")
-	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package runtime\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package view\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "i18n", "doc.go"), "package i18n\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "i18n", "messages", "active.en.json"), "[]\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "assets", "app.js"), "console.log('x')\n")
@@ -40,6 +40,8 @@ func TestResolveProjectLayoutDefaults(t *testing.T) {
 		filepath.Join(rootDir, defaultAssetsBuildDir, defaultStaticManifestFileName),
 	)
 	require.Equal(t, expectedManifestPath, filepath.ToSlash(layout.StaticAssets.ManifestPath))
+	require.True(t, layout.Assets.TemplCSS)
+	require.Equal(t, []string{"es2020"}, layout.Assets.BrowserTargets)
 	require.True(t, layout.ServerFeatures.I18nRouting)
 	require.True(t, layout.ServerFeatures.StaticAssets)
 	require.True(t, layout.ServerFeatures.HealthEndpoint)
@@ -56,13 +58,28 @@ func TestResolveProjectLayoutRejectsMissingAppDir(t *testing.T) {
 	require.Contains(t, err.Error(), "strict routes root missing")
 }
 
+func TestResolveProjectLayoutRejectsEmptyBrowserTarget(t *testing.T) {
+	t.Parallel()
+
+	rootDir := t.TempDir()
+	writeBundlerTestFile(t, filepath.Join(rootDir, "go.mod"), "module example.com/app\n\ngo 1.25.0\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "routes", "page.templ"), "package appsrc\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package view\n")
+
+	_, err := ResolveProjectLayout(rootDir, Config{
+		Assets: AssetsConfig{BrowserTargets: []string{"es2020", " "}},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "browser target cannot be empty")
+}
+
 func TestResolveProjectLayoutRejectsEscapeDir(t *testing.T) {
 	t.Parallel()
 
 	rootDir := t.TempDir()
 	writeBundlerTestFile(t, filepath.Join(rootDir, "go.mod"), "module example.com/app\n\ngo 1.25.0\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "routes", "page.templ"), "package appsrc\n")
-	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package runtime\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package view\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "i18n", "doc.go"), "package i18n\n")
 
 	_, err := ResolveProjectLayout(rootDir, Config{
@@ -80,7 +97,7 @@ func TestResolveProjectLayoutDisablesPresenceBasedFeaturesWhenPathsAreMissing(t 
 	rootDir := t.TempDir()
 	writeBundlerTestFile(t, filepath.Join(rootDir, "go.mod"), "module example.com/app\n\ngo 1.25.0\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "routes", "page.templ"), "package appsrc\n")
-	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package runtime\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package view\n")
 
 	layout, err := ResolveProjectLayout(rootDir, Config{})
 	require.NoError(t, err)
@@ -97,7 +114,7 @@ func TestResolveProjectLayoutRespectsExplicitFeatureOverrides(t *testing.T) {
 	rootDir := t.TempDir()
 	writeBundlerTestFile(t, filepath.Join(rootDir, "go.mod"), "module example.com/app\n\ngo 1.25.0\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "routes", "page.templ"), "package appsrc\n")
-	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package runtime\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package view\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "i18n", "doc.go"), "package i18n\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "i18n", "messages", "active.en.json"), "[]\n")
 
@@ -125,7 +142,7 @@ func TestResolveProjectLayoutRequiresI18nDirWhenFeatureEnabled(t *testing.T) {
 	rootDir := t.TempDir()
 	writeBundlerTestFile(t, filepath.Join(rootDir, "go.mod"), "module example.com/app\n\ngo 1.25.0\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "routes", "page.templ"), "package appsrc\n")
-	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package runtime\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package view\n")
 
 	_, err := ResolveProjectLayout(rootDir, Config{
 		Server: ServerConfig{
@@ -144,7 +161,7 @@ func TestResolveProjectLayoutRequiresMessagesDirWhenBuiltInI18nEnabled(t *testin
 	rootDir := t.TempDir()
 	writeBundlerTestFile(t, filepath.Join(rootDir, "go.mod"), "module example.com/app\n\ngo 1.25.0\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "routes", "page.templ"), "package appsrc\n")
-	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package runtime\n")
+	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "view", "context.go"), "package view\n")
 	writeBundlerTestFile(t, filepath.Join(rootDir, "web", "i18n", "doc.go"), "package i18n\n")
 
 	_, err := ResolveProjectLayout(rootDir, Config{

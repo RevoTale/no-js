@@ -1,0 +1,19 @@
+package panel
+
+css panelShell() {
+	display: grid;
+	gap: 0.8rem;
+}
+
+templ PanelShell(attrs templ.Attributes) {
+	<section class={ panelShell() } { attrs... }>
+		{ children... }
+	</section>
+}
+
+templ DockSection() {
+	@PanelShell(templ.Attributes{"data-section": "dock", "id": "dock-panel"}) {
+		<h2>Dock</h2>
+		<p>Component body</p>
+	}
+}

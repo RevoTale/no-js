@@ -1,0 +1,13 @@
+package summary
+
+css summaryBox() {
+	background: #eef5ff;
+	padding: 12px;
+	border: 1px solid #17324d;
+}
+
+templ NoteSummary(slug string) {
+	<section data-component="summary" class={ summaryBox() }>
+		{ slug }
+	</section>
+}

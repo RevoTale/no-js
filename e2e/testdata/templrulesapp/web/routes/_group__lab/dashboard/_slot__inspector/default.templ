@@ -1,8 +1,8 @@
 package inspector
 
-import "example.com/no-js-e2e/templrulesapp/web/components"
+import "example.com/no-js-e2e/templrulesapp/web/components/progress"
 import "example.com/no-js-e2e/templrulesapp/web/view"
 
-templ Default(view runtime.RootLayoutView) {
-	@components.InspectorPanel()
+templ Default(model view.RootLayoutView) {
+	@progress.InspectorPanel()
 }

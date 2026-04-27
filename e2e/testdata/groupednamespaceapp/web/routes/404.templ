@@ -2,7 +2,7 @@ package routes
 
 import "example.com/no-js-e2e/groupednamespaceapp/web/view"
 
-templ NotFound(view runtime.RootLayoutView, path string) {
+templ NotFound(model view.RootLayoutView, path string) {
 	<main id="not-found">
 		Missing { path }
 	</main>

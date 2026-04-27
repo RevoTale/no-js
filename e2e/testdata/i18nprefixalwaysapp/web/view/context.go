@@ -1,9 +1,8 @@
-package runtime
+package view
 
 import (
 	"net/http"
 	"net/url"
-	"path"
 	"strings"
 
 	i18n "example.com/no-js-e2e/i18nprefixalwaysapp/web/generated/i18n"
@@ -14,8 +13,6 @@ import (
 type Context struct {
 	root *url.URL
 }
-
-var staticAssetBasePath string
 
 func NewContext() *Context {
 	root, _ := url.Parse("https://prefix.example.test")
@@ -41,16 +38,4 @@ func (c *Context) ResolveRoot(r *http.Request) *url.URL {
 
 func (c *Context) I18n(r *http.Request) frameworki18n.Context[i18n.Key] {
 	return messages.NewContext(r, c.ResolveRoot(r))
-}
-
-func SetStaticAssetBasePath(prefix string) {
-	staticAssetBasePath = strings.TrimRight(strings.TrimSpace(prefix), "/")
-}
-
-func StaticAssetURL(assetPath string) string {
-	trimmed := strings.TrimPrefix(strings.TrimSpace(assetPath), "/")
-	if trimmed == "" {
-		return staticAssetBasePath
-	}
-	return path.Join(staticAssetBasePath, trimmed)
 }

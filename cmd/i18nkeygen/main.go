@@ -15,6 +15,15 @@ func main() {
 	var outputPath string
 	var packageName string
 
+	flag.Usage = func() {
+		_, _ = fmt.Fprintf(flag.CommandLine.Output(), "usage: i18nkeygen -in messages.json -out keys_gen.go [-pkg i18n]\n\n")
+		_, _ = fmt.Fprintln(
+			flag.CommandLine.Output(),
+			"internal helper; app projects should use `go tool no-js gen routes -root .`",
+		)
+		_, _ = fmt.Fprintln(flag.CommandLine.Output())
+		flag.PrintDefaults()
+	}
 	flag.StringVar(&inputPath, "in", "", "canonical locale json file path")
 	flag.StringVar(&outputPath, "out", "", "generated go file output path")
 	flag.StringVar(&packageName, "pkg", "i18n", "generated go package name")

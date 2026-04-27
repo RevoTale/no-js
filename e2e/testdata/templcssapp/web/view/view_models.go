@@ -1,7 +1,7 @@
-package runtime
+package view
 
 import (
-	"example.com/no-js-e2e/templcssapp/web/components"
+	"example.com/no-js-e2e/templcssapp/web/components/hero"
 	"github.com/a-h/templ"
 )
 
@@ -20,16 +20,8 @@ type RootPageView struct {
 	Progress int
 }
 
-func NewNotFoundView(messages *Messages) RootLayoutView {
-	return RootLayoutView{PageTitle: "Not Found"}
-}
-
-func NewErrorView(messages *Messages) RootLayoutView {
-	return RootLayoutView{PageTitle: "Error"}
-}
-
 func TemplCSSVariants() []templ.CSSClass {
 	return []templ.CSSClass{
-		components.Progress(50),
+		hero.Progress(50),
 	}
 }

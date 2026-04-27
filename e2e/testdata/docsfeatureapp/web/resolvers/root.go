@@ -8,19 +8,19 @@ import (
 	"strconv"
 
 	i18n "example.com/no-js-e2e/docsfeatureapp/web/generated/i18n"
-	runtime "example.com/no-js-e2e/docsfeatureapp/web/view"
+	"example.com/no-js-e2e/docsfeatureapp/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/metagen"
 )
 
-func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*runtime.Context]) (metagen.Metadata, error) {
+func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (metagen.Metadata, error) {
 	return metagen.Metadata{
 		Publisher: "Docs Fixture Publisher",
 	}, nil
 }
 
 func (Resolver) MetaGenRootPage(
-	meta framework.MetaContext[*runtime.Context],
+	meta framework.MetaContext[*view.Context],
 	params RootParams,
 ) (metagen.Metadata, error) {
 	return metagen.Metadata{Title: "Docs Home"}, nil
@@ -28,22 +28,22 @@ func (Resolver) MetaGenRootPage(
 
 func (Resolver) ResolveRootPage(
 	ctx context.Context,
-	appCtx *runtime.Context,
+	appCtx *view.Context,
 	r *http.Request,
 	params RootParams,
-) (runtime.RootLayoutView, error) {
-	return runtime.RootLayoutView{PageTitle: "Docs Home"}, nil
+) (view.RootLayoutView, error) {
+	return view.RootLayoutView{PageTitle: "Docs Home"}, nil
 }
 
 func (Resolver) MetaGenGroupMarketingDashboardLayout(
-	meta framework.MetaContext[*runtime.Context],
+	meta framework.MetaContext[*view.Context],
 	params GroupMarketingDashboardParams,
 ) (metagen.Metadata, error) {
 	return metagen.Metadata{Title: "Dashboard"}, nil
 }
 
 func (Resolver) MetaGenGroupMarketingDashboardPage(
-	meta framework.MetaContext[*runtime.Context],
+	meta framework.MetaContext[*view.Context],
 	params GroupMarketingDashboardParams,
 ) (metagen.Metadata, error) {
 	return metagen.Metadata{Title: "Dashboard"}, nil
@@ -51,15 +51,15 @@ func (Resolver) MetaGenGroupMarketingDashboardPage(
 
 func (Resolver) ResolveGroupMarketingDashboardPage(
 	ctx context.Context,
-	appCtx *runtime.Context,
+	appCtx *view.Context,
 	r *http.Request,
 	params GroupMarketingDashboardParams,
-) (runtime.RootLayoutView, error) {
-	return runtime.RootLayoutView{PageTitle: "Dashboard"}, nil
+) (view.RootLayoutView, error) {
+	return view.RootLayoutView{PageTitle: "Dashboard"}, nil
 }
 
 func (Resolver) MetaGenAuthorParamSlugPage(
-	meta framework.MetaContext[*runtime.Context],
+	meta framework.MetaContext[*view.Context],
 	params AuthorParamSlugParams,
 ) (metagen.Metadata, error) {
 	tr := meta.App().I18n(meta.Request())
@@ -82,15 +82,15 @@ func (Resolver) MetaGenAuthorParamSlugPage(
 
 func (Resolver) ResolveAuthorParamSlugPage(
 	ctx context.Context,
-	appCtx *runtime.Context,
+	appCtx *view.Context,
 	r *http.Request,
 	params AuthorParamSlugParams,
-) (runtime.AuthorPageView, error) {
+) (view.AuthorPageView, error) {
 	switch params.Slug {
 	case "missing":
-		return runtime.AuthorPageView{}, framework.ErrNotFound
+		return view.AuthorPageView{}, framework.ErrNotFound
 	case "boom":
-		return runtime.AuthorPageView{}, errors.New("boom")
+		return view.AuthorPageView{}, errors.New("boom")
 	}
 
 	tr := appCtx.I18n(r)
@@ -102,15 +102,15 @@ func (Resolver) ResolveAuthorParamSlugPage(
 
 	first, err := framework.CachedCall(ctx, cacheKey, loadShared)
 	if err != nil {
-		return runtime.AuthorPageView{}, err
+		return view.AuthorPageView{}, err
 	}
 	second, err := framework.CachedCall(ctx, cacheKey, loadShared)
 	if err != nil {
-		return runtime.AuthorPageView{}, err
+		return view.AuthorPageView{}, err
 	}
 
-	return runtime.AuthorPageView{
-		RootLayoutView: runtime.RootLayoutView{
+	return view.AuthorPageView{
+		RootLayoutView: view.RootLayoutView{
 			PageTitle: i18n.TUiAuthorHeading(tr, i18n.UiAuthorHeadingArgs{Author: params.Slug}),
 		},
 		Heading:         i18n.TUiAuthorHeading(tr, i18n.UiAuthorHeadingArgs{Author: params.Slug}),

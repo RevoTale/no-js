@@ -1,7 +1,7 @@
 package analytics
 
 import (
-	"example.com/no-js-e2e/namespacedtemplcssapp/web/components"
+	"example.com/no-js-e2e/namespacedtemplcssapp/web/components/statchip"
 	"example.com/no-js-e2e/namespacedtemplcssapp/web/view"
 )
 
@@ -10,9 +10,9 @@ css analyticsCard() {
 	text-transform: uppercase;
 }
 
-templ Default(view runtime.RootLayoutView) {
+templ Default(model view.RootLayoutView) {
 	<section class={ analyticsCard() } data-slot="analytics">
 		<p>Quarterly analytics</p>
-		@components.StatChip("Conversions", 72)
+		@statchip.StatChip("Conversions", 72)
 	</section>
 }

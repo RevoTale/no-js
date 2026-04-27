@@ -5,17 +5,62 @@ import (
 	"net/http"
 
 	i18n "example.com/no-js-e2e/i18nprefixalwaysapp/web/generated/i18n"
-	runtime "example.com/no-js-e2e/i18nprefixalwaysapp/web/view"
+	"example.com/no-js-e2e/i18nprefixalwaysapp/web/view"
 	"github.com/RevoTale/no-js/framework"
 	"github.com/RevoTale/no-js/framework/metagen"
 )
 
-func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*runtime.Context]) (metagen.Metadata, error) {
+func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (metagen.Metadata, error) {
 	return metagen.Metadata{Publisher: "Prefix Always Fixture"}, nil
 }
 
+func (Resolver) ResolveFailPage(
+	_ context.Context,
+	_ *view.Context,
+	_ *http.Request,
+	_ FailParams,
+) (view.FailPageView, error) {
+	return view.FailPageView{}, framework.ErrNotFound
+}
+
+func (Resolver) MetaGenFailPage(
+	meta framework.MetaContext[*view.Context],
+	params FailParams,
+) (metagen.Metadata, error) {
+	tr := meta.App().I18n(meta.Request())
+	return metagen.Metadata{
+		Title: i18n.TUiErrorTitle(tr),
+	}, nil
+}
+
+func (Resolver) MetaGenGroupSupportHelpLayout(
+	meta framework.MetaContext[*view.Context],
+	params GroupSupportHelpParams,
+) (metagen.Metadata, error) {
+	return metagen.Metadata{Title: "Support Help"}, nil
+}
+
+func (Resolver) MetaGenGroupSupportHelpFailPage(
+	meta framework.MetaContext[*view.Context],
+	params GroupSupportHelpFailParams,
+) (metagen.Metadata, error) {
+	tr := meta.App().I18n(meta.Request())
+	return metagen.Metadata{
+		Title: i18n.TUiNotFoundTitle(tr),
+	}, nil
+}
+
+func (Resolver) ResolveGroupSupportHelpFailPage(
+	_ context.Context,
+	_ *view.Context,
+	_ *http.Request,
+	_ GroupSupportHelpFailParams,
+) (view.RootLayoutView, error) {
+	return view.RootLayoutView{}, framework.ErrNotFound
+}
+
 func (Resolver) MetaGenRootPage(
-	meta framework.MetaContext[*runtime.Context],
+	meta framework.MetaContext[*view.Context],
 	params RootParams,
 ) (metagen.Metadata, error) {
 	tr := meta.App().I18n(meta.Request())
@@ -26,13 +71,13 @@ func (Resolver) MetaGenRootPage(
 
 func (Resolver) ResolveRootPage(
 	ctx context.Context,
-	appCtx *runtime.Context,
+	appCtx *view.Context,
 	r *http.Request,
 	params RootParams,
-) (runtime.HomePageView, error) {
+) (view.HomePageView, error) {
 	tr := appCtx.I18n(r)
-	return runtime.HomePageView{
-		RootLayoutView:  runtime.RootLayoutView{PageTitle: i18n.TUiHomeHeading(tr)},
+	return view.HomePageView{
+		RootLayoutView:  view.RootLayoutView{PageTitle: i18n.TUiHomeHeading(tr)},
 		Heading:         i18n.TUiHomeHeading(tr),
 		Kicker:          i18n.TUiHomeKicker(tr),
 		Locale:          tr.Locale(),
@@ -42,7 +87,7 @@ func (Resolver) ResolveRootPage(
 }
 
 func (Resolver) MetaGenGreetParamNamePage(
-	meta framework.MetaContext[*runtime.Context],
+	meta framework.MetaContext[*view.Context],
 	params GreetParamNameParams,
 ) (metagen.Metadata, error) {
 	tr := meta.App().I18n(meta.Request())
@@ -62,13 +107,13 @@ func (Resolver) MetaGenGreetParamNamePage(
 
 func (Resolver) ResolveGreetParamNamePage(
 	ctx context.Context,
-	appCtx *runtime.Context,
+	appCtx *view.Context,
 	r *http.Request,
 	params GreetParamNameParams,
-) (runtime.GreetPageView, error) {
+) (view.GreetPageView, error) {
 	tr := appCtx.I18n(r)
-	return runtime.GreetPageView{
-		RootLayoutView: runtime.RootLayoutView{
+	return view.GreetPageView{
+		RootLayoutView: view.RootLayoutView{
 			PageTitle: i18n.TUiGreetHeading(tr, i18n.UiGreetHeadingArgs{Name: params.Name}),
 		},
 		Heading: i18n.TUiGreetHeading(tr, i18n.UiGreetHeadingArgs{

@@ -21,7 +21,7 @@ type Config[C any] struct {
 	RenderPage       func(r *http.Request, w http.ResponseWriter, component templ.Component, meta metagen.Metadata) error
 
 	HandleNotFound    func(w http.ResponseWriter, r *http.Request, notFoundContext framework.NotFoundContext)
-	HandleServerError func(w http.ResponseWriter, err error)
+	HandleServerError func(w http.ResponseWriter, r *http.Request, err error)
 	LogServerError    func(err error)
 	LogResolverTiming func(event framework.ResolverTiming)
 }
@@ -36,7 +36,7 @@ type Engine[C any] struct {
 	renderPage       func(r *http.Request, w http.ResponseWriter, component templ.Component, meta metagen.Metadata) error
 
 	notFound          func(w http.ResponseWriter, r *http.Request, notFoundContext framework.NotFoundContext)
-	serverError       func(w http.ResponseWriter, err error)
+	serverError       func(w http.ResponseWriter, r *http.Request, err error)
 	logError          func(err error)
 	logResolverTiming func(event framework.ResolverTiming)
 }
@@ -60,7 +60,7 @@ func New[C any](cfg Config[C]) (*Engine[C], error) {
 
 	serverError := cfg.HandleServerError
 	if serverError == nil {
-		serverError = func(w http.ResponseWriter, _ error) {
+		serverError = func(w http.ResponseWriter, _ *http.Request, _ error) {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		}
 	}
@@ -133,8 +133,8 @@ func (engine *Engine[C]) RespondNotFound(
 	engine.notFound(w, r, notFoundContext)
 }
 
-func (engine *Engine[C]) RespondServerError(w http.ResponseWriter, err error) {
-	engine.serverError(w, err)
+func (engine *Engine[C]) RespondServerError(w http.ResponseWriter, r *http.Request, err error) {
+	engine.serverError(w, r, err)
 }
 
 func (engine *Engine[C]) LogServerError(err error) {
