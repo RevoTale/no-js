@@ -191,6 +191,28 @@ import "example.com/client-assets/web/components/meter"
 	require.NoFileExists(t, filepath.Join(stageDir, "routes", "about", "page.js"))
 }
 
+func TestBuildPlanIgnoresComponentImportStringsOutsideImports(t *testing.T) {
+	t.Parallel()
+
+	layout := testLayout(t)
+	componentImport := "example.com/client-assets/web/components/meter"
+	writeFile(t, filepath.Join(layout.RoutesDir, "root.templ"), "package routes\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "page.templ"), `package routes
+
+// "`+componentImport+`"
+
+templ Page() {
+	<span data-import="`+componentImport+`"></span>
+}
+`)
+	writeFile(t, filepath.Join(layout.RootDir, "web", "components", "meter", "meter.templ"), "package meter\n")
+	writeFile(t, filepath.Join(layout.RootDir, "web", "components", "meter", "meter.ts"), "console.log('meter')\n")
+
+	plan, err := BuildPlan(Config{Layout: layout})
+	require.NoError(t, err)
+	require.Empty(t, plan.RouteAssets[""].ModuleScripts)
+}
+
 func TestPrepareStaticSourceBuildsSharedSourceOwnerChunks(t *testing.T) {
 	t.Parallel()
 
@@ -350,6 +372,75 @@ func TestBuildPlanFoldsSlotCSSIntoOwnerLayoutBundle(t *testing.T) {
 	css := readFile(t, filepath.Join(stageDir, "routes", "dashboard", "layout.css"))
 	require.Contains(t, css, "--slot-default-css")
 	require.NoFileExists(t, filepath.Join(stageDir, "routes", "dashboard", "_slot__aside", "default.css"))
+}
+
+func TestBuildPlanIncludesAllLayoutSlotScripts(t *testing.T) {
+	t.Parallel()
+
+	layout := testLayout(t)
+	writeFile(t, filepath.Join(layout.RoutesDir, "root.templ"), "package routes\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "layout.templ"), "package dashboard\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "page.templ"), "package dashboard\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "reports", "page.templ"), "package reports\n")
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "layout.templ"), "package aside\n")
+	writeFile(
+		t,
+		filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "layout.ts"),
+		"console.log('slot-layout')\n",
+	)
+	writeFile(
+		t,
+		filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "layout.css"),
+		":root { --slot-layout: 1; }\n",
+	)
+	writeFile(t, filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "default.templ"), "package aside\n")
+	writeFile(
+		t,
+		filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "default.ts"),
+		"console.log('slot-default')\n",
+	)
+	writeFile(
+		t,
+		filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "default.css"),
+		":root { --slot-default: 1; }\n",
+	)
+	writeFile(
+		t,
+		filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "reports", "page.templ"),
+		"package reports\n",
+	)
+	writeFile(
+		t,
+		filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "reports", "page.ts"),
+		"console.log('slot-reports')\n",
+	)
+	writeFile(
+		t,
+		filepath.Join(layout.RoutesDir, "dashboard", "_slot__aside", "reports", "page.css"),
+		":root { --slot-reports: 1; }\n",
+	)
+
+	plan, err := BuildPlan(Config{Layout: layout})
+	require.NoError(t, err)
+	require.Contains(t, plan.RouteAssets["dashboard"].ModuleScripts, "routes/dashboard/_slot__aside/layout.js")
+	require.Contains(t, plan.RouteAssets["dashboard"].ModuleScripts, "routes/dashboard/_slot__aside/default.js")
+	require.Contains(t, plan.RouteAssets["dashboard"].ModuleScripts, "routes/dashboard/_slot__aside/reports/page.js")
+	require.Contains(t, plan.RouteAssets["dashboard/reports"].ModuleScripts, "routes/dashboard/_slot__aside/layout.js")
+	require.Contains(t, plan.RouteAssets["dashboard/reports"].ModuleScripts, "routes/dashboard/_slot__aside/default.js")
+	require.Contains(
+		t,
+		plan.RouteAssets["dashboard/reports"].ModuleScripts,
+		"routes/dashboard/_slot__aside/reports/page.js",
+	)
+
+	stageDir, cleanup, err := PrepareStaticSource(PrepareStaticSourceConfig{Layout: layout})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, cleanup()) }()
+
+	css := readFile(t, filepath.Join(stageDir, "routes", "dashboard", "layout.css"))
+	require.Contains(t, css, "--slot-layout")
+	require.Contains(t, css, "--slot-default")
+	require.Contains(t, css, "--slot-reports")
 }
 
 func TestGenerateDoesNotInjectEmptyCSSAssets(t *testing.T) {

@@ -147,8 +147,11 @@ Route Client Assets are valid only when the matching `root.templ`, `page.templ`,
 `layout.templ`, slot-root `default.templ`, or `404.templ` exists in the same
 directory. `root.css` is shell CSS for generated pages. Page, layout, slot, and component CSS is folded into
 the nearest non-root layout stylesheet, or into a page fallback stylesheet when
-there is no non-root layout. Each route owner may have at most one script source
-extension because `page.ts` and `page.tsx` both emit `page.js`.
+there is no non-root layout. Slot scripts are included at the consuming layout
+boundary: if a layout declares a slot, every route using that layout receives
+the slot-root layout/default script and every slot page script under that slot
+root. Each route owner may have at most one script source extension because
+`page.ts` and `page.tsx` both emit `page.js`.
 
 Move route helper code to `web/resolvers`, `web/view`, or another app-owned
 package outside `web/routes`. Move route images, fonts, downloads, and other

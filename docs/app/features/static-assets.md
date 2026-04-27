@@ -224,7 +224,9 @@ folded into layout CSS bundles:
 Normal pages should not call script helpers manually. Generated routes add
 owner scripts once through `@metagen.Head(meta)`. If a layout or imported
 component is reused by many routes, all those routes point to the same owner
-script path. Shared imports are emitted as esbuild
+script path. If a layout declares slots, every route that renders that layout
+receives the scripts for that slot root: the slot layout, the slot default, and
+all slot pages under that slot root. Shared imports are emitted as esbuild
 chunks and loaded by the owner scripts.
 
 ## JavaScript And TypeScript Imports

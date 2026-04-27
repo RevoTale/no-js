@@ -80,7 +80,9 @@ Client Assets come from generation-time route discovery. CSS is grouped by
 route shape: `root.css` stays shell-only, non-root layouts own subtree
 stylesheets, and pages without a non-root layout get a page fallback stylesheet.
 Scripts stay as owner module entries, so a matched page can inject a layout
-script, page script, imported component script, and shared esbuild chunks.
+script, page script, imported component script, and shared esbuild chunks. When
+a layout declares slots, routes using that layout receive the slot-root
+layout/default scripts and every slot page script under that slot root.
 
 Generated and explicit assets target `es2020` by default. Add
 `assets.browser_targets` only when the app needs browser-specific prefixes or

@@ -1,0 +1,14 @@
+package ops
+
+import (
+	"example.com/no-js-e2e/clientassetsslotgroupapp/web/components/insight"
+	"example.com/no-js-e2e/clientassetsslotgroupapp/web/view"
+)
+
+templ Layout(model view.OpsLayoutView, child templ.Component, panel templ.Component) {
+	<section data-layout="grouped-ops" class={ LayoutShellClass }>
+		@insight.Insight("ops layout insight")
+		@panel
+		@child
+	</section>
+}

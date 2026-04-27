@@ -80,7 +80,9 @@ If a task affects the consuming-app contract, also inspect:
 - MUST keep Client Assets route-static by default. Asset discovery is based on the matched page, layout, slot, or 404
   templates plus the colocated assets of every imported `web/components` package reachable from those files.
   Slot fallback Client Assets use `default.*` beside a slot-root `default.templ`; they are discovered as slot assets,
-  then folded into the owning route/layout CSS and script set.
+  then folded into the owning route/layout CSS and script set. When a layout declares a slot, generated metadata must
+  include all slot templates under that slot root for every route that can render the layout; do not sample one
+  request path and attach only the slot page that sample path happens to match.
 - MUST use the layout-subtree CSS mental model for generated Client Asset stylesheets. CSS is folded up to the nearest
   non-root `layout.templ` that contains the subtree, even when that layout has no colocated `layout.css`.
   `web/routes/root.css` stays app-shell-only and must not become "all app CSS" by default. For example,

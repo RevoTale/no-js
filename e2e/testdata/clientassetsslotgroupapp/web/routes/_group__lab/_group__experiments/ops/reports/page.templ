@@ -1,0 +1,13 @@
+package reports
+
+import (
+	"example.com/no-js-e2e/clientassetsslotgroupapp/web/components/insight"
+	"example.com/no-js-e2e/clientassetsslotgroupapp/web/view"
+)
+
+templ Page(model view.OpsReportsPageView) {
+	<article data-route-page="grouped-ops-reports" class={ PageShellClass }>
+		<h1>{ model.Heading }</h1>
+		@insight.Insight("ops reports insight")
+	</article>
+}

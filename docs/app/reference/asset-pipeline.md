@@ -151,7 +151,13 @@ CSS output follows the layout-subtree model:
   into a page fallback stylesheet such as `routes/dashboard/page.css`
 
 Scripts are injected as owner module entries through `@metagen.Head(meta)`.
-Slot assets are folded into the layout that can render the slot.
+When a layout declares a slot, every generated route that can render that
+layout receives the slot-root layout/default scripts and the scripts for every
+slot page under that slot root. That keeps dynamic route and catch-all slot
+resolution safe: the server may choose a different slot page for each request,
+but the route metadata already has the complete slot script set for that
+layout. Slot CSS follows the same ownership boundary and folds into the layout
+stylesheet.
 
 ### Component Client Assets
 
@@ -255,9 +261,11 @@ or component package. The validator enforces this because `page.ts` and
 `meter.js`.
 
 Generated routes inject matched owner entries through `@metagen.Head(meta)`.
-Normal pages do not need to call generated script helpers manually. Shared
-esbuild chunks are imported by those owner entries, so generated metadata does
-not list chunk files directly.
+Normal pages do not need to call generated script helpers manually. Slot scripts
+are route-static at the consuming layout boundary, so a route that renders a
+layout with slots receives all script owners declared inside those slot roots.
+Shared esbuild chunks are imported by those owner entries, so generated metadata
+does not list chunk files directly.
 
 Client Asset scripts are bundled together with esbuild splitting enabled. Relative
 imports and package imports are supported when esbuild can resolve them from the

@@ -1,0 +1,9 @@
+package reports
+
+import "example.com/no-js-e2e/clientassetsslotgroupapp/web/view"
+
+templ Page(model view.OpsPanelReportsPageView) {
+	<aside data-slot="ops-panel-reports" class={ PagePanelClass }>
+		<span>{ model.Label }</span>
+	</aside>
+}

@@ -1,0 +1,9 @@
+package panel
+
+import "example.com/no-js-e2e/clientassetsslotgroupapp/web/view"
+
+templ Default(model view.OpsPanelDefaultView) {
+	<aside data-slot="ops-panel-default" class={ DefaultPanelClass }>
+		<span>{ model.Label }</span>
+	</aside>
+}
