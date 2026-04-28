@@ -2,6 +2,9 @@
 
 This guide is for agents modifying the `no-js` framework repository itself.
 
+For agents building a consuming app with `no-js`, use
+[AI Agents For App Development](../app/ai-agents.md).
+
 ## Read Order
 
 When you need context, inspect in this order:

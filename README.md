@@ -56,6 +56,14 @@ wiring is not enough.
 For the exact files, use [Getting Started](docs/app/getting-started.md). For
 the strict app contract, use [App Conventions](docs/app/conventions.md).
 
+## AI Agent Usage
+
+If you are an AI agent building an application with `no-js`, start with
+[AI Agents For App Development](docs/app/ai-agents.md).
+
+If you are modifying the `no-js` framework repository itself, use
+[Framework AI Agents](docs/framework/ai-agents.md).
+
 ## Client Assets
 
 CSS, JavaScript, and TypeScript can live beside the route or component that uses
@@ -95,6 +103,7 @@ the compile/bundle split.
 For app developers:
 
 - [App Docs Overview](docs/app/overview.md)
+- [AI Agents For App Development](docs/app/ai-agents.md)
 - [Getting Started](docs/app/getting-started.md)
 - [App Conventions](docs/app/conventions.md)
 - [Feature Guides](docs/app/features/overview.md)

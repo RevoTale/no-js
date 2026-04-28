@@ -16,6 +16,10 @@ If a task affects the consuming-app contract, also inspect:
 - `docs/app/getting-started.md`
 - `docs/app/conventions.md`
 
+If you are reading this file through GitHub or MCP to build a consuming app with
+`no-js`, switch to `docs/app/ai-agents.md`. This `AGENTS.md` governs work on
+the framework repository itself.
+
 ## Project Structure
 ```text
 <go-repo-root>/
