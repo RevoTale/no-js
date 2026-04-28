@@ -109,6 +109,20 @@ func generateResolverNamespaceSource(
 		}
 		writef(
 			buffer,
+			"\t%s(meta framework.MetaContext[*view.Context], notFound framework.NotFoundContext, "+
+				"params %s) (metagen.Metadata, error)\n",
+			metaGenNotFoundMethod(notFound),
+			contract.ParamsTypeName,
+		)
+	}
+	for _, routeID := range notFoundRouteIDs {
+		notFound := notFounds[routeID]
+		contract, ok := contractsByID[routeID]
+		if !ok {
+			return nil, fmt.Errorf("missing route contract for not-found route %q", routeID)
+		}
+		writef(
+			buffer,
 			"\t%s(ctx context.Context, appCtx *view.Context, r *http.Request, "+
 				"notFound framework.NotFoundContext, params %s) (%s, error)\n",
 			resolveNotFoundMethod(notFound),

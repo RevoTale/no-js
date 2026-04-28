@@ -1,0 +1,14 @@
+package routes
+
+import "github.com/RevoTale/no-js/framework/metagen"
+
+templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) {
+	<html lang={ locale }>
+		<head>
+			@metagen.Head(meta)
+		</head>
+		<body id="root-layout">
+			@child
+		</body>
+	</html>
+}

@@ -27,7 +27,7 @@ func TestGenerateBundleSourceWiresTemplCSSRegistryWhenEnabled(t *testing.T) {
 	require.Contains(t, text, "func Bundle(appContext *view.Context) httpserver.AppBundle[*view.Context]")
 	require.Contains(t, text, "resolvers := NewRouteResolvers()")
 	require.Contains(t, text, "Handlers:                      Handlers(resolvers),")
-	require.Contains(t, text, "NotFoundPage:                  NotFoundPage(resolvers),")
+	require.Contains(t, text, "NotFoundPageWithRuntime:       NotFoundPage(resolvers),")
 	require.Contains(t, text, "TemplCSSClasses:               TemplCSSClasses,")
 	require.Contains(t, text, "OnStaticAssetBasePathResolved: nil,")
 }
@@ -179,6 +179,7 @@ func TestRegistryGenerationUsesNotFoundResolverModels(t *testing.T) {
 	require.NoError(t, err)
 
 	text := string(registry)
+	require.Contains(t, text, "notFoundMeta, err := resolvers.MetaGenRootNotFound")
 	require.Contains(t, text, "view, err := resolvers.ResolveRootNotFound")
 	require.Contains(t, text, "component := r_not_found_root.NotFound(view, pathValue)")
 	require.NotContains(t, text, "resolveNotFoundView")

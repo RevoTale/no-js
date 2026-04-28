@@ -103,14 +103,15 @@ func TestRegistryGenerationUsesSingleResolverNamespace(t *testing.T) {
 	require.Contains(
 		t,
 		text,
-		"func NotFoundPage(resolvers RouteResolvers) func(appCtx *view.Context, "+
+		"func NotFoundPage(resolvers RouteResolvers) func(runtime framework.RuntimeContext[*view.Context], "+
 			"r *http.Request, notFound framework.NotFoundContext) (templ.Component, error)",
 	)
 	require.Contains(t, text, "framework.PageOnlyRouteHandler")
 	require.NotContains(t, text, "PageAndLiveRouteHandler")
 	require.NotContains(t, text, "/.live/")
 	require.NotContains(t, text, "ParseRootLiveState")
-	require.Contains(t, text, "return renderNotFoundPage(resolvers, appCtx, r, notFound)")
+	require.Contains(t, text, "return renderNotFoundPage(resolvers, runtime, r, notFound)")
+	require.Contains(t, text, "notFoundMeta, err := resolvers.MetaGenRootNotFound")
 	require.Contains(t, text, "view, err := resolvers.ResolveRootNotFound")
 	require.Contains(t, text, "RootLayout: r_root_root.RootLayout")
 	require.Contains(t, text, "MetaGenContextChain: []framework.PageMetaGenContext")
@@ -165,7 +166,8 @@ func TestRegistryGenerationEmitsClientAssets(t *testing.T) {
 	require.Contains(t, text, "ClientAssets: metagen.ClientAssets{")
 	require.Contains(t, text, `"routes/index.css"`)
 	require.Contains(t, text, `"routes/index.js"`)
-	require.Contains(t, text, "metagen.MergeManagedClientAssets(requestContext(r), meta, notFoundClientAssets(routeID))")
+	require.Contains(t, text, "finalizeNotFoundMetadata(requestContext(r), meta, notFoundClientAssets(routeID))")
+	require.Contains(t, text, "return metagen.MergeManagedClientAssets(ctx, meta, assets)")
 	require.Contains(t, text, "func notFoundClientAssets(routeID string) metagen.ClientAssets")
 	require.Contains(t, text, `"routes/404.css"`)
 }

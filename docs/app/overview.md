@@ -46,16 +46,18 @@ policy.
 
 1. [Getting Started](getting-started.md)
    Build the smallest working app.
-2. [App Conventions](conventions.md)
+2. [AI Agents For App Development](ai-agents.md)
+   Use the app-facing workflow when an AI agent is editing a consuming app.
+3. [App Conventions](conventions.md)
    Learn the strict `web/*` contract and current generated-code expectations.
-3. [CLI Reference](reference/cli.md)
+4. [CLI Reference](reference/cli.md)
    Use the build-time commands correctly.
-4. [Bundle Config Reference](reference/bundle-config.md)
+5. [Bundle Config Reference](reference/bundle-config.md)
    Override paths or feature auto-detection only when you need to.
-5. [Feature Guides](features/overview.md)
+6. [Feature Guides](features/overview.md)
    Go deeper on routing, runtime, metadata, i18n, discovery, assets, site
    resolution, and HTMX behavior.
-6. [Troubleshooting](troubleshooting.md)
+7. [Troubleshooting](troubleshooting.md)
    Fix the common generation and startup failures quickly.
 
 ## Migration Guides

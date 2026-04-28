@@ -1,0 +1,9 @@
+package docs
+
+import "example.com/no-js-e2e/notfoundmetadataapp/web/view"
+
+templ NotFound(model view.NotFoundView, path string) {
+	<main id="docs-not-found" data-path={ path }>
+		{ model.Heading } { path }
+	</main>
+}

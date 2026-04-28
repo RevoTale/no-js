@@ -120,9 +120,18 @@ templ NotFound(model view.HelpNotFoundView, path string) {
 }
 ```
 
-Generation adds a matching resolver method for that route-local 404:
+Generation adds matching metadata and view resolver methods for that
+route-local 404:
 
 ```go
+func (Resolver) MetaGenGroupSupportHelpNotFound(
+	meta framework.MetaContext[*view.Context],
+	notFound framework.NotFoundContext,
+	params GroupSupportHelpParams,
+) (metagen.Metadata, error) {
+	return metagen.Metadata{Title: "Missing help page"}, nil
+}
+
 func (Resolver) ResolveGroupSupportHelpNotFound(
 	ctx context.Context,
 	appCtx *view.Context,
@@ -135,8 +144,9 @@ func (Resolver) ResolveGroupSupportHelpNotFound(
 ```
 
 If the app uses built-in i18n, generated not-found rendering resolves the locale
-before `Resolve...NotFound(...)` runs. Use that resolver when the 404 view model
-needs translations, localized URLs, or request-scoped data.
+before `MetaGen...NotFound(...)` and `Resolve...NotFound(...)` run. Use the
+metadata resolver for the 404 `<title>` and head fields, and the view resolver
+when the 404 body needs translations, localized URLs, or request-scoped data.
 
 ## Method Routes
 

@@ -31,6 +31,11 @@ type AppBundle[C any] struct {
 		r *http.Request,
 		notFoundContext framework.NotFoundContext,
 	) (templ.Component, error)
+	NotFoundPageWithRuntime func(
+		runtime framework.RuntimeContext[C],
+		r *http.Request,
+		notFoundContext framework.NotFoundContext,
+	) (templ.Component, error)
 	TemplCSSClasses               func() []templ.CSSClass
 	OnStaticAssetBasePathResolved func(prefix string)
 }
@@ -100,27 +105,28 @@ func NewApp[C any](cfg Config[C]) (http.Handler, error) {
 	}
 
 	return New(Config[C]{
-		AppContext:          app.Context,
-		ExactHandlers:       app.ExactHandlers,
-		Handlers:            app.Handlers,
-		Discovery:           app.Discovery,
-		I18n:                app.I18n,
-		ResolveRoot:         app.ResolveRoot,
-		PublicFiles:         publicFiles,
-		MountExtraRoutes:    custom.ExtraRoutes,
-		MainMiddlewares:     custom.MainMiddlewares,
-		Static:              staticMount,
-		TemplCSS:            templCSSCfg,
-		CachePolicies:       custom.CachePolicies,
-		NotFoundPage:        app.NotFoundPage,
-		ServerErrorPage:     custom.ServerErrorPage,
-		LogServerError:      custom.LogServerError,
-		LogServerErrorEvent: custom.LogServerErrorEvent,
-		LogResolverTiming:   custom.LogResolverTiming,
-		EnableResolverDebug: custom.EnableResolverDebug,
-		DisableHealth:       custom.DisableHealth,
-		HealthPath:          custom.HealthPath,
-		HealthBody:          custom.HealthBody,
+		AppContext:              app.Context,
+		ExactHandlers:           app.ExactHandlers,
+		Handlers:                app.Handlers,
+		Discovery:               app.Discovery,
+		I18n:                    app.I18n,
+		ResolveRoot:             app.ResolveRoot,
+		PublicFiles:             publicFiles,
+		MountExtraRoutes:        custom.ExtraRoutes,
+		MainMiddlewares:         custom.MainMiddlewares,
+		Static:                  staticMount,
+		TemplCSS:                templCSSCfg,
+		CachePolicies:           custom.CachePolicies,
+		NotFoundPage:            app.NotFoundPage,
+		NotFoundPageWithRuntime: app.NotFoundPageWithRuntime,
+		ServerErrorPage:         custom.ServerErrorPage,
+		LogServerError:          custom.LogServerError,
+		LogServerErrorEvent:     custom.LogServerErrorEvent,
+		LogResolverTiming:       custom.LogResolverTiming,
+		EnableResolverDebug:     custom.EnableResolverDebug,
+		DisableHealth:           custom.DisableHealth,
+		HealthPath:              custom.HealthPath,
+		HealthBody:              custom.HealthBody,
 	})
 }
 

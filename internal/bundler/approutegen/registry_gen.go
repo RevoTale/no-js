@@ -175,13 +175,14 @@ func generateRegistrySource(
 
 	buffer.WriteString(
 		"func NotFoundPage(resolvers RouteResolvers) " +
-			"func(appCtx *view.Context, r *http.Request, notFound framework.NotFoundContext) (templ.Component, error) {\n",
-	)
-	buffer.WriteString(
-		"	return func(appCtx *view.Context, r *http.Request, " +
+			"func(runtime framework.RuntimeContext[*view.Context], r *http.Request, " +
 			"notFound framework.NotFoundContext) (templ.Component, error) {\n",
 	)
-	buffer.WriteString("		return renderNotFoundPage(resolvers, appCtx, r, notFound)\n")
+	buffer.WriteString(
+		"	return func(runtime framework.RuntimeContext[*view.Context], r *http.Request, " +
+			"notFound framework.NotFoundContext) (templ.Component, error) {\n",
+	)
+	buffer.WriteString("		return renderNotFoundPage(resolvers, runtime, r, notFound)\n")
 	buffer.WriteString("	}\n")
 	buffer.WriteString("}\n\n")
 
@@ -442,7 +443,7 @@ func generateBundleSource(paths projectlayout.ProjectLayout, viewHooks viewcontr
 	buffer.WriteString("\t\tDiscovery:                     DiscoveryBundle(),\n")
 	buffer.WriteString("\t\tI18n:                          i18nConfig,\n")
 	buffer.WriteString("\t\tResolveRoot:                   appContext.ResolveRoot,\n")
-	buffer.WriteString("\t\tNotFoundPage:                  NotFoundPage(resolvers),\n")
+	buffer.WriteString("\t\tNotFoundPageWithRuntime:       NotFoundPage(resolvers),\n")
 	if paths.Assets.TemplCSS {
 		buffer.WriteString("\t\tTemplCSSClasses:               TemplCSSClasses,\n")
 	} else {
