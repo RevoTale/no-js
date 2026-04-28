@@ -248,6 +248,14 @@ templ NotFound(model view.NotFoundView, path string) {}
 Example generated resolver shape:
 
 ```go
+func (Resolver) MetaGenRootNotFound(
+	meta framework.MetaContext[*view.Context],
+	notFound framework.NotFoundContext,
+	params RootParams,
+) (metagen.Metadata, error) {
+	return metagen.Metadata{Title: "Not Found"}, nil
+}
+
 func (Resolver) ResolveRootNotFound(
 	ctx context.Context,
 	appCtx *view.Context,

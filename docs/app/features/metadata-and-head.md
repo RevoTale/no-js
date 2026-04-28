@@ -69,6 +69,23 @@ func (Resolver) MetaGenAuthorParamSlugPage(
 This keeps canonical URLs, localized URLs, and alternates on the same site-root
 policy.
 
+## 404 Metadata
+
+Generated 404 rendering uses `MetaGen...NotFound(...)` methods for not-found
+head fields. The metadata chain is root layout, matched route layouts, then the
+matched 404 metadata resolver. Generated rendering still applies
+`noindex, nofollow` to 404 responses.
+
+```go
+func (Resolver) MetaGenRootNotFound(
+	meta framework.MetaContext[*view.Context],
+	notFound framework.NotFoundContext,
+	params RootParams,
+) (metagen.Metadata, error) {
+	return metagen.Metadata{Title: "Not Found"}, nil
+}
+```
+
 ## Managed Client Assets
 
 `@metagen.Head(meta)` is also where framework-managed Client Assets appear.

@@ -257,6 +257,10 @@ func metaGenPageMethod(meta routeMeta) string {
 	return "MetaGen" + meta.RouteName + "Page"
 }
 
+func metaGenNotFoundMethod(notFound templateDef) string {
+	return "MetaGen" + routeNameFromSegments(notFound.Segments) + "NotFound"
+}
+
 func metaGenLayoutMethod(layout templateDef) string {
 	if layout.RouteID == "" {
 		return "MetaGenRootLayout"

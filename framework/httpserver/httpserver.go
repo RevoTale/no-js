@@ -82,7 +82,16 @@ type Config[C any] struct {
 
 	CachePolicies CachePolicies
 
-	NotFoundPage        func(appCtx C, r *http.Request, notFoundContext framework.NotFoundContext) (templ.Component, error)
+	NotFoundPage func(
+		appCtx C,
+		r *http.Request,
+		notFoundContext framework.NotFoundContext,
+	) (templ.Component, error)
+	NotFoundPageWithRuntime func(
+		runtime framework.RuntimeContext[C],
+		r *http.Request,
+		notFoundContext framework.NotFoundContext,
+	) (templ.Component, error)
 	ServerErrorPage     func(err error) templ.Component
 	LogServerError      func(err error)
 	LogServerErrorEvent func(event ServerErrorEvent)
@@ -95,8 +104,17 @@ type Config[C any] struct {
 }
 
 type server[C any] struct {
-	cachePolicies       CachePolicies
-	notFoundPage        func(appCtx C, r *http.Request, notFoundContext framework.NotFoundContext) (templ.Component, error)
+	cachePolicies CachePolicies
+	notFoundPage  func(
+		appCtx C,
+		r *http.Request,
+		notFoundContext framework.NotFoundContext,
+	) (templ.Component, error)
+	notFoundPageWithRuntime func(
+		runtime framework.RuntimeContext[C],
+		r *http.Request,
+		notFoundContext framework.NotFoundContext,
+	) (templ.Component, error)
 	serverErrorPage     func(err error) templ.Component
 	appContext          C
 	logServerErr        func(err error)
@@ -122,16 +140,17 @@ func New[C any](cfg Config[C]) (http.Handler, error) {
 	}
 
 	srv := &server[C]{
-		cachePolicies:       cachePolicies,
-		appContext:          cfg.AppContext,
-		notFoundPage:        cfg.NotFoundPage,
-		serverErrorPage:     cfg.ServerErrorPage,
-		logServerErr:        cfg.LogServerError,
-		logServerErrEvent:   cfg.LogServerErrorEvent,
-		logResolverTimingFn: cfg.LogResolverTiming,
-		enableResolverDebug: cfg.EnableResolverDebug,
-		healthPath:          healthPath,
-		healthBody:          healthBody,
+		cachePolicies:           cachePolicies,
+		appContext:              cfg.AppContext,
+		notFoundPage:            cfg.NotFoundPage,
+		notFoundPageWithRuntime: cfg.NotFoundPageWithRuntime,
+		serverErrorPage:         cfg.ServerErrorPage,
+		logServerErr:            cfg.LogServerError,
+		logServerErrEvent:       cfg.LogServerErrorEvent,
+		logResolverTimingFn:     cfg.LogResolverTiming,
+		enableResolverDebug:     cfg.EnableResolverDebug,
+		healthPath:              healthPath,
+		healthBody:              healthBody,
 	}
 
 	if cfg.I18n != nil {
@@ -462,13 +481,13 @@ func (s *server[C]) handleNotFound(
 	r *http.Request,
 	notFoundContext framework.NotFoundContext,
 ) {
-	if s.notFoundPage == nil {
+	if s.notFoundPage == nil && s.notFoundPageWithRuntime == nil {
 		setCachePolicy(w, s.cachePolicies.Error)
 		http.NotFound(w, r)
 		return
 	}
 
-	component, err := s.notFoundPage(s.appContext, r, notFoundContext)
+	component, err := s.resolveNotFoundPage(r, notFoundContext)
 	if err != nil {
 		s.handleServerError(w, r, fmt.Errorf("resolve not found page: %w", err))
 		return
@@ -481,6 +500,16 @@ func (s *server[C]) handleNotFound(
 	if err := s.renderPageWithStatus(r, w, component, http.StatusNotFound, s.cachePolicies.Error); err != nil {
 		s.handleServerError(w, r, fmt.Errorf("render not found page: %w", err))
 	}
+}
+
+func (s *server[C]) resolveNotFoundPage(
+	r *http.Request,
+	notFoundContext framework.NotFoundContext,
+) (templ.Component, error) {
+	if s.notFoundPageWithRuntime != nil {
+		return s.notFoundPageWithRuntime(s.routeEngine, r, notFoundContext)
+	}
+	return s.notFoundPage(s.appContext, r, notFoundContext)
 }
 
 func (s *server[C]) handleServerError(w http.ResponseWriter, r *http.Request, err error) {

@@ -169,6 +169,12 @@ type typedModelsFixture struct {
 	NotFound  responseSnapshot
 }
 
+type notFoundMetadataFixture struct {
+	Home        responseSnapshot
+	RootMissing responseSnapshot
+	DocsMissing responseSnapshot
+}
+
 type streamSnapshot struct {
 	Status      int
 	ContentType string
@@ -540,6 +546,18 @@ func loadTypedModelsFixture(t *testing.T) typedModelsFixture {
 		Home:      requestFixture(t, server, http.MethodGet, "/", nil, requestOptions{}),
 		Marketing: requestFixture(t, server, http.MethodGet, "/marketing", nil, requestOptions{}),
 		NotFound:  requestFixture(t, server, http.MethodGet, "/missing", nil, requestOptions{}),
+	}
+}
+
+func loadNotFoundMetadataFixture(t *testing.T) notFoundMetadataFixture {
+	t.Helper()
+
+	_, server := startPreparedFixture(t, "notfoundmetadataapp")
+
+	return notFoundMetadataFixture{
+		Home:        requestFixture(t, server, http.MethodGet, "/", nil, requestOptions{}),
+		RootMissing: requestFixture(t, server, http.MethodGet, "/missing", nil, requestOptions{}),
+		DocsMissing: requestFixture(t, server, http.MethodGet, "/docs/fail", nil, requestOptions{}),
 	}
 }
 

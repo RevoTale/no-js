@@ -37,7 +37,8 @@ func writeNotFoundPageFunc(
 	})
 
 	buffer.WriteString(
-		"func renderNotFoundPage(resolvers RouteResolvers, appCtx *view.Context, r *http.Request, " +
+		"func renderNotFoundPage(resolvers RouteResolvers, runtime framework.RuntimeContext[*view.Context], " +
+			"r *http.Request, " +
 			"notFound framework.NotFoundContext) (templ.Component, error) {\n",
 	)
 	buffer.WriteString("\tpathValue := strings.TrimSpace(notFound.RequestPath)\n")
@@ -46,17 +47,7 @@ func writeNotFoundPageFunc(
 	buffer.WriteString("\t}\n")
 	buffer.WriteString("\trouteID := nearestNotFoundRouteID(notFound)\n")
 	buffer.WriteString("\tr = withNotFoundRequestInfo(r, notFound)\n")
-	buffer.WriteString("\tmeta := metagen.Metadata{\n")
-	buffer.WriteString("\t\tRobots: &metagen.Robots{\n")
-	buffer.WriteString("\t\t\tIndex: metagen.Bool(false),\n")
-	buffer.WriteString("\t\t\tFollow: metagen.Bool(false),\n")
-	buffer.WriteString("\t\t},\n")
-	buffer.WriteString("\t}\n")
-	buffer.WriteString("\tmeta = metagen.MergeManagedStylesheets(requestContext(r), meta)\n")
-	buffer.WriteString(
-		"\tmeta = metagen.MergeManagedClientAssets(requestContext(r), meta, " +
-			"notFoundClientAssets(routeID))\n",
-	)
+	buffer.WriteString("\tappCtx := runtime.AppContext()\n")
 	buffer.WriteString("\tswitch routeID {\n")
 	for _, routeID := range notFoundKeys {
 		if routeID == "" {
@@ -69,6 +60,18 @@ func writeNotFoundPageFunc(
 		}
 		writef(buffer, "\tcase %q:\n", routeID)
 		writeNotFoundParams(buffer, "\t\t", contract)
+		writef(
+			buffer,
+			"\t\tmeta, err := %s(resolvers, runtime, r, notFound, params)\n",
+			notFoundMetadataFuncName(notFound),
+		)
+		buffer.WriteString("\t\tif err != nil {\n")
+		buffer.WriteString("\t\t\treturn nil, err\n")
+		buffer.WriteString("\t\t}\n")
+		buffer.WriteString(
+			"\t\tmeta = finalizeNotFoundMetadata(requestContext(r), meta, " +
+				"notFoundClientAssets(routeID))\n",
+		)
 		writef(
 			buffer,
 			"\t\tview, err := resolvers.%s(requestContext(r), appCtx, r, notFound, params)\n",
@@ -116,6 +119,18 @@ func writeNotFoundPageFunc(
 	writeNotFoundParams(buffer, "\t\t", rootContract)
 	writef(
 		buffer,
+		"\t\tmeta, err := %s(resolvers, runtime, r, notFound, params)\n",
+		notFoundMetadataFuncName(rootNotFound),
+	)
+	buffer.WriteString("\t\tif err != nil {\n")
+	buffer.WriteString("\t\t\treturn nil, err\n")
+	buffer.WriteString("\t\t}\n")
+	buffer.WriteString(
+		"\t\tmeta = finalizeNotFoundMetadata(requestContext(r), meta, " +
+			"notFoundClientAssets(routeID))\n",
+	)
+	writef(
+		buffer,
 		"\t\tview, err := resolvers.%s(requestContext(r), appCtx, r, notFound, params)\n",
 		resolveNotFoundMethod(rootNotFound),
 	)
@@ -153,6 +168,17 @@ func writeNotFoundPageFunc(
 	buffer.WriteString("\t}\n")
 	buffer.WriteString("}\n\n")
 
+	for _, routeID := range notFoundKeys {
+		notFound := notFounds[routeID]
+		contract, ok := contractsByID[routeID]
+		if !ok {
+			return fmt.Errorf("missing route contract for not-found route %q", routeID)
+		}
+		if err := writeNotFoundMetadataFunc(buffer, layouts, notFound, contract, contractsByID); err != nil {
+			return err
+		}
+	}
+	writeFinalizeNotFoundMetadataFunc(buffer)
 	writeClientAssetsSwitchFunc(buffer, "notFoundClientAssets", notFoundAssets)
 
 	buffer.WriteString("func nearestNotFoundRouteID(notFound framework.NotFoundContext) string {\n")
@@ -338,6 +364,97 @@ func writeParamsAssignment(
 
 func writeNotFoundParams(buffer *bytes.Buffer, indent string, contract routeContractDef) {
 	writef(buffer, "%sparams, _ := %s(notFoundStrippedPath(notFound))\n", indent, parseParamsFuncNameForContract(contract))
+}
+
+func notFoundMetadataFuncName(notFound templateDef) string {
+	return "resolve" + routeNameFromSegments(notFound.Segments) + "NotFoundMetadata"
+}
+
+func writeNotFoundMetadataFunc(
+	buffer *bytes.Buffer,
+	layouts map[string]templateDef,
+	notFound templateDef,
+	contract routeContractDef,
+	contractsByID map[string]routeContractDef,
+) error {
+	writef(
+		buffer,
+		"func %s(resolvers RouteResolvers, runtime framework.RuntimeContext[*view.Context], "+
+			"r *http.Request, notFound framework.NotFoundContext, params route_resolvers.%s) "+
+			"(metagen.Metadata, error) {\n",
+		notFoundMetadataFuncName(notFound),
+		contract.ParamsTypeName,
+	)
+	buffer.WriteString(
+		"\tmetaCtx := framework.NewMetaContext(requestContext(r), runtime.AppContext(), " +
+			"r, runtime.ResolveRoot(r), runtime.I18n())\n",
+	)
+	buffer.WriteString("\trootMeta, err := resolvers.MetaGenRootLayout(metaCtx)\n")
+	buffer.WriteString("\tif err != nil {\n")
+	buffer.WriteString("\t\treturn metagen.Metadata{}, err\n")
+	buffer.WriteString("\t}\n")
+	buffer.WriteString("\tmetaLayers := []metagen.Metadata{rootMeta}\n")
+
+	for _, layout := range layoutChain(notFound.RouteID, layouts) {
+		if layout.RouteID == "" {
+			continue
+		}
+		layoutContract, ok := contractsByID[layout.RouteID]
+		if !ok {
+			return fmt.Errorf("missing route contract for layout route %q", layout.RouteID)
+		}
+		paramsVar := layoutParamsVarName(layout)
+		if err := writeParamsAssignment(
+			buffer,
+			"\t",
+			paramsVar,
+			layoutContract.ParamsTypeName,
+			"params",
+			contract.Params,
+			layoutContract.Params,
+		); err != nil {
+			return fmt.Errorf("not-found route %q layout %q metadata params: %w", notFound.RouteID, layout.RouteID, err)
+		}
+		metaVar := layoutMetaVarName(layout)
+		writef(buffer, "\t%s, err := resolvers.%s(metaCtx, %s)\n", metaVar, metaGenLayoutMethod(layout), paramsVar)
+		buffer.WriteString("\tif err != nil {\n")
+		buffer.WriteString("\t\treturn metagen.Metadata{}, err\n")
+		buffer.WriteString("\t}\n")
+		writef(buffer, "\tmetaLayers = append(metaLayers, %s)\n", metaVar)
+	}
+
+	writef(
+		buffer,
+		"\tnotFoundMeta, err := resolvers.%s(metaCtx, notFound, params)\n",
+		metaGenNotFoundMethod(notFound),
+	)
+	buffer.WriteString("\tif err != nil {\n")
+	buffer.WriteString("\t\treturn metagen.Metadata{}, err\n")
+	buffer.WriteString("\t}\n")
+	buffer.WriteString("\tmetaLayers = append(metaLayers, notFoundMeta)\n")
+	buffer.WriteString("\treturn metagen.MergeAll(metaLayers...), nil\n")
+	buffer.WriteString("}\n\n")
+	return nil
+}
+
+func layoutMetaVarName(layout templateDef) string {
+	return strings.ToLower(routeNameFromSegments(layout.Segments)) + "LayoutMeta"
+}
+
+func writeFinalizeNotFoundMetadataFunc(buffer *bytes.Buffer) {
+	buffer.WriteString(
+		"func finalizeNotFoundMetadata(ctx context.Context, meta metagen.Metadata, " +
+			"assets metagen.ClientAssets) metagen.Metadata {\n",
+	)
+	buffer.WriteString("\tmeta = metagen.Merge(meta, metagen.Metadata{\n")
+	buffer.WriteString("\t\tRobots: &metagen.Robots{\n")
+	buffer.WriteString("\t\t\tIndex: metagen.Bool(false),\n")
+	buffer.WriteString("\t\t\tFollow: metagen.Bool(false),\n")
+	buffer.WriteString("\t\t},\n")
+	buffer.WriteString("\t})\n")
+	buffer.WriteString("\tmeta = metagen.MergeManagedStylesheets(ctx, meta)\n")
+	buffer.WriteString("\treturn metagen.MergeManagedClientAssets(ctx, meta, assets)\n")
+	buffer.WriteString("}\n\n")
 }
 
 func layoutModelVarName(layout templateDef) string {

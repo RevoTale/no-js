@@ -225,6 +225,11 @@ type RootParams struct{}
 type RouteResolver interface {
 	MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (metagen.Metadata, error)
 	MetaGenRootPage(meta framework.MetaContext[*view.Context], params RootParams) (metagen.Metadata, error)
+	MetaGenRootNotFound(
+		meta framework.MetaContext[*view.Context],
+		notFound framework.NotFoundContext,
+		params RootParams,
+	) (metagen.Metadata, error)
 	ResolveRootPage(
 		ctx context.Context,
 		appCtx *view.Context,
@@ -279,6 +284,14 @@ func (Resolver) ResolveRootPage(
 	return view.RootPageView{
 		Heading: "Hello from no-js",
 	}, nil
+}
+
+func (Resolver) MetaGenRootNotFound(
+	meta framework.MetaContext[*view.Context],
+	notFound framework.NotFoundContext,
+	params RootParams,
+) (metagen.Metadata, error) {
+	return metagen.Metadata{Title: "Not Found"}, nil
 }
 
 func (Resolver) ResolveRootNotFound(

@@ -1,0 +1,9 @@
+package docs
+
+import "example.com/no-js-e2e/notfoundmetadataapp/web/view"
+
+templ Layout(model view.DocsLayoutView, child templ.Component) {
+	<section data-layout={ model.Section }>
+		@child
+	</section>
+}
