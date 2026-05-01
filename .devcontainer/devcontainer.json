@@ -3,10 +3,10 @@
   "image": "mcr.microsoft.com/devcontainers/go:2.1-1.26-trixie",
   "remoteUser": "vscode",
   "mounts": [
-    "source=${localEnv:HOME}/.codex,target=/home/vscode/.codex,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.cursor,target=/home/vscode/.cursor,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.continue,target=/home/vscode/.continue,type=bind,consistency=cached"
+    "source=${localEnv:HOME}/.codex,target=/home/vscode/.codex,type=bind",
+    "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind",
+    "source=${localEnv:HOME}/.cursor,target=/home/vscode/.cursor,type=bind",
+    "source=${localEnv:HOME}/.continue,target=/home/vscode/.continue,type=bind"
   ],
   "features": {
       "ghcr.io/devcontainers-extra/features/go-task:1": {}
