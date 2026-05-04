@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.0](https://github.com/RevoTale/no-js/compare/v2.0.0...v2.1.0) (2026-05-01)
+
+
+### Features
+
+* **routes:** generate not-found metadata resolvers ([ecca0a3](https://github.com/RevoTale/no-js/commit/ecca0a37060989ee1414272dda07e59a0ac26457))
+
+
+### Bug Fixes
+
+* ,consistency=cached is bad ([9ef2512](https://github.com/RevoTale/no-js/commit/9ef2512604fdbbb3316d1667900ef2811be1cf93))
+
 ## [2.0.0](https://github.com/RevoTale/no-js/compare/v1.3.0...v2.0.0) (2026-04-27)
 
 
