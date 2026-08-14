@@ -3,7 +3,7 @@ module example.com/no-js-e2e/namespacedtemplcssapp
 go 1.25.0
 
 require (
-	github.com/RevoTale/no-js v0.0.0
+	github.com/RevoTale/no-js v1.3.0
 	github.com/a-h/templ v0.3.1001
 )
 
