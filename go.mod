@@ -7,7 +7,7 @@ require (
 	github.com/evanw/esbuild v0.28.0
 	github.com/nicksnyder/go-i18n/v2 v2.6.1
 	github.com/stretchr/testify v1.12.1
-	github.com/tdewolff/parse/v2 v2.8.12
+	github.com/tdewolff/parse/v2 v2.8.16
 	golang.org/x/mod v0.35.0
 	golang.org/x/text v0.36.0
 	gopkg.in/yaml.v3 v3.0.1
