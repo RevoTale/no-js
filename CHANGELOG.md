@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.1.1](https://github.com/RevoTale/no-js/compare/v2.1.0...v2.1.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/revotale/no-js to v1 ([b693b0a](https://github.com/RevoTale/no-js/commit/b693b0a29d9ba75190a8a177dae1764f550b252f))
+* **deps:** update module github.com/revotale/no-js to v1 ([cf21aef](https://github.com/RevoTale/no-js/commit/cf21aef7f2f9ec4094ff6315939d717e0f3f8ab5))
+* **deps:** update module github.com/stretchr/testify to v1.12.1 ([9b300c2](https://github.com/RevoTale/no-js/commit/9b300c22f353249a5e8114ab3986fd2fe4e06232))
+* **deps:** update module github.com/stretchr/testify to v1.12.1 ([f79e28c](https://github.com/RevoTale/no-js/commit/f79e28c7d2e9b5d10ab61ae9d758447790c7b1ba))
+
 ## [2.1.0](https://github.com/RevoTale/no-js/compare/v2.0.0...v2.1.0) (2026-05-01)
 
 
