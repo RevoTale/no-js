@@ -62,7 +62,14 @@ func StripLocale(cfg Config, rawPath string) (locale string, strippedPath string
 		return "", NormalizePath(rawPath), false, false
 	}
 
+	return stripNormalizedLocale(normalizedCfg, rawPath)
+}
+
+func stripNormalizedLocale(normalizedCfg Config, rawPath string) (string, string, bool, bool) {
 	normalizedPath := NormalizePath(rawPath)
+	if len(normalizedCfg.Locales) == 0 {
+		return "", normalizedPath, false, false
+	}
 	segments := pathSegments(normalizedPath)
 	if len(segments) == 0 {
 		return normalizedCfg.DefaultLocale, "/", false, true

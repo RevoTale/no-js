@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/RevoTale/no-js/framework/metagen"
-	"github.com/RevoTale/no-js/internal/bundler/clientassets"
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	"github.com/RevoTale/no-js/v2/framework/metagen"
+	"github.com/RevoTale/no-js/v2/internal/bundler/clientassets"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 	"github.com/stretchr/testify/require"
 )
 

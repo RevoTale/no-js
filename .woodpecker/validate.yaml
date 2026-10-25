@@ -1,0 +1,10 @@
+when:
+  - event: push
+    branch: ${CI_REPO_DEFAULT_BRANCH}
+  - event: [pull_request, manual, tag]
+
+steps:
+  - name: validate-workflows
+    image: woodpeckerci/woodpecker-cli:v3.19.0-alpine
+    commands:
+      - woodpecker-cli --disable-update-check lint --strict

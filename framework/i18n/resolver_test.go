@@ -33,3 +33,10 @@ func TestResolverResolveAsNeeded(t *testing.T) {
 	unknown := resolver.Resolve("/it/note/hello")
 	require.True(t, unknown.NotFound)
 }
+
+func TestZeroResolverPreservesInvalidConfigurationBehavior(t *testing.T) {
+	var resolver Resolver
+	decision := resolver.Resolve("/notes")
+	require.True(t, decision.NotFound)
+	require.Equal(t, "/notes", decision.CanonicalPath)
+}

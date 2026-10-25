@@ -4,7 +4,7 @@
 
 The `e2e` package treats them as black-box apps:
 - copy the fixture into a temp dir
-- rewrite only the local `replace github.com/RevoTale/no-js => ...`
+- rewrite only the local `replace github.com/RevoTale/no-js/v2 => ...`
 - run the real public generation flow for that app
 - build `./cmd/server`
 - start the compiled binary as a child process

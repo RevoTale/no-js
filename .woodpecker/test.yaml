@@ -1,0 +1,16 @@
+when:
+  - event: push
+    branch: ${CI_REPO_DEFAULT_BRANCH}
+  - event: [pull_request, manual, tag]
+
+depends_on: [validate]
+
+steps:
+  - name: test
+    image: golang:1.26.7-trixie
+    environment:
+      GOTOOLCHAIN: auto
+    commands:
+      - sh scripts/ci-install-task.sh
+      - task ci:tools
+      - task test

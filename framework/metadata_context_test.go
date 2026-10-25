@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"testing"
 
-	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
+	frameworki18n "github.com/RevoTale/no-js/v2/framework/i18n"
 	"github.com/stretchr/testify/require"
 )
 

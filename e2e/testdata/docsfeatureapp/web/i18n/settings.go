@@ -1,6 +1,6 @@
 package webi18n
 
-import frameworki18n "github.com/RevoTale/no-js/framework/i18n"
+import frameworki18n "github.com/RevoTale/no-js/v2/framework/i18n"
 
 func Config() frameworki18n.Config {
 	return frameworki18n.Config{

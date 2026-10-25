@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
+	frameworki18n "github.com/RevoTale/no-js/v2/framework/i18n"
 )
 
 func BuildAlternates(
@@ -22,10 +22,11 @@ func BuildAlternates(
 		return Alternates{}, err
 	}
 
-	normalizedCfg, err := frameworki18n.NormalizeConfig(cfg)
+	resolver, err := frameworki18n.NewResolver(cfg)
 	if err != nil {
 		return Alternates{}, fmt.Errorf("normalize i18n config: %w", err)
 	}
+	normalizedCfg := resolver.Config()
 
 	normalizedLocale := strings.ToLower(strings.TrimSpace(locale))
 	if normalizedLocale == "" || !slices.Contains(normalizedCfg.Locales, normalizedLocale) {
@@ -37,14 +38,14 @@ func BuildAlternates(
 		return Alternates{}, err
 	}
 
-	canonicalPath := frameworki18n.LocalizePath(normalizedCfg, normalizedLocale, pagePath)
+	canonicalPath := resolver.LocalizedPath(normalizedLocale, pagePath)
 	alternates := Alternates{
 		Canonical: absoluteURL(absoluteRoot, canonicalPath, query),
 		Languages: make(map[string]string, len(normalizedCfg.Locales)),
 	}
 
 	for _, localeCode := range normalizedCfg.Locales {
-		localizedPath := frameworki18n.LocalizePath(normalizedCfg, localeCode, pagePath)
+		localizedPath := resolver.LocalizedPath(localeCode, pagePath)
 		alternates.Languages[localeCode] = absoluteURL(absoluteRoot, localizedPath, query)
 	}
 

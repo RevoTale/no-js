@@ -1,0 +1,23 @@
+when:
+  - event: push
+    branch: ${CI_REPO_DEFAULT_BRANCH}
+
+depends_on: [test]
+
+steps:
+  - name: release-please
+    image: node:24.11.0-trixie
+    environment:
+      GITHUB_TOKEN:
+        from_secret: forge_token
+    commands:
+      - >-
+        npx --yes release-please@17.11.2 github-release
+        --repo-url "$${CI_REPO}" --target-branch "$${CI_REPO_DEFAULT_BRANCH}"
+        --token "$${GITHUB_TOKEN}"
+        --config-file release-please-config.json --manifest-file .release-please-manifest.json
+      - >-
+        npx --yes release-please@17.11.2 release-pr
+        --repo-url "$${CI_REPO}" --target-branch "$${CI_REPO_DEFAULT_BRANCH}"
+        --token "$${GITHUB_TOKEN}"
+        --config-file release-please-config.json --manifest-file .release-please-manifest.json

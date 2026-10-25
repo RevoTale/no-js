@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"example.com/no-js-e2e/docsfeatureapp/web/view"
-	"github.com/RevoTale/no-js/framework"
-	"github.com/RevoTale/no-js/framework/discovery"
+	"github.com/RevoTale/no-js/v2/framework"
+	"github.com/RevoTale/no-js/v2/framework/discovery"
 )
 
 func Feed(runtimeCtx framework.RuntimeContext[*view.Context], r *http.Request) (discovery.FeedDocument, error) {

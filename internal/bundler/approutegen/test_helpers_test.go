@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/RevoTale/no-js/internal/bundler/viewcontract"
+	"github.com/RevoTale/no-js/v2/internal/bundler/viewcontract"
 	"github.com/stretchr/testify/require"
 )
 
@@ -103,7 +103,7 @@ func writeMinimalRouteTree(t *testing.T, routesDir string) {
 
 	writeTestFile(t, filepath.Join(routesDir, "root.templ"), `package appsrc
 
-import "github.com/RevoTale/no-js/framework/metagen"
+import "github.com/RevoTale/no-js/v2/framework/metagen"
 
 templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { @child }
 `)

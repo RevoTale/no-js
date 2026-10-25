@@ -6,8 +6,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/RevoTale/no-js/framework/metagen"
-	frameworkrouter "github.com/RevoTale/no-js/framework/router"
+	"github.com/RevoTale/no-js/v2/framework/metagen"
+	frameworkrouter "github.com/RevoTale/no-js/v2/framework/router"
 )
 
 func writePageModule(

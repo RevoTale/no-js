@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/RevoTale/no-js/internal/bundler/i18nkeygen"
+	"github.com/RevoTale/no-js/v2/internal/bundler/i18nkeygen"
 )
 
 func main() {

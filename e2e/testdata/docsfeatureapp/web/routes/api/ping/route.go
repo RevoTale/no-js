@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"example.com/no-js-e2e/docsfeatureapp/web/view"
-	"github.com/RevoTale/no-js/framework"
-	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
+	"github.com/RevoTale/no-js/v2/framework"
+	frameworki18n "github.com/RevoTale/no-js/v2/framework/i18n"
 )
 
 func GET(

@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/RevoTale/no-js/framework"
-	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
-	"github.com/RevoTale/no-js/framework/metagen"
+	"github.com/RevoTale/no-js/v2/framework"
+	frameworki18n "github.com/RevoTale/no-js/v2/framework/i18n"
+	"github.com/RevoTale/no-js/v2/framework/metagen"
 	"github.com/a-h/templ"
 )
 

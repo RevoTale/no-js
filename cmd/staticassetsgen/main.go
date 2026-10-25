@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/RevoTale/no-js/internal/bundler/staticassets"
-	"github.com/RevoTale/no-js/internal/bundler/templcssgen"
-	"github.com/RevoTale/no-js/internal/filesystem"
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	"github.com/RevoTale/no-js/v2/internal/bundler/staticassets"
+	"github.com/RevoTale/no-js/v2/internal/bundler/templcssgen"
+	"github.com/RevoTale/no-js/v2/internal/filesystem"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 )
 
 func main() {

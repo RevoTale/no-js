@@ -59,3 +59,94 @@ tasks:
       - validate
     cmds:
       - task: go:test
+
+  perf:bench:
+    desc: Measure gzip response and normalized i18n path allocations
+    cmds:
+      - go test -run "^$" -bench "Benchmark(GzipResponse|RuntimePathFor)$" -benchmem -count 3 ./framework/httpserver ./framework/i18n
+
+  perf:test:
+    desc: Check runtime memory regression cases
+    cmds:
+      - go test -run "Test(GzipResponse|RuntimePathFor|RuntimeConfigSnapshot)" ./framework/httpserver ./framework/i18n
+
+  perf:gen-test:
+    desc: Check static CSS generation contract
+    cmds:
+      - go test -run TestRunPrecomputesOnlyConstantCSS ./internal/bundler/templgen
+
+  perf:css-probe:
+    desc: Compare upstream and precomputed templ CSS in a temporary fixture
+    cmds:
+      - bash scripts/perf-css.sh
+
+  perf:race:
+    desc: Check gzip stream isolation and i18n under the race detector
+    cmds:
+      # Race instrumentation randomly drops sync.Pool entries; measure budgets without -race.
+      - go test -race -run "^TestGzipResponse(IndependentStreams|ConcurrentStreams|RecoversAfterWriteFailure)$" ./framework/httpserver
+      - go test -race ./framework/i18n
+
+  perf:hotpaths:
+    desc: Measure health dispatch and literal message hot paths
+    cmds:
+      - go test -run "^$" -bench "Benchmark(HealthWithGlobalCSS|LiteralMessage)$" -benchmem -count 3 ./framework/httpserver ./framework/i18n
+
+  perf:hotpaths-test:
+    desc: Check health and literal message allocation budgets
+    cmds:
+      - go test -run "Test(HealthAllocationIndependentOfGlobalCSS|LiteralMessageDoesNotAllocate)$" ./framework/httpserver ./framework/i18n
+
+  perf:metadata:
+    desc: Measure multilingual alternate URL allocation cost
+    cmds:
+      - go test -run "^$" -bench BenchmarkBuildAlternates -benchmem -count 3 ./framework/metagen
+
+  perf:classes:
+    desc: Measure simple class list rendering and preserve upstream semantics
+    cmds:
+      - go test -run '^$' -bench BenchmarkClassNames -benchmem -count 3 ./framework/templruntime
+      - go test ./framework/templruntime
+
+  perf:generator-test:
+    desc: Check static CSS and class-list generator fast paths
+    cmds:
+      - go test ./internal/bundler/templgen ./framework/templruntime
+
+  perf:binary-assets:
+    desc: Measure avoiding redundant compression of binary assets
+    cmds:
+      - go test -run '^$' -bench BenchmarkCompressedAsset -benchmem -count 3 ./framework/httpserver
+      - go test -run 'Test(AlreadyCompressedAssetsUseIdentityEncoding|SVGStillUsesGzip)$' ./framework/httpserver
+
+  perf:resolver-test:
+    desc: Check resolver configuration boundaries after normalized-path optimization
+    cmds:
+      - go test ./framework/i18n
+
+  ci:tools:
+    desc: Install pinned Go validation tools inside the CI environment
+    cmds:
+      - sh scripts/ci-install-lint.sh
+      - go install golang.org/x/tools/cmd/deadcode@v0.52.0
+
+  ci:lint:
+    desc: Validate Woodpecker workflow syntax
+    cmds:
+      - woodpecker-cli --disable-update-check lint --strict
+
+  gen:fixture-resolvers:
+    desc: Regenerate the resolver APIs tracked in selected e2e fixtures
+    cmds:
+      - |
+        set -eu
+        framework_dir="$(pwd)"
+        scratch="$(mktemp -d)"
+        trap 'rm -rf "$scratch"' EXIT
+        for fixture in clientassetsapp routepagecssapp; do
+          mkdir -p "$scratch/$fixture"
+          cp -a "e2e/testdata/$fixture/." "$scratch/$fixture/"
+          (cd "$scratch/$fixture" && go mod edit "-replace=github.com/RevoTale/no-js/v2=$framework_dir")
+          go run ./cmd/no-js gen routes -root "$scratch/$fixture"
+          cp "$scratch/$fixture/web/resolvers/generated.go" "e2e/testdata/$fixture/web/resolvers/generated.go"
+        done

@@ -115,13 +115,19 @@ func generateFile(fileName string, baseAbs string) error {
 	}
 	relFileName = filepath.ToSlash(relFileName)
 
+	precomputeStaticCSS(t)
+
 	var output bytes.Buffer
 	_, err = generator.Generate(t, &output, generator.WithFileName(relFileName))
 	if err != nil {
 		return fmt.Errorf("generate %q: %w", fileName, err)
 	}
 
-	formatted, err := format.Source(output.Bytes())
+	optimized, err := optimizeClassNames(output.Bytes())
+	if err != nil {
+		return fmt.Errorf("optimize class names for %q: %w", fileName, err)
+	}
+	formatted, err := format.Source(optimized)
 	if err != nil {
 		return fmt.Errorf("format generated output for %q: %w", fileName, err)
 	}

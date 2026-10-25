@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/RevoTale/no-js/internal/bundler/approutegen"
-	"github.com/RevoTale/no-js/internal/bundler/templcssgen"
-	bundlertemplgen "github.com/RevoTale/no-js/internal/bundler/templgen"
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	"github.com/RevoTale/no-js/v2/internal/bundler/approutegen"
+	"github.com/RevoTale/no-js/v2/internal/bundler/templcssgen"
+	bundlertemplgen "github.com/RevoTale/no-js/v2/internal/bundler/templgen"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 )
 
 func main() {

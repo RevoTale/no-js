@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/RevoTale/no-js/framework/metagen"
+	"github.com/RevoTale/no-js/v2/framework/metagen"
 )
 
 func writeNotFoundPageFunc(

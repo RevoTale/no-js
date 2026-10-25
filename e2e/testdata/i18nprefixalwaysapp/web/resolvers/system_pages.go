@@ -6,7 +6,7 @@ import (
 
 	i18n "example.com/no-js-e2e/i18nprefixalwaysapp/web/generated/i18n"
 	"example.com/no-js-e2e/i18nprefixalwaysapp/web/view"
-	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/v2/framework"
 )
 
 func (Resolver) ResolveGroupSupportHelpLayout(

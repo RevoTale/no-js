@@ -10,15 +10,15 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/RevoTale/no-js/internal/bundler/approutegen"
-	"github.com/RevoTale/no-js/internal/bundler/appshape"
-	"github.com/RevoTale/no-js/internal/bundler/clientassets"
-	"github.com/RevoTale/no-js/internal/bundler/i18ngen"
-	bundlerstaticassets "github.com/RevoTale/no-js/internal/bundler/staticassets"
-	"github.com/RevoTale/no-js/internal/bundler/templcssgen"
-	bundlertemplgen "github.com/RevoTale/no-js/internal/bundler/templgen"
-	"github.com/RevoTale/no-js/internal/filesystem"
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	"github.com/RevoTale/no-js/v2/internal/bundler/approutegen"
+	"github.com/RevoTale/no-js/v2/internal/bundler/appshape"
+	"github.com/RevoTale/no-js/v2/internal/bundler/clientassets"
+	"github.com/RevoTale/no-js/v2/internal/bundler/i18ngen"
+	bundlerstaticassets "github.com/RevoTale/no-js/v2/internal/bundler/staticassets"
+	"github.com/RevoTale/no-js/v2/internal/bundler/templcssgen"
+	bundlertemplgen "github.com/RevoTale/no-js/v2/internal/bundler/templgen"
+	"github.com/RevoTale/no-js/v2/internal/filesystem"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 )
 
 func main() {

@@ -13,8 +13,8 @@ import (
 	texttemplate "text/template"
 	"time"
 
-	"github.com/RevoTale/no-js/framework"
-	frameworkrouter "github.com/RevoTale/no-js/framework/router"
+	"github.com/RevoTale/no-js/v2/framework"
+	frameworkrouter "github.com/RevoTale/no-js/v2/framework/router"
 )
 
 const (

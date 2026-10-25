@@ -8,9 +8,9 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/RevoTale/no-js/internal/bundler/clientassets"
-	"github.com/RevoTale/no-js/internal/bundler/viewcontract"
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	"github.com/RevoTale/no-js/v2/internal/bundler/clientassets"
+	"github.com/RevoTale/no-js/v2/internal/bundler/viewcontract"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 )
 
 func generateRegistrySource(

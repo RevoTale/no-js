@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/RevoTale/no-js/internal/filesystem"
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	"github.com/RevoTale/no-js/v2/internal/filesystem"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 )
 
 type WriteStylesheetConfig struct {

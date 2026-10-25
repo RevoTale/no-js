@@ -32,7 +32,7 @@ no-js/
 - Build-time implementation lives under `internal/*`.
 - Public runtime packages must not import `internal/bundler/*`.
 - The generator must stay module-aware: framework imports come from
-  `github.com/RevoTale/no-js`, while consuming-app imports are resolved from
+  `github.com/RevoTale/no-js/v2`, while consuming-app imports are resolved from
   the target app module.
 - The supported public CLI entrypoint is `cmd/no-js`, and app-facing docs should prefer `tool` directives plus `go tool no-js ...`.
 - Keep the repository library-focused. Do not reintroduce product-specific app
@@ -93,3 +93,17 @@ task test
   notes in `docs/framework/client-assets-pipeline.md`.
 - Put field-level contract truth on exported Go types and focused reference
   docs, not in long README inventories.
+
+## Runtime allocation checks
+
+Use `task perf:bench` for gzip and i18n allocation measurements,
+`task perf:css-probe` to compare constant CSS generation with upstream templ,
+and `task perf:race` for stream isolation and i18n race checks. See
+[the memory investigation](performance/2026-10-25-memory.md) for the measured
+baseline, ownership boundaries, and RSS limitations.
+
+For deeper hot-path checks, use `task perf:hotpaths`, `task perf:metadata`,
+`task perf:classes`, `task perf:binary-assets`, and `task perf:generator-test`.
+The generated class-name helper preserves upstream behavior by falling back for
+complex inputs; avoid extending its fast path without differential tests and
+before/after allocation measurements.

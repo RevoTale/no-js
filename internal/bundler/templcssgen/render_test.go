@@ -6,9 +6,9 @@ import (
 	"runtime"
 	"testing"
 
-	bundlerstaticassets "github.com/RevoTale/no-js/internal/bundler/staticassets"
-	bundlertemplgen "github.com/RevoTale/no-js/internal/bundler/templgen"
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	bundlerstaticassets "github.com/RevoTale/no-js/v2/internal/bundler/staticassets"
+	bundlertemplgen "github.com/RevoTale/no-js/v2/internal/bundler/templgen"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,10 +19,10 @@ func tempAppGoMod(repoRoot string) string {
 	return "module example.com/app\n\n" +
 		"go 1.25.0\n\n" +
 		"require (\n" +
-		"\tgithub.com/RevoTale/no-js v0.0.0\n" +
+		"\tgithub.com/RevoTale/no-js/v2 v2.1.1\n" +
 		"\tgithub.com/a-h/templ v0.3.1001\n" +
 		")\n\n" +
-		"replace github.com/RevoTale/no-js => " + filepath.ToSlash(repoRoot) + "\n"
+		"replace github.com/RevoTale/no-js/v2 => " + filepath.ToSlash(repoRoot) + "\n"
 }
 
 func TestWriteStylesheetIncludesZeroArgAndExplicitVariants(t *testing.T) {

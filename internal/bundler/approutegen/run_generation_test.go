@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,7 +20,7 @@ func TestRunGeneratesMethodRoutesFromGroupedRouteGo(t *testing.T) {
 
 	writeTestFile(t, filepath.Join(appDir, "root.templ"), `package appsrc
 
-import "github.com/RevoTale/no-js/framework/metagen"
+import "github.com/RevoTale/no-js/v2/framework/metagen"
 
 templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { @child }
 `)
@@ -42,7 +42,7 @@ import (
 	"net/http"
 
 	"example.com/app/web/view"
-	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/v2/framework"
 )
 
 func GET(
@@ -93,7 +93,7 @@ func TestRunGeneratesSlotComposeWithoutSlotMetadata(t *testing.T) {
 
 	writeTestFile(t, filepath.Join(appDir, "root.templ"), `package appsrc
 
-import "github.com/RevoTale/no-js/framework/metagen"
+import "github.com/RevoTale/no-js/v2/framework/metagen"
 
 templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { @child }
 `)
@@ -184,7 +184,7 @@ func TestRunGeneratesGroupedPageSlotAndMethodRouteTree(t *testing.T) {
 
 	writeTestFile(t, filepath.Join(appDir, "root.templ"), `package appsrc
 
-import "github.com/RevoTale/no-js/framework/metagen"
+import "github.com/RevoTale/no-js/v2/framework/metagen"
 
 templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { @child }
 `)
@@ -244,7 +244,7 @@ import (
 	"net/http"
 
 	"example.com/app/web/view"
-	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/v2/framework"
 )
 
 func GET(

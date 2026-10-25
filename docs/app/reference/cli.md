@@ -115,8 +115,8 @@ Add it to `go.mod`:
 
 ```go
 tool (
-	github.com/RevoTale/no-js/cmd/no-js
-	github.com/RevoTale/no-js/cmd/templgen
+	github.com/RevoTale/no-js/v2/cmd/no-js
+	github.com/RevoTale/no-js/v2/cmd/templgen
 )
 ```
 

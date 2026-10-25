@@ -14,9 +14,9 @@ import (
 	"sort"
 	"strings"
 
-	bundlertemplgen "github.com/RevoTale/no-js/internal/bundler/templgen"
-	"github.com/RevoTale/no-js/internal/bundler/viewcontract"
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	bundlertemplgen "github.com/RevoTale/no-js/v2/internal/bundler/templgen"
+	"github.com/RevoTale/no-js/v2/internal/bundler/viewcontract"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 	templparser "github.com/a-h/templ/parser/v2"
 )
 

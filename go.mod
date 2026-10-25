@@ -1,4 +1,4 @@
-module github.com/RevoTale/no-js
+module github.com/RevoTale/no-js/v2
 
 go 1.25.0
 

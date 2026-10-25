@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/RevoTale/no-js/internal/bundler/clientassetext"
+	"github.com/RevoTale/no-js/v2/internal/bundler/clientassetext"
 )
 
 func writeTemplCopy(tpl templateDef) error {

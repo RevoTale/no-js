@@ -6,8 +6,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/RevoTale/no-js/framework/metagen"
-	frameworkstaticassets "github.com/RevoTale/no-js/framework/staticassets"
+	"github.com/RevoTale/no-js/v2/framework/metagen"
+	frameworkstaticassets "github.com/RevoTale/no-js/v2/framework/staticassets"
 	"github.com/a-h/templ"
 )
 

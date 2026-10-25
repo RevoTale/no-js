@@ -19,18 +19,18 @@ module example.com/your-app
 go 1.25.0
 
 require (
-	github.com/RevoTale/no-js vX.Y.Z
+	github.com/RevoTale/no-js/v2 v2.1.1
 	github.com/a-h/templ v0.3.1001
 )
 
-tool github.com/RevoTale/no-js/cmd/no-js
+tool github.com/RevoTale/no-js/v2/cmd/no-js
 ```
 
 Or add the entries with Go commands:
 
 ```bash
-go get github.com/RevoTale/no-js@latest
-go get -tool github.com/RevoTale/no-js/cmd/no-js@latest
+go get github.com/RevoTale/no-js/v2@latest
+go get -tool github.com/RevoTale/no-js/v2/cmd/no-js@latest
 ```
 
 The route templates and generated code use `github.com/a-h/templ`, so your app
@@ -140,7 +140,7 @@ type NotFoundView struct {
 ```templ
 package routes
 
-import "github.com/RevoTale/no-js/framework/metagen"
+import "github.com/RevoTale/no-js/v2/framework/metagen"
 
 templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) {
 	<html lang={ locale }>
@@ -260,8 +260,8 @@ import (
 	"net/http"
 
 	"example.com/your-app/web/view"
-	"github.com/RevoTale/no-js/framework"
-	"github.com/RevoTale/no-js/framework/metagen"
+	"github.com/RevoTale/no-js/v2/framework"
+	"github.com/RevoTale/no-js/v2/framework/metagen"
 )
 
 func (Resolver) MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (metagen.Metadata, error) {
@@ -318,7 +318,7 @@ import (
 
 	generated "example.com/your-app/web/generated"
 	"example.com/your-app/web/view"
-	"github.com/RevoTale/no-js/framework/httpserver"
+	"github.com/RevoTale/no-js/v2/framework/httpserver"
 )
 
 func main() {
@@ -351,13 +351,13 @@ app-owned packages, add the companion tool:
 
 ```go
 tool (
-	github.com/RevoTale/no-js/cmd/no-js
-	github.com/RevoTale/no-js/cmd/templgen
+	github.com/RevoTale/no-js/v2/cmd/no-js
+	github.com/RevoTale/no-js/v2/cmd/templgen
 )
 ```
 
 ```bash
-go get -tool github.com/RevoTale/no-js/cmd/templgen@latest
+go get -tool github.com/RevoTale/no-js/v2/cmd/templgen@latest
 go tool templgen -base . -path web/components -path web/view -path web/generated
 ```
 

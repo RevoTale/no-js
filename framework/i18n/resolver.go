@@ -70,7 +70,7 @@ func (resolver *Resolver) Resolve(requestPath string) RouteDecision {
 		return decision
 	}
 
-	locale, strippedPath, hadPrefix, ok := StripLocale(resolver.config, normalizedPath)
+	locale, strippedPath, hadPrefix, ok := stripNormalizedLocale(resolver.config, normalizedPath)
 	if !ok {
 		return RouteDecision{
 			OriginalPath:  normalizedPath,
