@@ -3,6 +3,6 @@ when:
 
 steps:
   - name: validate-workflows
-    image: woodpeckerci/woodpecker-cli:v3.19.0
+    image: woodpeckerci/woodpecker-cli:v3.19.0-alpine
     commands:
       - woodpecker-cli --disable-update-check lint --strict
