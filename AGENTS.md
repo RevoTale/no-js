@@ -134,3 +134,6 @@ the framework repository itself.
 - `task fix`: format Go sources.
 - `task validate`: run `golangci-lint` and deadcode checks.
 - `task test`: run validation, then `go test ./...`.
+- MUST run `task perf:race` in a compatible local Dev Container before merge and
+  record the result in the PR. The hosted ARM64 runner cannot initialize Go's
+  race runtime on its 47-bit VMA; CI retains the full `task test` suite.

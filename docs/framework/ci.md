@@ -2,7 +2,7 @@
 
 Woodpecker runs `.woodpecker/` for pushes, pull requests, manual runs, and tags.
 `validate` lints workflow syntax. `test` installs pinned tools, then runs the same
-`task test` validation/e2e suite used locally plus `task perf:race`.
+`task test` validation/e2e suite used locally.
 
 Release automation still uses the existing release-please JSON manifest and
 config. After a successful default-branch push pipeline, `release` publishes any
@@ -27,3 +27,12 @@ E2E subprocesses inherit the pipeline's Go build cache. Go's source/compiler/fla
 cache keys keep fixture builds correct while avoiding repeated standard-library
 compilation. Their generated files, binaries, and HTTP state remain separate.
 The shared CLI binary is removed after the E2E suite. No host cache volume is used.
+
+## Local race gate
+
+Before merging, run `task perf:race` in a compatible local Dev Container on the
+exact source revision being reviewed and record the result in the PR. This is a
+mandatory local gate. The current hosted ARM64 runner has a 47-bit VMA which its
+Go ThreadSanitizer runtime rejects before tests execute. The owner approved
+keeping the full original CI suite hosted and race validation local; do not
+silently skip the local gate or report it as a hosted CI pass.

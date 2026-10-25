@@ -14,4 +14,3 @@ steps:
       - sh scripts/ci-install-task.sh
       - task ci:tools
       - task test
-      - task perf:race
