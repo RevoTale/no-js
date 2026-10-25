@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.1.1](https://github.com/RevoTale/no-js/compare/v2.1.0...v2.1.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **ci:** use the Woodpecker CLI image with a shell ([c11cbd8](https://github.com/RevoTale/no-js/commit/c11cbd88677f8b1927eabc42d2a546325940cec1))
+* **deps:** update module github.com/revotale/no-js to v1 ([b693b0a](https://github.com/RevoTale/no-js/commit/b693b0a29d9ba75190a8a177dae1764f550b252f))
+* **deps:** update module github.com/revotale/no-js to v1 ([cf21aef](https://github.com/RevoTale/no-js/commit/cf21aef7f2f9ec4094ff6315939d717e0f3f8ab5))
+* **deps:** update module github.com/stretchr/testify to v1.12.1 ([9b300c2](https://github.com/RevoTale/no-js/commit/9b300c22f353249a5e8114ab3986fd2fe4e06232))
+* **deps:** update module github.com/stretchr/testify to v1.12.1 ([f79e28c](https://github.com/RevoTale/no-js/commit/f79e28c7d2e9b5d10ab61ae9d758447790c7b1ba))
+* **module:** use the v2 Go module path ([859e5d8](https://github.com/RevoTale/no-js/commit/859e5d8592fb2a96c847a6941e980de7bfd3a8c8))
+
+
+### Performance Improvements
+
+* reduce allocations and prepare valid v2 releases ([#31](https://github.com/RevoTale/no-js/issues/31)) ([a472f7c](https://github.com/RevoTale/no-js/commit/a472f7c79e0d7f1f4f44cbb8f93da69f8367cca5))
+* reduce request allocations and precompute static templ output ([ab15c71](https://github.com/RevoTale/no-js/commit/ab15c71a41ac3d1666a8f79e35c9c190318ae64e))
+* **test:** share Go build artifacts across e2e fixtures ([05c4220](https://github.com/RevoTale/no-js/commit/05c4220a03ca2c8aec31a51bdbe3eef325099806))
+
 ## [2.1.0](https://github.com/RevoTale/no-js/compare/v2.0.0...v2.1.0) (2026-05-01)
 
 
