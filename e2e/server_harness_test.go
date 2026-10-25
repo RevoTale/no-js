@@ -388,14 +388,9 @@ func runGo(t *testing.T, dir string, args ...string) []byte {
 	cmd := exec.Command("go", args...)
 	cmd.Dir = dir
 
-	goCacheDir := filepath.Join(dir, ".cache", "go-build")
-	require.NoError(t, os.MkdirAll(goCacheDir, 0o755))
-
-	cmd.Env = append(
-		os.Environ(),
-		"GOWORK=off",
-		"GOCACHE="+goCacheDir,
-	)
+	// Go keys cached artifacts by source, compiler, and flags. Reuse the parent
+	// cache so each fixture does not rebuild the standard library and framework.
+	cmd.Env = append(os.Environ(), "GOWORK=off")
 
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "%s", strings.TrimSpace(string(output)))
@@ -422,19 +417,10 @@ func noJSToolBinary(t *testing.T) string {
 			noJSToolErr = fmt.Errorf("create no-js tool temp dir: %w", err)
 			return
 		}
-		goCacheDir := filepath.Join(outDir, "go-build")
-		if err := os.MkdirAll(goCacheDir, 0o755); err != nil {
-			noJSToolErr = fmt.Errorf("create no-js tool build cache: %w", err)
-			return
-		}
 		noJSToolPath = filepath.Join(outDir, "no-js")
 		cmd := exec.Command("go", "build", "-o", noJSToolPath, "./cmd/no-js")
 		cmd.Dir = repoRoot
-		cmd.Env = append(
-			os.Environ(),
-			"GOWORK=off",
-			"GOCACHE="+goCacheDir,
-		)
+		cmd.Env = append(os.Environ(), "GOWORK=off")
 		output, buildErr := cmd.CombinedOutput()
 		if buildErr != nil {
 			noJSToolErr = fmt.Errorf("build no-js tool: %w: %s", buildErr, strings.TrimSpace(string(output)))

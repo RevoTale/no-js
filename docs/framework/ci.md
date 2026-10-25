@@ -22,3 +22,8 @@ checks before merging once the server has reported their exact check names.
 Task and golangci-lint use official release binaries with fixed SHA-256 checksums
 for amd64 and arm64, avoiding dependency/toolchain compilation on each CI run.
 Only the pinned deadcode checker is built through Go.
+
+E2E subprocesses inherit the pipeline's Go build cache. Go's source/compiler/flag
+cache keys keep fixture builds correct while avoiding repeated standard-library
+compilation. Their generated files, binaries, and HTTP state remain separate.
+The shared CLI binary is removed after the E2E suite. No host cache volume is used.
