@@ -1,5 +1,7 @@
 when:
-  - event: [push, pull_request, manual, tag]
+  - event: push
+    branch: ${CI_REPO_DEFAULT_BRANCH}
+  - event: [pull_request, manual, tag]
 
 steps:
   - name: validate-workflows

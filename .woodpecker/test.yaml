@@ -1,5 +1,7 @@
 when:
-  - event: [push, pull_request, manual, tag]
+  - event: push
+    branch: ${CI_REPO_DEFAULT_BRANCH}
+  - event: [pull_request, manual, tag]
 
 depends_on: [validate]
 
@@ -9,7 +11,7 @@ steps:
     environment:
       GOTOOLCHAIN: auto
     commands:
-      - go install github.com/go-task/task/v3/cmd/task@v3.54.0
+      - sh scripts/ci-install-task.sh
       - task ci:tools
       - task test
       - task perf:race

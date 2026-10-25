@@ -18,3 +18,7 @@ Install Woodpecker CLI v3.19.0 in the development container and run `task ci:lin
 to check workflows locally. CI image versions and Go tool versions are pinned.
 This configuration does not change branch protection: require the Woodpecker
 checks before merging once the server has reported their exact check names.
+
+Task and golangci-lint use official release binaries with fixed SHA-256 checksums
+for amd64 and arm64, avoiding dependency/toolchain compilation on each CI run.
+Only the pinned deadcode checker is built through Go.
