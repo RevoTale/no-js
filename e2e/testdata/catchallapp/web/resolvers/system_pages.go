@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"example.com/no-js-e2e/catchallapp/web/view"
-	"github.com/RevoTale/no-js/framework"
+	"github.com/RevoTale/no-js/v2/framework"
 )
 
 func (Resolver) ResolveRootNotFound(

@@ -3,7 +3,7 @@ package metagen
 import (
 	"testing"
 
-	"github.com/RevoTale/no-js/framework/i18n"
+	"github.com/RevoTale/no-js/v2/framework/i18n"
 )
 
 func BenchmarkBuildAlternates(b *testing.B) {

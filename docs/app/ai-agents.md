@@ -450,7 +450,7 @@ contract.
 ## Greenfield Flow
 
 1. Create `go.mod`.
-2. Add `github.com/RevoTale/no-js`, `github.com/a-h/templ`, and the `no-js`
+2. Add `github.com/RevoTale/no-js/v2`, `github.com/a-h/templ`, and the `no-js`
    Go tool.
 3. Create `cmd/server`, `web/routes`, `web/resolvers`, and `web/view`.
 4. Add `root.templ`, one `page.templ`, and `404.templ`.

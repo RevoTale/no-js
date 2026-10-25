@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/RevoTale/no-js/internal/bundler/templcssgen"
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	"github.com/RevoTale/no-js/v2/internal/bundler/templcssgen"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 )
 
 func main() {

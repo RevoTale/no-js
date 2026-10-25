@@ -14,7 +14,7 @@ import (
 
 	gen "example.com/no-js-e2e/catchallapp/web/generated"
 	"example.com/no-js-e2e/catchallapp/web/view"
-	"github.com/RevoTale/no-js/framework/httpserver"
+	"github.com/RevoTale/no-js/v2/framework/httpserver"
 )
 
 func main() {

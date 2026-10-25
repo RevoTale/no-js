@@ -134,3 +134,19 @@ tasks:
     desc: Validate Woodpecker workflow syntax
     cmds:
       - woodpecker-cli --disable-update-check lint --strict
+
+  gen:fixture-resolvers:
+    desc: Regenerate the resolver APIs tracked in selected e2e fixtures
+    cmds:
+      - |
+        set -eu
+        framework_dir="$(pwd)"
+        scratch="$(mktemp -d)"
+        trap 'rm -rf "$scratch"' EXIT
+        for fixture in clientassetsapp routepagecssapp; do
+          mkdir -p "$scratch/$fixture"
+          cp -a "e2e/testdata/$fixture/." "$scratch/$fixture/"
+          (cd "$scratch/$fixture" && go mod edit "-replace=github.com/RevoTale/no-js/v2=$framework_dir")
+          go run ./cmd/no-js gen routes -root "$scratch/$fixture"
+          cp "$scratch/$fixture/web/resolvers/generated.go" "e2e/testdata/$fixture/web/resolvers/generated.go"
+        done

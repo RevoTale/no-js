@@ -49,7 +49,7 @@ the framework repository itself.
 - MUST run validation and tests through `Taskfile.yml`.
 - MUST keep this repository library-focused; do not reintroduce product-specific app code under the root module.
 - MUST keep public runtime packages free of imports from `internal/bundler/*`.
-- MUST keep generator output module-aware: framework imports come from `github.com/RevoTale/no-js`, while consuming-app
+- MUST keep generator output module-aware: framework imports come from `github.com/RevoTale/no-js/v2`, while consuming-app
   imports must be derived from the target app module.
 - MUST use the canonical public terminology in docs and design discussions: `App Bundle`, `Custom Config`,
   `Site Resolver`, and `Advanced composition`.

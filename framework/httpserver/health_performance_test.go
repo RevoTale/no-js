@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/RevoTale/no-js/framework/staticassets"
+	"github.com/RevoTale/no-js/v2/framework/staticassets"
 	"github.com/a-h/templ"
 	"github.com/stretchr/testify/require"
 )

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	frameworkstaticassets "github.com/RevoTale/no-js/framework/staticassets"
+	frameworkstaticassets "github.com/RevoTale/no-js/v2/framework/staticassets"
 	"github.com/stretchr/testify/require"
 )
 

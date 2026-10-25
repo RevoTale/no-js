@@ -4,8 +4,8 @@ package resolvers
 import (
 	"context"
 	"example.com/no-js-e2e/routepagecssapp/web/view"
-	"github.com/RevoTale/no-js/framework"
-	"github.com/RevoTale/no-js/framework/metagen"
+	"github.com/RevoTale/no-js/v2/framework"
+	"github.com/RevoTale/no-js/v2/framework/metagen"
 	"net/http"
 )
 
@@ -14,6 +14,8 @@ type RootParams struct {
 
 type RouteResolver interface {
 	MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (metagen.Metadata, error)
+	MetaGenRootNotFound(meta framework.MetaContext[*view.Context], notFound framework.NotFoundContext, params RootParams) (metagen.Metadata, error)
+	ResolveRootNotFound(ctx context.Context, appCtx *view.Context, r *http.Request, notFound framework.NotFoundContext, params RootParams) (view.RootLayoutView, error)
 	MetaGenRootPage(meta framework.MetaContext[*view.Context], params RootParams) (metagen.Metadata, error)
 	ResolveRootPage(ctx context.Context, appCtx *view.Context, r *http.Request, params RootParams) (view.RootPageView, error)
 }

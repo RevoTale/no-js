@@ -9,10 +9,10 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/RevoTale/no-js/framework"
-	frameworkdiscovery "github.com/RevoTale/no-js/framework/discovery"
-	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
-	"github.com/RevoTale/no-js/framework/staticassets"
+	"github.com/RevoTale/no-js/v2/framework"
+	frameworkdiscovery "github.com/RevoTale/no-js/v2/framework/discovery"
+	frameworki18n "github.com/RevoTale/no-js/v2/framework/i18n"
+	"github.com/RevoTale/no-js/v2/framework/staticassets"
 	"github.com/a-h/templ"
 )
 

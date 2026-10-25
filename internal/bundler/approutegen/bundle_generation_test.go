@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RevoTale/no-js/internal/bundler/clientassets"
-	"github.com/RevoTale/no-js/internal/bundler/viewcontract"
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	"github.com/RevoTale/no-js/v2/internal/bundler/clientassets"
+	"github.com/RevoTale/no-js/v2/internal/bundler/viewcontract"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 	"github.com/stretchr/testify/require"
 )
 
@@ -221,7 +221,7 @@ func TestRunUsesExplicitProjectLayout(t *testing.T) {
 
 	writeTestFile(t, filepath.Join(appDir, "root.templ"), `package appsrc
 
-import "github.com/RevoTale/no-js/framework/metagen"
+import "github.com/RevoTale/no-js/v2/framework/metagen"
 
 templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { @child }
 `)

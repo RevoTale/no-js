@@ -14,7 +14,7 @@ import (
 
 	gen "example.com/no-js-e2e/routepagecssapp/web/generated"
 	"example.com/no-js-e2e/routepagecssapp/web/view"
-	"github.com/RevoTale/no-js/framework/httpserver"
+	"github.com/RevoTale/no-js/v2/framework/httpserver"
 )
 
 func main() {

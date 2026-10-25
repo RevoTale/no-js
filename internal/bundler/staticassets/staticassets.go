@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	frameworkstaticassets "github.com/RevoTale/no-js/framework/staticassets"
-	"github.com/RevoTale/no-js/internal/bundler/esbuildtarget"
+	frameworkstaticassets "github.com/RevoTale/no-js/v2/framework/staticassets"
+	"github.com/RevoTale/no-js/v2/internal/bundler/esbuildtarget"
 	"github.com/evanw/esbuild/pkg/api"
 )
 

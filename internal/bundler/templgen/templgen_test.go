@@ -85,7 +85,7 @@ templ Example() { <div class={ templ_nojs_runtime, "body", templ.KV("active", tr
 	generated, err := os.ReadFile(filepath.Join(root, "classes_templ.go"))
 	require.NoError(t, err)
 	output := string(generated)
-	require.Contains(t, output, `"github.com/RevoTale/no-js/framework/templruntime"`)
+	require.Contains(t, output, `"github.com/RevoTale/no-js/v2/framework/templruntime"`)
 	require.Contains(t, output, "templ_nojs_runtime_.ClassNames(")
 	require.NotContains(t, output, "templ.Classes(")
 	require.Contains(t, output, "templ.EscapeString(")

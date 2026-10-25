@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 	"github.com/stretchr/testify/require"
 )
 
@@ -50,7 +50,7 @@ func TestParseLayoutTemplateModelType(t *testing.T) {
 		`package appsrc
 
 import (
-  "github.com/RevoTale/no-js/framework/metagen"
+  "github.com/RevoTale/no-js/v2/framework/metagen"
   "example.com/app/web/view"
 )
 
@@ -63,7 +63,7 @@ templ Layout(meta metagen.Metadata, model view.RootLayoutView, child templ.Compo
 		`package appsrc
 
 import (
-  "github.com/RevoTale/no-js/framework/metagen"
+  "github.com/RevoTale/no-js/v2/framework/metagen"
   "example.com/app/web/view"
 )
 
@@ -96,7 +96,7 @@ templ Layout(layoutView view.RootLayoutView, child templ.Component) { @child }
 		`package appsrc
 
 import (
-  "github.com/RevoTale/no-js/framework/metagen"
+  "github.com/RevoTale/no-js/v2/framework/metagen"
   "example.com/app/web/view"
 )
 
@@ -163,7 +163,7 @@ func TestValidateRootTemplateSignature(t *testing.T) {
 		validPath,
 		`package appsrc
 
-import "github.com/RevoTale/no-js/framework/metagen"
+import "github.com/RevoTale/no-js/v2/framework/metagen"
 
 templ RootLayout(meta metagen.Metadata, locale string, child templ.Component) { @child }
 `,

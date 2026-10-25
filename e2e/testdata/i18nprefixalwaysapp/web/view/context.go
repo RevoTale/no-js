@@ -7,7 +7,7 @@ import (
 
 	i18n "example.com/no-js-e2e/i18nprefixalwaysapp/web/generated/i18n"
 	messages "example.com/no-js-e2e/i18nprefixalwaysapp/web/generated/i18n/messages"
-	frameworki18n "github.com/RevoTale/no-js/framework/i18n"
+	frameworki18n "github.com/RevoTale/no-js/v2/framework/i18n"
 )
 
 type Context struct {

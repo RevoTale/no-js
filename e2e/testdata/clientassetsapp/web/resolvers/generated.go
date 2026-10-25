@@ -4,18 +4,49 @@ package resolvers
 import (
 	"context"
 	"example.com/no-js-e2e/clientassetsapp/web/view"
-	"github.com/RevoTale/no-js/framework"
-	"github.com/RevoTale/no-js/framework/metagen"
+	"github.com/RevoTale/no-js/v2/framework"
+	"github.com/RevoTale/no-js/v2/framework/metagen"
 	"net/http"
 )
 
 type RootParams struct {
 }
 
+type AboutParams struct {
+}
+
+type ComplexParams struct {
+}
+
+type SectionParams struct {
+}
+
+type SectionAdminParams struct {
+}
+
+type SectionSummaryParams struct {
+}
+
 type RouteResolver interface {
 	MetaGenRootLayout(meta framework.MetaContext[*view.Context]) (metagen.Metadata, error)
+	MetaGenSectionLayout(meta framework.MetaContext[*view.Context], params SectionParams) (metagen.Metadata, error)
+	MetaGenSectionAdminLayout(meta framework.MetaContext[*view.Context], params SectionAdminParams) (metagen.Metadata, error)
+	ResolveSectionLayout(ctx context.Context, appCtx *view.Context, r *http.Request, params SectionParams) (view.SectionLayoutView, error)
+	ResolveSectionAdminLayout(ctx context.Context, appCtx *view.Context, r *http.Request, params SectionAdminParams) (view.SectionAdminLayoutView, error)
+	MetaGenRootNotFound(meta framework.MetaContext[*view.Context], notFound framework.NotFoundContext, params RootParams) (metagen.Metadata, error)
+	ResolveRootNotFound(ctx context.Context, appCtx *view.Context, r *http.Request, notFound framework.NotFoundContext, params RootParams) (view.RootLayoutView, error)
 	MetaGenRootPage(meta framework.MetaContext[*view.Context], params RootParams) (metagen.Metadata, error)
+	MetaGenAboutPage(meta framework.MetaContext[*view.Context], params AboutParams) (metagen.Metadata, error)
+	MetaGenComplexPage(meta framework.MetaContext[*view.Context], params ComplexParams) (metagen.Metadata, error)
+	MetaGenSectionPage(meta framework.MetaContext[*view.Context], params SectionParams) (metagen.Metadata, error)
+	MetaGenSectionAdminPage(meta framework.MetaContext[*view.Context], params SectionAdminParams) (metagen.Metadata, error)
+	MetaGenSectionSummaryPage(meta framework.MetaContext[*view.Context], params SectionSummaryParams) (metagen.Metadata, error)
 	ResolveRootPage(ctx context.Context, appCtx *view.Context, r *http.Request, params RootParams) (view.RootPageView, error)
+	ResolveAboutPage(ctx context.Context, appCtx *view.Context, r *http.Request, params AboutParams) (view.AboutPageView, error)
+	ResolveComplexPage(ctx context.Context, appCtx *view.Context, r *http.Request, params ComplexParams) (view.ComplexPageView, error)
+	ResolveSectionPage(ctx context.Context, appCtx *view.Context, r *http.Request, params SectionParams) (view.SectionPageView, error)
+	ResolveSectionAdminPage(ctx context.Context, appCtx *view.Context, r *http.Request, params SectionAdminParams) (view.SectionAdminPageView, error)
+	ResolveSectionSummaryPage(ctx context.Context, appCtx *view.Context, r *http.Request, params SectionSummaryParams) (view.SectionSummaryPageView, error)
 }
 
 type Resolver struct{}

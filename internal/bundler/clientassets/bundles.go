@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/RevoTale/no-js/framework/metagen"
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	"github.com/RevoTale/no-js/v2/framework/metagen"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 )
 
 func buildRouteBundle(

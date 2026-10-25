@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	frameworkrouter "github.com/RevoTale/no-js/framework/router"
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	frameworkrouter "github.com/RevoTale/no-js/v2/framework/router"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 )
 
 func DiscoverRouteSpecs(layout projectlayout.ProjectLayout) ([]RouteSpec, error) {

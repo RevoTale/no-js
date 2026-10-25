@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 )
 
 type dependencyCollector struct {

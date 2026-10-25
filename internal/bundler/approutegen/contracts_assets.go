@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/RevoTale/no-js/internal/bundler/clientassets"
+	"github.com/RevoTale/no-js/v2/internal/bundler/clientassets"
 )
 
 func writeContractParamsStruct(buffer *bytes.Buffer, contract routeContractDef) {

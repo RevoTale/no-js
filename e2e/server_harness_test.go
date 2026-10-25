@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RevoTale/no-js/internal/filesystem"
+	"github.com/RevoTale/no-js/v2/internal/filesystem"
 	"github.com/stretchr/testify/require"
 )
 
@@ -372,10 +372,10 @@ func writeFixtureModuleFiles(t *testing.T, repoRoot string, appDir string) {
 	goMod, err := os.ReadFile(goModPath)
 	require.NoError(t, err)
 
-	replacePattern := regexp.MustCompile(`(?m)^replace github.com/RevoTale/no-js => .+$`)
+	replacePattern := regexp.MustCompile(`(?m)^replace github.com/RevoTale/no-js/v2 => .+$`)
 	rewrittenGoMod := replacePattern.ReplaceAllString(
 		string(goMod),
-		"replace github.com/RevoTale/no-js => "+filepath.ToSlash(repoRoot),
+		"replace github.com/RevoTale/no-js/v2 => "+filepath.ToSlash(repoRoot),
 	)
 	require.NotEqual(t, string(goMod), rewrittenGoMod, "fixture go.mod must declare no-js replace")
 

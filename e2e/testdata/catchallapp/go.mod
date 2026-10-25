@@ -3,7 +3,7 @@ module example.com/no-js-e2e/catchallapp
 go 1.25.0
 
 require (
-	github.com/RevoTale/no-js v1.3.0
+	github.com/RevoTale/no-js/v2 v2.1.1
 	github.com/a-h/templ v0.3.1001
 )
 
@@ -19,8 +19,8 @@ require (
 )
 
 tool (
-	github.com/RevoTale/no-js/cmd/no-js
-	github.com/RevoTale/no-js/cmd/templgen
+	github.com/RevoTale/no-js/v2/cmd/no-js
+	github.com/RevoTale/no-js/v2/cmd/templgen
 )
 
-replace github.com/RevoTale/no-js => ../../..
+replace github.com/RevoTale/no-js/v2 => ../../..

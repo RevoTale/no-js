@@ -73,7 +73,7 @@ func optimizeClassNames(source []byte) ([]byte, error) {
 	}
 	spec := &ast.ImportSpec{
 		Name: ast.NewIdent(alias),
-		Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote("github.com/RevoTale/no-js/framework/templruntime")},
+		Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote("github.com/RevoTale/no-js/v2/framework/templruntime")},
 	}
 	file.Decls = append([]ast.Decl{&ast.GenDecl{Tok: token.IMPORT, Specs: []ast.Spec{spec}}}, file.Decls...)
 	var output bytes.Buffer

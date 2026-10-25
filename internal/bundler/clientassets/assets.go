@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 )
 
 var packageRE = regexp.MustCompile(`(?m)^\s*package\s+([A-Za-z_][A-Za-z0-9_]*)`)

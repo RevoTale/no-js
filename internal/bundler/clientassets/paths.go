@@ -9,8 +9,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/RevoTale/no-js/internal/bundler/clientassetext"
-	"github.com/RevoTale/no-js/internal/projectlayout"
+	"github.com/RevoTale/no-js/v2/internal/bundler/clientassetext"
+	"github.com/RevoTale/no-js/v2/internal/projectlayout"
 )
 
 func clientAssetRoots(layout projectlayout.ProjectLayout) []string {

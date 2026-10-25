@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	frameworkrouter "github.com/RevoTale/no-js/framework/router"
+	frameworkrouter "github.com/RevoTale/no-js/v2/framework/router"
 )
 
 func discoverRouteFiles(appRoot string, outputRoot string) (routeFiles, error) {
