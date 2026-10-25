@@ -80,7 +80,7 @@ func (runtime *Runtime[K]) Config() Config {
 	if runtime == nil {
 		return Config{}
 	}
-	return runtime.cfg
+	return cloneConfig(runtime.cfg)
 }
 
 func (runtime *Runtime[K]) Localize(locale string, key K, vars map[string]any) string {
@@ -234,7 +234,7 @@ func (ctx contextState[K]) PathFor(locale string, pathValue string) string {
 	if ctx.runtime == nil {
 		return NormalizePath(pathValue)
 	}
-	return LocalizePath(ctx.runtime.cfg, normalizeLocale(locale), pathValue)
+	return localizeNormalizedPath(ctx.runtime.cfg, locale, pathValue)
 }
 
 func (ctx contextState[K]) URL(pathValue string) *url.URL {

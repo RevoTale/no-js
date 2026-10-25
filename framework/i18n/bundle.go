@@ -74,6 +74,10 @@ func (message CompiledMessage) Render(vars map[string]any) string {
 		return ""
 	}
 
+	if len(message.Parts) == 1 && message.Parts[0].Arg == "" {
+		return message.Parts[0].Text
+	}
+
 	var builder strings.Builder
 	for _, part := range message.Parts {
 		if part.Arg != "" {

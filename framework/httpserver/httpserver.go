@@ -3,12 +3,14 @@ package httpserver
 import (
 	"compress/gzip"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/RevoTale/no-js/framework"
 	frameworkdiscovery "github.com/RevoTale/no-js/framework/discovery"
@@ -240,12 +242,6 @@ func New[C any](cfg Config[C]) (http.Handler, error) {
 		if strings.TrimSpace(assetBasePath) != "" {
 			r = r.WithContext(metagen.WithAssetBasePath(r.Context(), assetBasePath))
 		}
-		if srv.tryServeHealth(w, r) {
-			return
-		}
-		if tryServeStatic(staticPrefix, staticHandler, w, r) {
-			return
-		}
 		if tryServeRouteHandlers(srv.routeEngine, cfg.ExactHandlers, w, r) {
 			return
 		}
@@ -275,7 +271,13 @@ func New[C any](cfg Config[C]) (http.Handler, error) {
 		return nil, err
 	}
 
-	return withGzipCompression(finalHandler), nil
+	pageHandler := finalHandler
+	return withGzipCompression(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if srv.tryServeHealth(w, r) || tryServeStatic(staticPrefix, staticHandler, w, r) {
+			return
+		}
+		pageHandler.ServeHTTP(w, r)
+	})), nil
 }
 
 func validatePathMatchers[C any](handlerSet string, handlers []framework.RouteHandler[C]) error {
@@ -712,6 +714,10 @@ func setVaryHeader(w http.ResponseWriter, header string) {
 	w.Header().Set("Vary", strings.Join(parts, ", "))
 }
 
+var gzipWriterPool = sync.Pool{
+	New: func() any { return gzip.NewWriter(io.Discard) },
+}
+
 func withGzipCompression(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if next == nil {
@@ -755,7 +761,8 @@ func (w *gzipResponseWriter) WriteHeader(statusCode int) {
 	}
 
 	header := w.Header()
-	if strings.TrimSpace(header.Get("Content-Encoding")) != "" {
+	if strings.TrimSpace(header.Get("Content-Encoding")) != "" ||
+		alreadyCompressedContentType(header.Get("Content-Type")) {
 		w.compress = false
 		w.ResponseWriter.WriteHeader(statusCode)
 		return
@@ -764,7 +771,8 @@ func (w *gzipResponseWriter) WriteHeader(statusCode int) {
 	header.Del("Content-Length")
 	header.Set("Content-Encoding", "gzip")
 	w.ResponseWriter.WriteHeader(statusCode)
-	w.writer = gzip.NewWriter(w.ResponseWriter)
+	w.writer = gzipWriterPool.Get().(*gzip.Writer)
+	w.writer.Reset(w.ResponseWriter)
 }
 
 func (w *gzipResponseWriter) Write(content []byte) (int, error) {
@@ -797,7 +805,12 @@ func (w *gzipResponseWriter) Close() error {
 	if !w.compress || w.writer == nil {
 		return nil
 	}
-	return w.writer.Close()
+	writer := w.writer
+	w.writer = nil
+	err := writer.Close()
+	writer.Reset(io.Discard)
+	gzipWriterPool.Put(writer)
+	return err
 }
 
 func isBodyAllowedForStatus(statusCode int) bool {
