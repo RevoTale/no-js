@@ -1,0 +1,15 @@
+when:
+  - event: [push, pull_request, manual, tag]
+
+depends_on: [validate]
+
+steps:
+  - name: test
+    image: golang:1.26.7-trixie
+    environment:
+      GOTOOLCHAIN: auto
+    commands:
+      - go install github.com/go-task/task/v3/cmd/task@v3.54.0
+      - task ci:tools
+      - task test
+      - task perf:race
