@@ -7,7 +7,7 @@ depends_on: [validate]
 
 steps:
   - name: test
-    image: golang:1.26.7-trixie
+    image: golang:1.26.7-trixie@sha256:978084e7adea0904b6d76cbc9afcb9baeed6ee170eecdc8866566aaa9f22ad0c
     environment:
       GOTOOLCHAIN: auto
     commands:
