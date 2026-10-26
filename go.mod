@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/a-h/templ v0.3.1001
-	github.com/evanw/esbuild v0.28.0
+	github.com/evanw/esbuild v0.28.2
 	github.com/nicksnyder/go-i18n/v2 v2.6.1
 	github.com/stretchr/testify v1.12.1
 	github.com/tdewolff/parse/v2 v2.8.12
