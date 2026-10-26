@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/RevoTale/no-js/v2 v2.1.1
-	github.com/a-h/templ v0.3.1001
+	github.com/a-h/templ v0.3.1070
 )
 
 require (
