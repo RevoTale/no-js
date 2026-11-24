@@ -6,7 +6,7 @@ depends_on: [test]
 
 steps:
   - name: release-please
-    image: node:24.11.0-trixie
+    image: node:26.13.0-trixie@sha256:438603bbb5cda404b9416f0b5c8026f61501ab911760d861ec28c36b5d675725
     environment:
       GITHUB_TOKEN:
         from_secret: forge_token
